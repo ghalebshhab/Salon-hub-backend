@@ -23,11 +23,11 @@ This repository contains the backend implementation, including domain entities, 
 
 ## Tech Stack
 
-- .NET
-- C#
-- PostgreSQL
+- Spring Boot
+- Java
+- MySql
 - REST APIs
-- Entity/Domain modeling
+- Entity Modeling
 - Git & GitHub
 
 ## Architecture
