@@ -8,6 +8,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Setter
 @Getter
@@ -38,6 +42,36 @@ public class User {
     @ManyToOne
     @JoinColumn(name = "salon_id")
     private Salon salon;
+
+    @Column(nullable = false)
+    private boolean careerProfileEnabled;
+
+    private LocalDate dateOfBirth;
+
+    private Integer yearsOfExperience;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "user_career_skills",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "skill", nullable = false)
+    private List<String> careerSkills = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(
+            name = "user_preferred_work_locations",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "location", nullable = false)
+    private List<String> preferredWorkLocations = new ArrayList<>();
+
+    private String resumeUrl;
+
+    private String portfolioUrl;
+
+    @Column(length = 2000)
+    private String professionalBio;
 
 
 }
