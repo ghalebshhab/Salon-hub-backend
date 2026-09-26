@@ -5,11 +5,18 @@ import com.salon.backend.DTOs.Salon.HiringPost.CreateHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.ApplyToHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringApplicationResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.RejectHiringApplicationRequest;
 
 import java.util.List;
 
 public interface HiringPostService {
+
+    ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
+            HiringPostSearchRequest request,
+            String userEmail
+    );
 
     ApiResponse<HiringPostResponse> createHiringPost(
             CreateHiringPostRequest request,

@@ -21,7 +21,7 @@ public record HiringApplicationResponse(
         String applicantPhoneNumber,
         LocalDate dateOfBirth,
         Integer age,
-        String currentLocation,
+        List<String> preferredWorkLocations,
         Integer yearsOfExperience,
         List<String> skills,
         String resumeUrl,

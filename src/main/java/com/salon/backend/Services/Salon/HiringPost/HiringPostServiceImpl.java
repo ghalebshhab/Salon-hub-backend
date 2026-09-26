@@ -5,6 +5,9 @@ import com.salon.backend.DTOs.Salon.HiringPost.ApplyToHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.CreateHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringApplicationResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostDiscoveryResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.RejectHiringApplicationRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.AcceptRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.RejectRequest;
@@ -26,6 +29,13 @@ import com.salon.backend.Services.Salon.Employment.EmploymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+
+import jakarta.persistence.criteria.JoinType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +52,63 @@ public class HiringPostServiceImpl implements HiringPostService {
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final EmploymentService employmentService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
+            HiringPostSearchRequest request,
+            String userEmail) {
+
+        ApiResponse<Void> validationResponse = validateSearchRequest(request);
+
+        if (!validationResponse.isSuccess()) {
+            return ApiResponse.error(validationResponse.getMessage());
+        }
+
+        int pageNumber = request.getPage() == null ? 0 : request.getPage();
+        int pageSize = request.getSize() == null ? 10 : request.getSize();
+        Sort sort = resolveSearchSort(request.getSortBy());
+        Specification<HiringPost> specification = buildOpenPostSpecification(request);
+
+        User user = userRepo.findByemail(userEmail);
+        if (user == null) {
+            return ApiResponse.error("User not found");
+        }
+
+        HiringPostPageResponse response;
+        if (hasUsableCareerProfile(user)) {
+            List<HiringPostDiscoveryResponse> rankedPosts = hiringPostRepo
+                    .findAll(specification, sort)
+                    .stream()
+                    .map(post -> mapToDiscoveryResponse(post, user))
+                    .sorted(personalizedPostComparator(request.getSortBy()))
+                    .toList();
+
+            response = createInMemoryPage(rankedPosts, pageNumber, pageSize);
+            response.setPersonalized(true);
+            response.setPersonalizationMessage(
+                    "Posts are ranked using your career skills, experience, age, and preferred locations"
+            );
+        } else {
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
+            Page<HiringPost> postPage = hiringPostRepo.findAll(specification, pageable);
+            response = new HiringPostPageResponse(
+                    postPage.getContent().stream()
+                            .map(this::mapToUnrankedDiscoveryResponse)
+                            .toList(),
+                    postPage.getNumber(),
+                    postPage.getSize(),
+                    postPage.getTotalElements(),
+                    postPage.getTotalPages(),
+                    postPage.isFirst(),
+                    postPage.isLast(),
+                    false,
+                    "Enable career mode to receive personalized hiring-post suggestions"
+            );
+        }
+
+        return ApiResponse.success("Open hiring posts fetched successfully", response);
+    }
 
     @Override
     public ApiResponse<HiringPostResponse> createHiringPost(
@@ -131,6 +198,12 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error("Only users and employees can apply to hiring posts");
         }
 
+        if (!hasUsableCareerProfile(applicant)) {
+            return ApiResponse.error(
+                    "Enable career mode and complete your career information before applying"
+            );
+        }
+
         HiringPost hiringPost = optionalHiringPost.get();
         Salon salon = hiringPost.getSalon();
 
@@ -163,12 +236,6 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error(validationResponse.getMessage());
         }
 
-        List<String> normalizedSkills = normalizeSkills(request.getSkills());
-
-        if (normalizedSkills.isEmpty()) {
-            return ApiResponse.error("At least one applicant skill is required");
-        }
-
         LocalDateTime appliedAt = LocalDateTime.now();
 
         EmploymentRequest employmentRequest = new EmploymentRequest();
@@ -187,12 +254,14 @@ public class HiringPostServiceImpl implements HiringPostService {
         hiringApplication.setHiringPost(hiringPost);
         hiringApplication.setApplicant(applicant);
         hiringApplication.setEmploymentRequest(employmentRequest);
-        hiringApplication.setDateOfBirth(request.getDateOfBirth());
-        hiringApplication.setCurrentLocation(request.getCurrentLocation().trim());
-        hiringApplication.setYearsOfExperience(request.getYearsOfExperience());
-        hiringApplication.setSkills(normalizedSkills);
-        hiringApplication.setResumeUrl(normalizeOptionalText(request.getResumeUrl()));
-        hiringApplication.setPortfolioUrl(normalizeOptionalText(request.getPortfolioUrl()));
+        hiringApplication.setDateOfBirth(applicant.getDateOfBirth());
+        hiringApplication.setYearsOfExperience(applicant.getYearsOfExperience());
+        hiringApplication.setSkills(List.copyOf(applicant.getCareerSkills()));
+        hiringApplication.setPreferredWorkLocations(
+                List.copyOf(applicant.getPreferredWorkLocations())
+        );
+        hiringApplication.setResumeUrl(applicant.getResumeUrl());
+        hiringApplication.setPortfolioUrl(applicant.getPortfolioUrl());
         hiringApplication.setApplicationNote(normalizeOptionalText(request.getApplicationNote()));
         hiringApplication.setCreatedAt(appliedAt);
 
@@ -363,6 +432,133 @@ public class HiringPostServiceImpl implements HiringPostService {
         );
     }
 
+    private ApiResponse<Void> validateSearchRequest(HiringPostSearchRequest request) {
+
+        if (request == null) {
+            return ApiResponse.error("Search information is required");
+        }
+
+        if (request.getPage() != null && request.getPage() < 0) {
+            return ApiResponse.error("Page number cannot be negative");
+        }
+
+        if (request.getSize() != null
+                && (request.getSize() < 1 || request.getSize() > 50)) {
+            return ApiResponse.error("Page size must be between 1 and 50");
+        }
+
+        if (request.getMaximumRequiredExperience() != null
+                && request.getMaximumRequiredExperience() < 0) {
+            return ApiResponse.error("Maximum required experience cannot be negative");
+        }
+
+        String sortBy = normalizeOptionalText(request.getSortBy());
+
+        if (sortBy != null
+                && !Set.of("newest", "expiringSoon", "experienceAscending")
+                .contains(sortBy)) {
+            return ApiResponse.error(
+                    "Sort option must be newest, expiringSoon, or experienceAscending"
+            );
+        }
+
+        return ApiResponse.success("Hiring-post search information is valid", null);
+    }
+
+    private Specification<HiringPost> buildOpenPostSpecification(
+            HiringPostSearchRequest request) {
+
+        LocalDateTime now = LocalDateTime.now();
+        Specification<HiringPost> specification = (root, query, criteriaBuilder) ->
+                criteriaBuilder.and(
+                        criteriaBuilder.equal(
+                                root.get("status"),
+                                HiringPostStatus.Open
+                        ),
+                        criteriaBuilder.greaterThan(root.get("expiresAt"), now),
+                        criteriaBuilder.greaterThan(root.get("numOfPositions"), 0),
+                        criteriaBuilder.equal(
+                                root.join("salon", JoinType.INNER).get("status"),
+                                SalonStatus.Accepted
+                        )
+                );
+
+        String keyword = normalizeOptionalText(request.getKeyword());
+        if (keyword != null) {
+            String pattern = "%" + keyword.toLowerCase(Locale.ROOT) + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.or(
+                            criteriaBuilder.like(
+                                    criteriaBuilder.lower(root.get("title")),
+                                    pattern
+                            ),
+                            criteriaBuilder.like(
+                                    criteriaBuilder.lower(root.get("description")),
+                                    pattern
+                            ),
+                            criteriaBuilder.like(
+                                    criteriaBuilder.lower(
+                                            root.join("salon", JoinType.INNER).get("name")
+                                    ),
+                                    pattern
+                            )
+                    ));
+        }
+
+        String location = normalizeOptionalText(request.getEmployeeLocation());
+        if (location != null) {
+            String pattern = "%" + location.toLowerCase(Locale.ROOT) + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.like(
+                            criteriaBuilder.lower(root.get("employeeLocation")),
+                            pattern
+                    ));
+        }
+
+        String requiredSkill = normalizeOptionalText(request.getRequiredSkill());
+        if (requiredSkill != null) {
+            specification = specification.and((root, query, criteriaBuilder) -> {
+                query.distinct(true);
+                return criteriaBuilder.equal(
+                        criteriaBuilder.lower(
+                                root.join("requiredSkills", JoinType.INNER)
+                        ),
+                        requiredSkill.toLowerCase(Locale.ROOT)
+                );
+            });
+        }
+
+        if (request.getMaximumRequiredExperience() != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.lessThanOrEqualTo(
+                            root.get("minimumYearsOfExperience"),
+                            request.getMaximumRequiredExperience()
+                    ));
+        }
+
+        return specification;
+    }
+
+    private Sort resolveSearchSort(String requestedSort) {
+        String sortBy = normalizeOptionalText(requestedSort);
+
+        if ("expiringSoon".equals(sortBy)) {
+            return Sort.by(
+                    Sort.Order.asc("expiresAt"),
+                    Sort.Order.desc("createdAt")
+            );
+        }
+
+        if ("experienceAscending".equals(sortBy)) {
+            return Sort.by(
+                    Sort.Order.asc("minimumYearsOfExperience"),
+                    Sort.Order.desc("createdAt")
+            );
+        }
+
+        return Sort.by(Sort.Order.desc("createdAt"));
+    }
+
     private ApiResponse<Void> validateCreateRequest(CreateHiringPostRequest request) {
 
         if (request == null) {
@@ -415,30 +611,6 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (request == null) {
             return ApiResponse.error("Application information is required");
-        }
-
-        if (request.getDateOfBirth() == null
-                || !request.getDateOfBirth().isBefore(LocalDate.now())) {
-            return ApiResponse.error("A valid date of birth is required");
-        }
-
-        int age = Period.between(request.getDateOfBirth(), LocalDate.now()).getYears();
-
-        if (age < 18) {
-            return ApiResponse.error("Applicant must be at least 18 years old");
-        }
-
-        if (request.getCurrentLocation() == null || request.getCurrentLocation().isBlank()) {
-            return ApiResponse.error("Current location is required");
-        }
-
-        if (request.getYearsOfExperience() == null
-                || request.getYearsOfExperience() < 0) {
-            return ApiResponse.error("Years of experience is required and cannot be negative");
-        }
-
-        if (request.getSkills() == null || request.getSkills().isEmpty()) {
-            return ApiResponse.error("At least one applicant skill is required");
         }
 
         if (request.getApplicationNote() != null
@@ -498,7 +670,7 @@ public class HiringPostServiceImpl implements HiringPostService {
                 applicant.getPhoneNumber(),
                 application.getDateOfBirth(),
                 age,
-                application.getCurrentLocation(),
+                application.getPreferredWorkLocations(),
                 application.getYearsOfExperience(),
                 application.getSkills(),
                 application.getResumeUrl(),
@@ -518,9 +690,26 @@ public class HiringPostServiceImpl implements HiringPostService {
 
     private MatchResult calculateMatch(HiringApplication application) {
 
-        HiringPost hiringPost = application.getHiringPost();
-        int age = Period.between(
+        return calculateMatch(
+                application.getHiringPost(),
                 application.getDateOfBirth(),
+                application.getPreferredWorkLocations(),
+                application.getYearsOfExperience(),
+                application.getSkills(),
+                application.getResumeUrl() != null
+        );
+    }
+
+    private MatchResult calculateMatch(
+            HiringPost hiringPost,
+            LocalDate dateOfBirth,
+            List<String> preferredWorkLocations,
+            Integer yearsOfExperience,
+            List<String> skills,
+            boolean resumeUploaded) {
+
+        int age = Period.between(
+                dateOfBirth,
                 LocalDate.now()
         ).getYears();
 
@@ -528,7 +717,7 @@ public class HiringPostServiceImpl implements HiringPostService {
                 hiringPost.getRequiredSkills()
         );
         Map<String, String> applicantSkills = toNormalizedSkillMap(
-                application.getSkills()
+                skills
         );
 
         List<String> matchedSkills = requiredSkills.entrySet()
@@ -549,12 +738,14 @@ public class HiringPostServiceImpl implements HiringPostService {
                 .map(Map.Entry::getValue)
                 .toList();
 
-        boolean experienceMatched = application.getYearsOfExperience()
+        boolean experienceMatched = yearsOfExperience
                 >= hiringPost.getMinimumYearsOfExperience();
         boolean ageMatched = age >= hiringPost.getMinimumAge()
                 && age <= hiringPost.getMaximumAge();
-        boolean locationMatched = application.getCurrentLocation().trim()
-                .equalsIgnoreCase(hiringPost.getEmployeeLocation().trim());
+        boolean locationMatched = containsIgnoreCase(
+                preferredWorkLocations,
+                hiringPost.getEmployeeLocation()
+        );
         boolean allRequiredSkillsMatched = missingSkills.isEmpty();
 
         List<String> missingRequirements = new ArrayList<>();
@@ -567,9 +758,9 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (!experienceMatched) {
             missingRequirements.add(
-                    "Needs " + hiringPost.getMinimumYearsOfExperience()
+                            "Needs " + hiringPost.getMinimumYearsOfExperience()
                             + " years of experience; applicant has "
-                            + application.getYearsOfExperience()
+                            + yearsOfExperience
             );
         }
 
@@ -583,9 +774,9 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (!locationMatched) {
             missingRequirements.add(
-                    "Required location is " + hiringPost.getEmployeeLocation()
-                            + "; applicant location is "
-                            + application.getCurrentLocation()
+                            "Required location is " + hiringPost.getEmployeeLocation()
+                            + "; applicant preferred locations are "
+                            + String.join(", ", preferredWorkLocations)
             );
         }
 
@@ -594,7 +785,7 @@ public class HiringPostServiceImpl implements HiringPostService {
                 && ageMatched
                 && locationMatched;
 
-        boolean exceedsExperience = application.getYearsOfExperience()
+        boolean exceedsExperience = yearsOfExperience
                 > hiringPost.getMinimumYearsOfExperience();
         boolean hasAdditionalSkills = !additionalSkills.isEmpty();
 
@@ -612,11 +803,11 @@ public class HiringPostServiceImpl implements HiringPostService {
                 matchedSkills.size(),
                 requiredSkills.size(),
                 additionalSkills.size(),
-                application.getYearsOfExperience(),
+                yearsOfExperience,
                 hiringPost.getMinimumYearsOfExperience(),
                 ageMatched,
                 locationMatched,
-                application.getResumeUrl() != null
+                resumeUploaded
         );
 
         return new MatchResult(
@@ -627,6 +818,121 @@ public class HiringPostServiceImpl implements HiringPostService {
                 missingSkills,
                 missingRequirements
         );
+    }
+
+    private HiringPostDiscoveryResponse mapToDiscoveryResponse(
+            HiringPost hiringPost,
+            User user) {
+
+        MatchResult matchResult = calculateMatch(
+                hiringPost,
+                user.getDateOfBirth(),
+                user.getPreferredWorkLocations(),
+                user.getYearsOfExperience(),
+                user.getCareerSkills(),
+                user.getResumeUrl() != null
+        );
+
+        return new HiringPostDiscoveryResponse(
+                mapToResponse(hiringPost),
+                matchResult.level(),
+                matchResult.score(),
+                matchResult.matchedSkills(),
+                matchResult.additionalSkills(),
+                matchResult.missingSkills(),
+                matchResult.missingRequirements()
+        );
+    }
+
+    private HiringPostDiscoveryResponse mapToUnrankedDiscoveryResponse(
+            HiringPost hiringPost) {
+        return new HiringPostDiscoveryResponse(
+                mapToResponse(hiringPost),
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+    }
+
+    private Comparator<HiringPostDiscoveryResponse> personalizedPostComparator(
+            String requestedSort) {
+
+        Comparator<HiringPostDiscoveryResponse> comparator = Comparator
+                .comparingInt(
+                        (HiringPostDiscoveryResponse response) ->
+                                matchLevelOrder(response.matchLevel())
+                )
+                .thenComparing(
+                        HiringPostDiscoveryResponse::matchScore,
+                        Comparator.reverseOrder()
+                );
+
+        String sortBy = normalizeOptionalText(requestedSort);
+        if ("expiringSoon".equals(sortBy)) {
+            return comparator.thenComparing(
+                    response -> response.hiringPost().getExpiresAt()
+            );
+        }
+
+        if ("experienceAscending".equals(sortBy)) {
+            return comparator.thenComparing(
+                    response -> response.hiringPost().getMinimumYearsOfExperience()
+            );
+        }
+
+        return comparator.thenComparing(
+                response -> response.hiringPost().getCreatedAt(),
+                Comparator.reverseOrder()
+        );
+    }
+
+    private HiringPostPageResponse createInMemoryPage(
+            List<HiringPostDiscoveryResponse> rankedPosts,
+            int pageNumber,
+            int pageSize) {
+
+        int totalElements = rankedPosts.size();
+        int totalPages = totalElements == 0
+                ? 0
+                : (int) Math.ceil((double) totalElements / pageSize);
+        long requestedOffset = (long) pageNumber * pageSize;
+        int fromIndex = (int) Math.min(requestedOffset, totalElements);
+        int toIndex = Math.min(fromIndex + pageSize, totalElements);
+
+        return new HiringPostPageResponse(
+                rankedPosts.subList(fromIndex, toIndex),
+                pageNumber,
+                pageSize,
+                (long) totalElements,
+                totalPages,
+                pageNumber == 0,
+                totalPages == 0 || pageNumber >= totalPages - 1,
+                true,
+                null
+        );
+    }
+
+    private boolean hasUsableCareerProfile(User user) {
+        return user.isCareerProfileEnabled()
+                && user.getDateOfBirth() != null
+                && user.getYearsOfExperience() != null
+                && user.getCareerSkills() != null
+                && !user.getCareerSkills().isEmpty()
+                && user.getPreferredWorkLocations() != null
+                && !user.getPreferredWorkLocations().isEmpty();
+    }
+
+    private boolean containsIgnoreCase(List<String> values, String expectedValue) {
+        if (values == null || expectedValue == null) {
+            return false;
+        }
+
+        return values.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(value -> value.trim().equalsIgnoreCase(expectedValue.trim()));
     }
 
     private int calculateMatchScore(

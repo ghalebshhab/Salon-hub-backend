@@ -5,6 +5,8 @@ import com.salon.backend.DTOs.Salon.HiringPost.ApplyToHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.CreateHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringApplicationResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.RejectHiringApplicationRequest;
 import com.salon.backend.Services.Salon.HiringPost.HiringPostService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,17 @@ import java.util.List;
 public class HiringPostController {
 
     private final HiringPostService hiringPostService;
+
+    @GetMapping
+    public ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
+            @ModelAttribute HiringPostSearchRequest request,
+            Authentication authentication) {
+
+        return hiringPostService.searchOpenHiringPosts(
+                request,
+                authentication.getName()
+        );
+    }
 
     @PostMapping
     public ApiResponse<HiringPostResponse> createHiringPost(

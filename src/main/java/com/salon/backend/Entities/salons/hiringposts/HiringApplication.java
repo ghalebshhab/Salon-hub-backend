@@ -43,8 +43,6 @@ public class HiringApplication {
 
     private LocalDate dateOfBirth;
 
-    private String currentLocation;
-
     private Integer yearsOfExperience;
 
     @ElementCollection
@@ -54,6 +52,14 @@ public class HiringApplication {
     )
     @Column(name = "skill", nullable = false)
     private List<String> skills;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "hiring_application_preferred_locations",
+            joinColumns = @JoinColumn(name = "hiring_application_id")
+    )
+    @Column(name = "location", nullable = false)
+    private List<String> preferredWorkLocations;
 
     private String resumeUrl;
 
