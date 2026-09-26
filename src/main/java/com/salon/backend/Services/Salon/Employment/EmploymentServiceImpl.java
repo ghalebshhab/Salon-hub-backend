@@ -6,10 +6,13 @@ import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.employment.*;
+import com.salon.backend.Entities.salons.hiringposts.HiringPost;
+import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
+import com.salon.backend.Repositories.Salon.HiringPostRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class EmploymentServiceImpl implements EmploymentService {
     private final UserRepo userRepo;
     private final EmploymentRepo employmentRepo;
     private final LeaveRequestRepo  leaveRequestRepo;
+    private final HiringPostRepo hiringPostRepo;
     @Override
     public ApiResponse<EmploymentRequest> joinSalon(JoinSalonRequest request, Long senderId) {
         Optional<Salon> optionalsalon=salonRepo.findById(request.getSalonId());
@@ -78,6 +82,7 @@ public class EmploymentServiceImpl implements EmploymentService {
         );
         employmentRequest.setSalon(salon);
         employmentRequest.setRequestType(RequestType.User_Request);
+        employmentRequest.setRequestSource(EmploymentRequestSource.SALON_PROFILE);
         employmentRequest.setReceiver(salon.getOwner());
         employmentRequest.setSender(user);
         employmentRequest.setStatus(EmploymentRequestStatus.Requested);
@@ -393,6 +398,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
      EmploymentRequest employmentRequest=new EmploymentRequest();
      employmentRequest.setSalon(salon);
      employmentRequest.setRequestType(RequestType.Owner_Invite);
+     employmentRequest.setRequestSource(EmploymentRequestSource.SALON_PROFILE);
      employmentRequest.setReceiver(receiver);
      employmentRequest.setSender(sender);
      employmentRequest.setStatus(EmploymentRequestStatus.Requested);
@@ -775,6 +781,23 @@ public ApiResponse<EmploymentRequest> acceptRequest(
             employmentRequest.setStatus(
                     EmploymentRequestStatus.Requested
             );
+
+            if (employmentRequest.getRequestSource()
+                    == EmploymentRequestSource.HIRING_POST
+                    && employmentRequest.getHiringPost() != null) {
+
+                HiringPost hiringPost = employmentRequest.getHiringPost();
+                hiringPost.setNumOfPositions(
+                        hiringPost.getNumOfPositions() + 1
+                );
+
+                if (hiringPost.getStatus() == HiringPostStatus.Closed
+                        && hiringPost.getExpiresAt().isAfter(LocalDateTime.now())) {
+                    hiringPost.setStatus(HiringPostStatus.Open);
+                }
+
+                hiringPostRepo.save(hiringPost);
+            }
 
             employmentRepo.save(employmentRequest);
         }
