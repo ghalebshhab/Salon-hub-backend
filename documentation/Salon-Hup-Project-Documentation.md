@@ -3,7 +3,7 @@
 **Document type:** Product and technical specification  
 **Project:** Salon Hup  
 **Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.1  
+**Document version:** 1.2
 **Last updated:** 26 September 2026  
 **Status:** Active development
 
@@ -17,9 +17,9 @@ The document distinguishes between implemented behavior and planned behavior. A 
 
 Salon Hup is a platform for managing salons, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, and workforce-management foundation needed before appointment scheduling and production deployment can be completed.
 
-The application currently supports user registration and JWT login, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, user administration, hiring-post creation, ranked applications, and owner acceptance and rejection.
+The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, user administration, hiring-post creation, ranked applications, and owner acceptance and rejection.
 
-Hiring-post discovery and management are the next active features. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
+Owner-side hiring-post management is the next active feature. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
 
 ## Product goals
 
@@ -36,7 +36,7 @@ Hiring-post discovery and management are the next active features. Customer-faci
 
 | Role | Purpose | Current permissions |
 | --- | --- | --- |
-| USER | Default registered account and potential employee | Sign in, request salon creation, request employment, respond to invitations, and apply to hiring posts when the application workflow is completed |
+| USER | Default registered account and potential employee | Sign in, view the unified profile, enable career mode, receive personalized hiring suggestions, request employment, and apply to hiring posts |
 | OWNER | User approved as the owner of a salon | Manage the owned salon, invite users, review employment requests, accept leave requests, and create hiring posts |
 | Employee | User currently assigned to a salon | Participate in employment and leave workflows and transfer to another salon after the required workflow |
 | ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, and block users |
@@ -88,7 +88,9 @@ All service responses use the generic `ApiResponse<T>` envelope containing `succ
 
 ### User
 
-A user stores identity and account information: first name, last name, email, username, BCrypt password hash, phone number, role, status, and an optional salon assignment.
+A user stores identity and account information: first name, last name, email, username, BCrypt password hash, phone number, role, status, and an optional salon assignment. The same entity also stores an optional career section containing career-mode status, date of birth, years of experience, skills, preferred work locations, résumé URL, portfolio URL, and professional biography.
+
+The product exposes one unified profile. Registration fields appear automatically in it. Career mode enriches that profile instead of creating a second account or profile. Career skills and preferred locations use collection tables so users may provide multiple values.
 
 User status values are `Active`, `Blocked`, and `Deleted`.
 
@@ -129,7 +131,7 @@ The backend obtains salon and owner details from the authenticated owner and dat
 
 ### Hiring application
 
-A hiring application links one applicant, hiring post, and employment request. It stores the applicant's date of birth, current location, years of experience, skills, optional résumé URL, optional portfolio URL, application note, and creation time.
+A hiring application links one applicant, hiring post, and employment request. It stores a submission-time snapshot of the applicant's date of birth, preferred work locations, years of experience, skills, optional résumé URL, optional portfolio URL, application note, and creation time.
 
 Known identity fields including name, username, email, phone number, role, and user ID come from the authenticated user and are not accepted from the client. The linked employment request provides the application status and allows acceptance to reuse the existing employment and transfer workflows.
 
@@ -140,6 +142,27 @@ Known identity fields including name, username, email, phone number, role, and u
 Registration validates names, username format, supported email domains, Jordanian phone formats, password strength, and uniqueness of username, email, and phone number. New accounts receive the `USER` role and `Active` status. Passwords are stored as BCrypt hashes.
 
 Login verifies account status and password, then returns a bearer JWT valid for 24 hours. Logout blacklists the presented token in application memory until its expiration time.
+
+### End-to-end user journey
+
+1. A visitor registers with first name, last name, username, email, phone number, and password.
+2. Registration validates identity fields, uniqueness, supported formats, and password strength, then creates an active `USER` account.
+3. The user logs in and receives a JWT. Authenticated endpoints identify the user from the token email.
+4. `GET /api/profile` returns one unified profile populated with the identity information already collected during registration.
+5. The user may keep the normal profile or select the client action represented by "Make your profile career."
+6. `PUT /api/profile/career` validates and stores the career section, then enables career mode on the same profile.
+7. The hiring feed loads open, unexpired posts from accepted salons with available positions. Career users receive personalized labels and ordering; normal-profile users receive the standard filtered feed plus a prompt to enable career mode.
+8. A career user applies with only an optional application note. The backend obtains identity and career data from the database and stores an application snapshot.
+9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
+10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
+
+### Unified profile and career mode
+
+Every authenticated user has one profile. Basic identity fields come from registration and are never re-entered to activate career mode. Career activation requires date of birth, nonnegative years of experience, at least one skill, and at least one preferred work location. Skills and locations are trimmed and deduplicated case-insensitively.
+
+Résumé, portfolio, and professional biography are optional. When supplied, a résumé must be an absolute HTTP or HTTPS URL whose path ends in `.pdf`, while a portfolio must be an absolute HTTP or HTTPS URL with a valid host. The service stores links only and does not fetch remote content. Profile completion assigns 80 percent to the four required career sections and the remaining 20 percent to résumé, portfolio, and biography.
+
+The same career endpoint activates a normal profile and updates an existing career profile. Career mode becomes active only after all required career information passes validation.
 
 ### Salon onboarding
 
@@ -174,9 +197,23 @@ Only an authenticated `OWNER` can create a hiring post. The owner must have an a
 
 The response automatically includes the salon ID, salon name, salon location, owner ID, and owner name from persisted data.
 
+### Hiring-post discovery and personalization
+
+Authenticated users browse open posts through a paginated endpoint. The query may filter by keyword, required employee location, required skill, and maximum required experience. Page size is limited to 50. Supported secondary orders are newest, expiring soon, and required experience ascending.
+
+The feed excludes closed or expired posts, posts without remaining positions, and posts belonging to salons that are not accepted. For a user with career mode enabled, the backend calculates a transparent match for every eligible candidate before pagination and orders results by match level, score, and the requested secondary order:
+
+1. `SUGGESTED` means every requirement matches and the user has both more experience than required and at least one additional skill.
+2. `MATCHED` means every required skill, experience, age, and location condition matches.
+3. `MISSING_REQUIREMENTS` remains visible and describes every missing skill or unmet condition.
+
+Required skills contribute up to 50 points, experience 25, age 10, preferred-location compatibility 10, additional skills up to 5, and an optional résumé 5, capped at 100. A location matches when the post's required employee location equals any saved preferred work location, case-insensitively.
+
 ### Hiring application and ranking
 
-Any authenticated `USER` or `Employee` can apply to an open, unexpired hiring post unless already employed by that salon or already registered as an applicant for that post. Applications are never rejected because the applicant does not match the post requirements.
+Any authenticated `USER` or `Employee` with a complete career profile can apply to an open, unexpired hiring post unless already employed by that salon or already registered as an applicant for that post. Applications are never rejected because the applicant does not match the post requirements.
+
+The client submits only the application-specific note. Date of birth, years of experience, skills, preferred work locations, résumé URL, portfolio URL, and identity fields are loaded from the authenticated user's saved profile. The application stores a snapshot so later profile edits do not rewrite historical submissions.
 
 The owner receives every application ordered by match level and score:
 
@@ -219,17 +256,22 @@ Acceptance reuses the employment-request acceptance workflow. An applicant witho
 
 ## Hiring application contract
 
-### Applicant-provided fields
+### Applicant-provided field
 
 | Field | Rule |
 | --- | --- |
-| dateOfBirth | Required, valid past date, applicant must be at least 18 |
-| currentLocation | Required |
-| yearsOfExperience | Required and zero or greater |
-| skills | At least one nonblank skill; duplicate values are removed case-insensitively |
-| resumeUrl | Optional; adds a ranking bonus when present |
-| portfolioUrl | Optional |
 | applicationNote | Optional, maximum 2000 characters |
+
+### Profile-provided application snapshot
+
+| Field | Rule |
+| --- | --- |
+| dateOfBirth | Loaded from the career profile; user must be at least 18 |
+| preferredWorkLocations | Loaded from the career profile; at least one is required |
+| yearsOfExperience | Loaded from the career profile; zero or greater |
+| skills | Loaded from the career profile; at least one is required |
+| resumeUrl | Optional HTTP/HTTPS PDF URL; adds a ranking bonus |
+| portfolioUrl | Optional valid HTTP/HTTPS URL |
 
 ### Ranking output
 
@@ -254,6 +296,13 @@ All routes except explicitly public authentication routes require a valid bearer
 | POST | `/api/auth/rigester` | Create a user account; spelling currently follows the source route |
 | POST | `/api/auth/login` | Authenticate and receive a JWT |
 | POST | `/api/auth/logout` | Blacklist the current JWT |
+
+### Unified user profile
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/profile` | Return registration identity and the optional career section for the authenticated user |
+| PUT | `/api/profile/career` | Enable career mode or update career information on the same profile |
 
 ### Salon management
 
@@ -283,7 +332,7 @@ All routes except explicitly public authentication routes require a valid bearer
 | Method | Route | Purpose | Status |
 | --- | --- | --- | --- |
 | POST | `/api/hiring-posts` | Create a hiring post for the authenticated owner's salon | Implemented |
-| GET | `/api/hiring-posts` | Browse open hiring posts | Planned |
+| GET | `/api/hiring-posts` | Browse and filter open posts, with personalized ranking for career profiles | Implemented |
 | POST | `/api/hiring-posts/{id}/applications` | Apply to a hiring post | Implemented |
 | GET | `/api/hiring-posts/{id}/applications` | Owner reviews ranked post applications | Implemented |
 | POST | `/api/hiring-posts/applications/{id}/accept` | Accept an applicant and execute employment rules | Implemented |
@@ -315,16 +364,17 @@ Production deployment requires moving database, email, and JWT secrets to enviro
 | Area | Status | Notes |
 | --- | --- | --- |
 | Registration and login | Implemented | Core validation, BCrypt, and JWT available |
+| Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
 | Logout | Implemented | In-memory blacklist; not durable across restarts |
 | Salon onboarding | Implemented | User request and admin decision available |
 | Salon profile update | Implemented | Ownership check exists |
 | Direct employment | Implemented | Request, invite, accept, reject, and cancel available |
 | Leave and transfer | Implemented | Normal departure and cross-salon transfer available |
 | Hiring-post creation | Implemented | DTO, repository, service, controller, and validation compile successfully |
-| Hiring-post discovery | Planned | Listing and filtering endpoints required |
-| Hiring applications | Implemented | Applicant profile, transparent ranking, owner review, acceptance, and rejection available |
+| Hiring-post discovery | Implemented | Pagination, filters, controlled sorting, personalized labels, and ranked results available |
+| Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
 | Customer booking | Planned | Domain and APIs not yet created |
-| Automated tests | Initial | Only a basic context test exists |
+| Automated tests | Initial | Context, personalized ranking, and URL-validation tests exist; broader coverage remains required |
 | Deployment configuration | Planned | Profiles, secrets, migrations, packaging, monitoring, and hosting remain |
 
 ## Known technical risks
@@ -361,7 +411,6 @@ Hibernate currently uses automatic schema update. Production environments should
 
 ### Priority 1 Complete hiring management
 
-- Browse and filter open hiring posts.
 - Allow owners to edit, close, and inspect their posts.
 - Add scheduled expiration handling.
 - Let applicants list and cancel their pending applications.
@@ -377,7 +426,7 @@ Hibernate currently uses automatic schema update. Production environments should
 
 ### Priority 3 Hiring workflow hardening
 
-- Add authorization and ranking tests.
+- Expand ranking tests to cover boundary scores, pagination, filters, and incomplete profiles.
 - Protect position reservation with database locking or optimistic versioning.
 - Add application history and audit timestamps.
 - Add managed résumé upload storage instead of relying only on a URL.
@@ -424,5 +473,6 @@ Approved feature batches should update the document version, last-updated date, 
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.2 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
 | 1.1 | 26 September 2026 | Added ranked hiring applications, optional résumé scoring, owner decisions, position reservation, and transfer integration |
 | 1.0 | 26 September 2026 | Initial professional project specification covering the existing backend and hiring-post creation workflow |
