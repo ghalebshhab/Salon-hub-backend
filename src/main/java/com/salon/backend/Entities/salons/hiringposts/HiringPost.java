@@ -21,6 +21,9 @@ public class HiringPost {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     private String title;
 
     @Column(length = 2000)
@@ -46,6 +49,9 @@ public class HiringPost {
 
     @Enumerated(EnumType.STRING)
     private HiringPostStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private HiringPostClosureReason closureReason;
 
     private LocalDateTime createdAt;
 

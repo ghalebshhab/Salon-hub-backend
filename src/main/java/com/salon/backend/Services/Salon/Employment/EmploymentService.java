@@ -2,40 +2,38 @@ package com.salon.backend.Services.Salon.Employment;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
-import com.salon.backend.DTOs.Salon.Employment.Leave.AcceptLeaveRequest;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
-import com.salon.backend.Entities.salons.employment.EmploymentRequest;
-import com.salon.backend.Entities.salons.employment.LeaveRequest;
+import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestResponse;
 
 public interface EmploymentService {
-ApiResponse<EmploymentRequest> joinSalon(JoinSalonRequest request, Long senderId);
+ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId);
 
-ApiResponse<EmploymentRequest> sentInvitation(SentInvitation sentInvitation, Long salonId, Long senderId);
+ApiResponse<EmployeeRequestResponse> sentInvitation(SentInvitation sentInvitation, Long salonId, Long senderId);
 
-    ApiResponse<EmploymentRequest> acceptRequest(
+    ApiResponse<EmployeeRequestResponse> acceptRequest(
             AcceptRequest acceptRequest,
             Long currentUserId
     );
 
-    ApiResponse<EmploymentRequest> rejectRequest(
+    ApiResponse<EmployeeRequestResponse> rejectRequest(
             RejectRequest rejectRequest,
             Long currentUserId
     );
-    ApiResponse<EmploymentRequest> cancelRequest(
+    ApiResponse<EmployeeRequestResponse> cancelRequest(
             CancelRequest cancelRequest,
             Long currentUserId
     );
 
-    ApiResponse<LeaveRequest>  createLeaveRequest(CreateLeaveRequest createLeaveRequest, Long currentUserId);
+    ApiResponse<LeaveRequestResponse> createLeaveRequest(CreateLeaveRequest createLeaveRequest, Long currentUserId);
 
-    ApiResponse<LeaveRequest> acceptLeaveRequest(
+    ApiResponse<LeaveRequestResponse> acceptLeaveRequest(
             Long requestId,
             Long currentUserId
     );
 
-    ApiResponse<LeaveRequest>  cancelLeaveRequest(Long requestId, Long currentUserId);
+    ApiResponse<LeaveRequestResponse> cancelLeaveRequest(Long requestId, Long currentUserId);
 
-    ApiResponse<EmploymentRequest> acceptInvitationAndRequestLeave(
+    ApiResponse<EmployeeRequestResponse> acceptInvitationAndRequestLeave(
             Long requestId,
             Long currentUserId,
             String reason

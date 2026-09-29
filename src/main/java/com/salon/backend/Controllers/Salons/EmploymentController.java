@@ -4,11 +4,12 @@ package com.salon.backend.Controllers.Salons;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
-import com.salon.backend.Entities.salons.employment.EmploymentRequest;
-import com.salon.backend.Entities.salons.employment.LeaveRequest;
+import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestResponse;
 import com.salon.backend.Services.Salon.Employment.EmploymentService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,14 +23,14 @@ public class EmploymentController {
 
 
     @PostMapping("/join")
-    public ResponseEntity<ApiResponse<EmploymentRequest>> joinSalon(
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>> joinSalon(
             @RequestBody JoinSalonRequest request,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.joinSalon(
                         request,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -38,16 +39,16 @@ public class EmploymentController {
 
 
     @PostMapping("/invite/{salonId}")
-    public ResponseEntity<ApiResponse<EmploymentRequest>> sendInvitation(
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>> sendInvitation(
             @RequestBody SentInvitation request,
             @PathVariable Long salonId,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.sentInvitation(
                         request,
                         salonId,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -56,14 +57,14 @@ public class EmploymentController {
 
 
     @PostMapping("/accept")
-    public ResponseEntity<ApiResponse<EmploymentRequest>> acceptRequest(
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>> acceptRequest(
             @RequestBody AcceptRequest request,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.acceptRequest(
                         request,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -71,14 +72,14 @@ public class EmploymentController {
 
 
     @PostMapping("/reject")
-    public ResponseEntity<ApiResponse<EmploymentRequest>> rejectRequest(
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>> rejectRequest(
             @RequestBody RejectRequest request,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.rejectRequest(
                         request,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -87,14 +88,14 @@ public class EmploymentController {
 
 
     @PostMapping("/cancel")
-    public ResponseEntity<ApiResponse<EmploymentRequest>> cancelRequest(
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>> cancelRequest(
             @RequestBody CancelRequest request,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.cancelRequest(
                         request,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -102,14 +103,14 @@ public class EmploymentController {
 
 
     @PostMapping("/leave/request")
-    public ResponseEntity<ApiResponse<LeaveRequest>> requestLeaveSalon(
+    public ResponseEntity<ApiResponse<LeaveRequestResponse>> requestLeaveSalon(
             @RequestBody CreateLeaveRequest request,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.createLeaveRequest(
                         request,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -118,14 +119,14 @@ public class EmploymentController {
 
 
     @PostMapping("/leave/accept/{requestId}")
-    public ResponseEntity<ApiResponse<LeaveRequest>> acceptLeaveRequest(
+    public ResponseEntity<ApiResponse<LeaveRequestResponse>> acceptLeaveRequest(
             @PathVariable Long requestId,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.acceptLeaveRequest(
                         requestId,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -134,14 +135,14 @@ public class EmploymentController {
 
 
     @PostMapping("/leave/cancel/{requestId}")
-    public ResponseEntity<ApiResponse<LeaveRequest>> cancelLeaveRequest(
+    public ResponseEntity<ApiResponse<LeaveRequestResponse>> cancelLeaveRequest(
             @PathVariable Long requestId,
-            @RequestParam Long currentUserId) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return ResponseEntity.ok(
                 employmentService.cancelLeaveRequest(
                         requestId,
-                        currentUserId
+                        currentUser.getId()
                 )
         );
     }
@@ -150,16 +151,16 @@ public class EmploymentController {
 
 
     @PostMapping("/invitation/accept-and-leave")
-    public ResponseEntity<ApiResponse<EmploymentRequest>>
+    public ResponseEntity<ApiResponse<EmployeeRequestResponse>>
     acceptInvitationAndRequestLeave(
             @RequestBody AcceptRequest request,
-            @RequestParam Long currentUserId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(required = false) String reason) {
 
         return ResponseEntity.ok(
                 employmentService.acceptInvitationAndRequestLeave(
                         request.requestId(),
-                        currentUserId,
+                        currentUser.getId(),
                         reason
                 )
         );

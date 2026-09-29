@@ -6,10 +6,13 @@ import com.salon.backend.Entities.salons.employment.EmploymentRequestStatus;
 import com.salon.backend.Entities.users.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.persistence.LockModeType;
 
 public interface EmploymentRepo extends JpaRepository<EmploymentRequest, Long> {
     boolean existsById(Long employmentRequestId);
@@ -33,4 +36,8 @@ public interface EmploymentRepo extends JpaRepository<EmploymentRequest, Long> {
             @Param("user") User user,
             @Param("status") EmploymentRequestStatus status
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT request FROM EmploymentRequest request WHERE request.id = :id")
+    Optional<EmploymentRequest> findByIdForUpdate(@Param("id") Long id);
 }

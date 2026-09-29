@@ -3,11 +3,13 @@ package com.salon.backend.Services.Salon.Employment;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
+import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.employment.*;
 import com.salon.backend.Entities.salons.hiringposts.HiringPost;
 import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
+import com.salon.backend.Entities.salons.hiringposts.HiringPostClosureReason;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
@@ -32,7 +34,7 @@ public class EmploymentServiceImpl implements EmploymentService {
     private final LeaveRequestRepo  leaveRequestRepo;
     private final HiringPostRepo hiringPostRepo;
     @Override
-    public ApiResponse<EmploymentRequest> joinSalon(JoinSalonRequest request, Long senderId) {
+    public ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId) {
         Optional<Salon> optionalsalon=salonRepo.findById(request.getSalonId());
         Optional<User> optionalUser=userRepo.findById(senderId);
 
@@ -90,19 +92,25 @@ public class EmploymentServiceImpl implements EmploymentService {
 
         employmentRepo.save(employmentRequest);
 
-        return ApiResponse.success("Request to this salon Successfully done" , employmentRequest);
+        return ApiResponse.success("Request to this salon Successfully done", mapEmploymentRequest(employmentRequest));
     }
 
 //    This  accept request method is bidirectional > so the user can accept the invite from the salon owner  ,
 //    and the salon owwner  can accept the user request  .
 @Override
 @Transactional
-public ApiResponse<EmploymentRequest> acceptRequest(
+public ApiResponse<EmployeeRequestResponse> acceptRequest(
         AcceptRequest acceptRequest,
         Long currentUserId) {
 
+    Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+    if (optionalCurrentUser.isEmpty()) {
+        return ApiResponse.error("User not found");
+    }
+    User currentUser = optionalCurrentUser.get();
+
     Optional<EmploymentRequest> optionalRequest =
-            employmentRepo.findById(acceptRequest.requestId());
+            employmentRepo.findByIdForUpdate(acceptRequest.requestId());
 
     if (optionalRequest.isEmpty()) {
         return ApiResponse.error(
@@ -155,7 +163,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
     if (employmentRequest.getRequestType()
             == RequestType.User_Request) {
 
-        if (targetSalon.getOwner().getId()!= currentUserId) {
+        if (targetSalon.getOwner().getId() != currentUser.getId()) {
 
             return ApiResponse.error(
                     "Only the salon owner can accept this request"
@@ -181,8 +189,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
     else if (employmentRequest.getRequestType()
             == RequestType.Owner_Invite) {
 
-        if (employmentRequest.getReceiver()
-                .getId()!= currentUserId) {
+        if (employmentRequest.getReceiver().getId() != currentUser.getId()) {
 
             return ApiResponse.error(
                     "Only the invited user can accept this invitation"
@@ -301,7 +308,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Request accepted. A leave request has been sent to your current salon owner.",
-                employmentRequest
+                mapEmploymentRequest(employmentRequest)
         );
     }
 
@@ -330,11 +337,11 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
     return ApiResponse.success(
             "Employment Request Accepted successfully",
-            employmentRequest
+            mapEmploymentRequest(employmentRequest)
     );
 }
     @Override
-    public ApiResponse<EmploymentRequest> sentInvitation(SentInvitation sentInvitation, Long salonId, Long senderId) {
+    public ApiResponse<EmployeeRequestResponse> sentInvitation(SentInvitation sentInvitation, Long salonId, Long senderId) {
      Optional<Salon> optionalsalon=salonRepo.findById(salonId);
      Optional<User> optionalSender=userRepo.findById(senderId);
      Optional<User> optionalReciever=userRepo.findById(sentInvitation.getUserId());
@@ -405,17 +412,23 @@ public ApiResponse<EmploymentRequest> acceptRequest(
      employmentRequest.setCreatedAt(LocalDateTime.now());
      employmentRepo.save(employmentRequest);
 
-        return ApiResponse.success("Invetation Sented Sucessfully",employmentRequest);
+        return ApiResponse.success("Invitation sent successfully", mapEmploymentRequest(employmentRequest));
     }
 
     @Override
     @Transactional
-    public ApiResponse<EmploymentRequest> rejectRequest(
+    public ApiResponse<EmployeeRequestResponse> rejectRequest(
             RejectRequest rejectRequest,
             Long currentUserId) {
 
+        Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+        if (optionalCurrentUser.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+        User currentUser = optionalCurrentUser.get();
+
         Optional<EmploymentRequest> optionalRequest =
-                employmentRepo.findById(rejectRequest.getRequestId());
+                employmentRepo.findByIdForUpdate(rejectRequest.getRequestId());
 
         if (optionalRequest.isEmpty()) {
             return ApiResponse.error(
@@ -468,7 +481,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
         if (employmentRequest.getRequestType()
                 == RequestType.User_Request) {
 
-            if (salon.getOwner().getId()!= currentUserId) {
+            if (salon.getOwner().getId() != currentUser.getId()) {
 
                 return ApiResponse.error(
                         "Only the salon owner can reject this request"
@@ -489,7 +502,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
         else if (employmentRequest.getRequestType()
                 == RequestType.Owner_Invite) {
 
-            if (receiver.getId() != currentUserId) {
+            if (receiver.getId() != currentUser.getId()) {
 
                 return ApiResponse.error(
                         "Only the invited user can reject this invitation"
@@ -525,13 +538,19 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Employment Request rejected successfully",
-                employmentRequest
+                mapEmploymentRequest(employmentRequest)
         );
     }
 
     @Override
-    public ApiResponse<EmploymentRequest> cancelRequest(CancelRequest cancelRequest, Long currentUserId) {
-        Optional<EmploymentRequest> empreq=employmentRepo.findById(cancelRequest.requestId());
+    @Transactional
+    public ApiResponse<EmployeeRequestResponse> cancelRequest(CancelRequest cancelRequest, Long currentUserId) {
+        Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+        if (optionalCurrentUser.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+        User currentUser = optionalCurrentUser.get();
+        Optional<EmploymentRequest> empreq=employmentRepo.findByIdForUpdate(cancelRequest.requestId());
         if (empreq.isEmpty()) {
             return ApiResponse.error("This Employment Request is not found");
         }
@@ -540,27 +559,24 @@ public ApiResponse<EmploymentRequest> acceptRequest(
             return ApiResponse.error("This Employment Request is no longer pending");
         }
         User sender = employmentRequest.getSender();
-        if (sender.getId()!=currentUserId) {
+        if (sender.getId() != currentUser.getId()) {
             return ApiResponse.error("You are not the sender of this request");
         }
         employmentRequest.setStatus(EmploymentRequestStatus.Cancelled);
         employmentRepo.save(employmentRequest);
-        return ApiResponse.success("The  requestis cancelled successfully",employmentRequest);
+        return ApiResponse.success("The request is cancelled successfully", mapEmploymentRequest(employmentRequest));
     }
 
     @Override
-    public ApiResponse<LeaveRequest> createLeaveRequest(
+    public ApiResponse<LeaveRequestResponse> createLeaveRequest(
             CreateLeaveRequest request,
             Long currentUserId) {
 
-        Optional<User> optionalUser =
-                userRepo.findById(currentUserId);
-
-        if (optionalUser.isEmpty()) {
+        Optional<User> optionalEmployee = userRepo.findById(currentUserId);
+        if (optionalEmployee.isEmpty()) {
             return ApiResponse.error("User not found");
         }
-
-        User employee = optionalUser.get();
+        User employee = optionalEmployee.get();
 
         if (employee.getRole() != UserRole.Employee) {
             return ApiResponse.error(
@@ -599,16 +615,22 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Leave request sent successfully",
-                leaveRequest
+                mapLeaveRequest(leaveRequest)
         );
     }
 
 
     @Override
     @Transactional
-    public ApiResponse<LeaveRequest> acceptLeaveRequest(
+    public ApiResponse<LeaveRequestResponse> acceptLeaveRequest(
             Long requestId,
             Long currentUserId) {
+
+        Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+        if (optionalCurrentUser.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+        User currentUser = optionalCurrentUser.get();
 
         Optional<LeaveRequest> optionalRequest =
                 leaveRequestRepo.findById(requestId);
@@ -631,7 +653,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         Salon currentSalon = leaveRequest.getCurrentSalon();
 
-        if (currentSalon.getOwner().getId()!=currentUserId) {
+        if (currentSalon.getOwner().getId() != currentUser.getId()) {
             return ApiResponse.error(
                     "Only the salon owner can accept this leave request"
             );
@@ -672,7 +694,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
             return ApiResponse.success(
                     "Leave request accepted successfully",
-                    leaveRequest
+                    mapLeaveRequest(leaveRequest)
             );
         }
 
@@ -730,14 +752,20 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Employee successfully transferred to the new salon",
-                leaveRequest
+                mapLeaveRequest(leaveRequest)
         );
     }
     @Override
     @Transactional
-    public ApiResponse<LeaveRequest> cancelLeaveRequest(
+    public ApiResponse<LeaveRequestResponse> cancelLeaveRequest(
             Long requestId,
             Long currentUserId) {
+
+        Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+        if (optionalCurrentUser.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+        User currentUser = optionalCurrentUser.get();
 
         Optional<LeaveRequest> optionalRequest =
                 leaveRequestRepo.findById(requestId);
@@ -760,7 +788,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         User employee = leaveRequest.getEmployee();
 
-        if (employee.getId()!=currentUserId) {
+        if (employee.getId() != currentUser.getId()) {
             return ApiResponse.error(
                     "Only the employee that sent this leave request can cancel it"
             );
@@ -778,25 +806,34 @@ public ApiResponse<EmploymentRequest> acceptRequest(
                 && employmentRequest.getStatus()
                 == EmploymentRequestStatus.Accepted_Pending_Leave) {
 
-            employmentRequest.setStatus(
-                    EmploymentRequestStatus.Requested
-            );
-
             if (employmentRequest.getRequestSource()
                     == EmploymentRequestSource.HIRING_POST
                     && employmentRequest.getHiringPost() != null) {
 
-                HiringPost hiringPost = employmentRequest.getHiringPost();
+                employmentRequest.setStatus(
+                        EmploymentRequestStatus.Cancelled
+                );
+
+                HiringPost hiringPost = hiringPostRepo.findByIdForUpdate(
+                        employmentRequest.getHiringPost().getId()
+                ).orElse(employmentRequest.getHiringPost());
                 hiringPost.setNumOfPositions(
                         hiringPost.getNumOfPositions() + 1
                 );
 
                 if (hiringPost.getStatus() == HiringPostStatus.Closed
+                        && hiringPost.getClosureReason()
+                        == HiringPostClosureReason.POSITIONS_FILLED
                         && hiringPost.getExpiresAt().isAfter(LocalDateTime.now())) {
                     hiringPost.setStatus(HiringPostStatus.Open);
+                    hiringPost.setClosureReason(null);
                 }
 
                 hiringPostRepo.save(hiringPost);
+            } else {
+                employmentRequest.setStatus(
+                        EmploymentRequestStatus.Requested
+                );
             }
 
             employmentRepo.save(employmentRequest);
@@ -806,19 +843,25 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Leave request cancelled successfully",
-                leaveRequest
+                mapLeaveRequest(leaveRequest)
         );
     }
     @Override
     @Transactional
-    public ApiResponse<EmploymentRequest>
+    public ApiResponse<EmployeeRequestResponse>
     acceptInvitationAndRequestLeave(
             Long requestId,
             Long currentUserId,
             String reason) {
 
+        Optional<User> optionalCurrentUser = userRepo.findById(currentUserId);
+        if (optionalCurrentUser.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+        User currentUser = optionalCurrentUser.get();
+
         Optional<EmploymentRequest> optionalRequest =
-                employmentRepo.findById(requestId);
+                employmentRepo.findByIdForUpdate(requestId);
 
         if (optionalRequest.isEmpty()) {
             return ApiResponse.error(
@@ -847,7 +890,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         User receiver = employmentRequest.getReceiver();
 
-        if (receiver.getId() != currentUserId) {
+        if (receiver.getId() != currentUser.getId()) {
             return ApiResponse.error(
                     "You are not allowed to accept this invitation"
             );
@@ -889,7 +932,7 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
             return ApiResponse.success(
                     "Invitation accepted successfully",
-                    employmentRequest
+                    mapEmploymentRequest(employmentRequest)
             );
         }
 
@@ -940,7 +983,45 @@ public ApiResponse<EmploymentRequest> acceptRequest(
 
         return ApiResponse.success(
                 "Invitation accepted. A leave request has been sent to your current salon owner.",
-                employmentRequest
+                mapEmploymentRequest(employmentRequest)
+        );
+    }
+
+    private EmployeeRequestResponse mapEmploymentRequest(EmploymentRequest request) {
+        HiringPost hiringPost = request.getHiringPost();
+        return new EmployeeRequestResponse(
+                request.getId(),
+                request.getSalon().getId(),
+                request.getSalon().getName(),
+                request.getSender().getId(),
+                request.getSender().getUserName(),
+                request.getReceiver().getId(),
+                request.getReceiver().getUserName(),
+                hiringPost == null ? null : hiringPost.getId(),
+                hiringPost == null ? null : hiringPost.getTitle(),
+                request.getRequestType(),
+                request.getRequestSource(),
+                request.getStatus(),
+                request.getRejectionReason(),
+                request.getCreatedAt()
+        );
+    }
+
+    private LeaveRequestResponse mapLeaveRequest(LeaveRequest request) {
+        Salon targetSalon = request.getTargetSalon();
+        EmploymentRequest employmentRequest = request.getEmploymentRequest();
+        return new LeaveRequestResponse(
+                request.getId(),
+                request.getEmployee().getId(),
+                request.getEmployee().getUserName(),
+                request.getCurrentSalon().getId(),
+                request.getCurrentSalon().getName(),
+                targetSalon == null ? null : targetSalon.getId(),
+                targetSalon == null ? null : targetSalon.getName(),
+                employmentRequest == null ? null : employmentRequest.getId(),
+                request.getStatus(),
+                request.getReason(),
+                request.getCreatedAt()
         );
     }
 }

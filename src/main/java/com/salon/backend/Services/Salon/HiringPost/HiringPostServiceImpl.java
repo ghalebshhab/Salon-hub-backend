@@ -10,6 +10,7 @@ import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.RejectHiringApplicationRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.AcceptRequest;
+import com.salon.backend.DTOs.Salon.Employment.Join.EmployeeRequestResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.RejectRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
@@ -352,7 +353,7 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error("This hiring post has no available positions");
         }
 
-        ApiResponse<EmploymentRequest> employmentResponse =
+        ApiResponse<EmployeeRequestResponse> employmentResponse =
                 employmentService.acceptRequest(
                         new AcceptRequest(
                                 application.getEmploymentRequest().getId()
@@ -373,7 +374,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         hiringPostRepo.save(hiringPost);
 
         return ApiResponse.success(
-                employmentResponse.getData().getStatus()
+                employmentResponse.getData().status()
                         == EmploymentRequestStatus.Accepted_Pending_Leave
                         ? "Application accepted and transfer leave request created"
                         : "Application accepted and applicant joined the salon",
@@ -413,7 +414,7 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error("Rejection reason cannot exceed 1000 characters");
         }
 
-        ApiResponse<EmploymentRequest> employmentResponse =
+        ApiResponse<EmployeeRequestResponse> employmentResponse =
                 employmentService.rejectRequest(
                         new RejectRequest(
                                 application.getEmploymentRequest().getId(),
