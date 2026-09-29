@@ -5,13 +5,11 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.User.UserRepo;
 import lombok.AllArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -26,15 +24,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         if(user==null){
             throw new UsernameNotFoundException("user with this user name dose not exist .");
         }
-        User saveduser=user;
-
-
-
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-        );
+        return AuthenticatedUser.from(user);
     }
     public UserDetails loadByEmail(String email) throws UsernameNotFoundException {
         String normalizedEmail = email.toLowerCase(Locale.ROOT);
@@ -42,13 +32,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         if(user==null){
             throw new UsernameNotFoundException("user with this Email dose not exist .");
         }
-        User saveduser=user;
-        return new org.springframework.security.core.userdetails.User(
-                saveduser.getEmail(),
-                saveduser.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-        );
+        return AuthenticatedUser.from(user);
+    }
 
+    public AuthenticatedUser loadById(Long userId) throws UsernameNotFoundException {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User does not exist."));
 
+        return AuthenticatedUser.from(user);
     }
 }

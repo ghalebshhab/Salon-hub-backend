@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Auth.Security;
 
 
+import com.salon.backend.Entities.users.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -17,17 +18,22 @@ public class JwtService {
     // at least 32 bytes after Base64 decoding
     private static final String SECRET_KEY = "VGhpc0lzQVN1cGVyU2VjcmV0S2V5Rm9ySldUMTIzNDU2Nzg5MDEyMzQ=";
 
-    public String generateToken(String email) {
+    public String generateToken(User user) {
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(Long.toString(user.getId()))
+                .claim("email", user.getEmail())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 hours
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
+    public Long extractUserId(String token) {
+        return Long.parseLong(extractAllClaims(token).getSubject());
+    }
+
     public String extractEmail(String token) {
-        return extractAllClaims(token).getSubject();
+        return extractAllClaims(token).get("email", String.class);
     }
 
     public java.util.Date extractExpiration(String token) {
@@ -35,9 +41,8 @@ public class JwtService {
     }
 
 
-    public boolean isTokenValid(String token, String email) {
-        final String extractedEmail = extractEmail(token);
-        return extractedEmail.equals(email) && !isTokenExpired(token);
+    public boolean isTokenValid(String token, Long userId) {
+        return extractUserId(token).equals(userId) && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {

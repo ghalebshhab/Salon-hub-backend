@@ -335,7 +335,7 @@ public class AuthServiceImpl implements AuthService {
         // -----------------------------------------------------
 
         String token =
-                jwtService.generateToken(normalizedEmail);
+                jwtService.generateToken(user);
 
 
         // -----------------------------------------------------

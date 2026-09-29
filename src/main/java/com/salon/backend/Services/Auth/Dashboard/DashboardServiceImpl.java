@@ -51,7 +51,7 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         String token =
-                jwtService.generateToken(user.getEmail());
+                jwtService.generateToken(user);
 
         DashboardLoginResponse response =
                 new DashboardLoginResponse(
