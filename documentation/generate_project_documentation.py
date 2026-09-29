@@ -162,7 +162,7 @@ def draw_cover(canvas, doc):
     canvas.setFillColor(colors.HexColor("#AEBBD0"))
     canvas.setFont(FONTS["DocRegular"], 10)
     canvas.drawString(24 * mm, 45 * mm, "Product and technical specification")
-    canvas.drawString(24 * mm, 37 * mm, "Version 1.3  |  29 September 2026")
+    canvas.drawString(24 * mm, 37 * mm, "Version 1.4  |  29 September 2026")
     canvas.setFillColor(WHITE)
     canvas.setFont(FONTS["DocBold"], 9)
     canvas.drawRightString(PAGE_WIDTH - 20 * mm, 20 * mm, "SALON HUP")
@@ -183,7 +183,7 @@ def draw_body(canvas, doc):
     canvas.setStrokeColor(LINE)
     canvas.line(doc.leftMargin, 12 * mm, PAGE_WIDTH - doc.rightMargin, 12 * mm)
     canvas.setFont(FONTS["DocRegular"], 7.5)
-    canvas.drawString(doc.leftMargin, 7.5 * mm, "Version 1.3")
+    canvas.drawString(doc.leftMargin, 7.5 * mm, "Version 1.4")
     canvas.drawRightString(PAGE_WIDTH - doc.rightMargin, 7.5 * mm, f"Page {doc.page}")
     canvas.restoreState()
 

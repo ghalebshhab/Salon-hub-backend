@@ -3,7 +3,7 @@
 **Document type:** Product and technical specification  
 **Project:** Salon Hup  
 **Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.3
+**Document version:** 1.4
 **Last updated:** 29 September 2026
 **Status:** Active development
 
@@ -53,6 +53,7 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 | Security | Spring Security, JWT, BCrypt |
 | Persistence | Spring Data JPA and Hibernate |
 | Database | MySQL |
+| Test database | H2 in-memory database with MySQL compatibility mode |
 | Validation | Spring Validation plus service-level business validation |
 | Email foundation | Spring Mail with SMTP configuration |
 | Build | Maven |
@@ -385,7 +386,11 @@ The authentication filter does not log authorization headers or bearer-token val
 
 Public routes include login, registration, password-recovery placeholders, dashboard login, API documentation routes, and selected search routes. Dashboard salon and user routes require the `ADMIN` role. Other routes require authentication unless explicitly allowed.
 
-Production deployment requires moving database, email, and JWT secrets to environment configuration and rotating any credentials previously stored in source configuration.
+Database, SMTP, and JWT secrets are supplied through environment variables and are absent from the current source configuration. The repository includes a safe `.env.example` contract, while real `.env` variants are ignored by Git. Credentials that existed in earlier repository history must still be rotated before deployment.
+
+The JWT signing secret must be Base64 encoded and contain at least 32 random bytes before encoding. JWT lifetime is configurable through `JWT_EXPIRATION_MS` and defaults to 24 hours.
+
+Automated tests use an isolated H2 in-memory database with test-only mail and JWT values. Tests do not require developer MySQL or SMTP credentials and do not write to the production database.
 
 ## Current implementation status
 
@@ -403,8 +408,9 @@ Production deployment requires moving database, email, and JWT secrets to enviro
 | Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
 | Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
 | Customer booking | Planned | Domain and APIs not yet created |
-| Automated tests | Initial | JWT identity, employment authorization, hiring lifecycle, expiration, and URL-validation tests exist; broader coverage remains required |
-| Deployment configuration | Planned | Profiles, secrets, migrations, packaging, monitoring, and hosting remain |
+| Automated tests | Initial | JWT identity, employment authorization, hiring lifecycle, expiration, and URL-validation tests run against isolated H2 configuration; broader coverage remains required |
+| Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
+| Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
 ## Known technical risks
 
@@ -414,7 +420,7 @@ Employment and leave routes now return dedicated DTOs. Some other controllers st
 
 ### Secret management
 
-Database credentials, SMTP credentials, and the JWT signing key currently exist in source configuration or code. They must be rotated and supplied through environment variables or a secrets manager before deployment.
+Current source configuration obtains database credentials, SMTP credentials, and the JWT signing key from environment variables. Previously committed credentials remain in Git history and must be rotated before deployment. Production infrastructure should inject the replacement values through its secret manager.
 
 ### Token revocation
 
@@ -426,7 +432,7 @@ Hiring-post position reservation, post lifecycle changes, and linked transfer ca
 
 ### Error and validation consistency
 
-The application returns a successful HTTP response envelope for many business errors. A centralized exception and HTTP-status strategy will make API behavior more predictable.
+The approved API contract represents business outcomes through the existing `ApiResponse<T>` envelope and its `success` and `error` factories. Future validation work must keep this response structure and must not introduce a new HTTP-status strategy or centralized exception handler. Consistency work should standardize messages, field validation, and DTO usage within this contract.
 
 ### Schema lifecycle
 
@@ -468,7 +474,7 @@ Hibernate currently uses automatic schema update. Production environments should
 
 - Add meaningful unit, integration, authorization, and concurrency tests.
 - Introduce database migrations and environment-specific profiles.
-- Move and rotate secrets.
+- Rotate the credentials that existed in repository history and store their replacements in the deployment secret manager.
 - Add structured logging, health checks, metrics, and error tracking.
 - Create Docker and deployment configuration.
 - Configure production CORS, TLS, backups, and recovery procedures.
@@ -498,6 +504,7 @@ Approved feature batches should update the document version, last-updated date, 
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.4 | 29 September 2026 | Externalized database, SMTP, and JWT secrets; added a safe environment contract, configurable JWT lifetime, and isolated H2 test configuration |
 | 1.3 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
 | 1.2 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
 | 1.1 | 26 September 2026 | Added ranked hiring applications, optional résumé scoring, owner decisions, position reservation, and transfer integration |
