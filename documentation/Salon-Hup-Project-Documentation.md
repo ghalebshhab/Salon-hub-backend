@@ -1,9 +1,9 @@
 # Salon Hup Project Documentation
 
-**Document type:** Product and technical specification  
-**Project:** Salon Hup  
-**Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.6
+**Document type:** Product and engineering specification
+**Project:** Salon Hup
+**Backend version:** 0.0.1 SNAPSHOT
+**Document version:** 1.0.0
 **Last updated:** 29 September 2026
 **Status:** Active development
 
@@ -13,6 +13,8 @@ This document is the maintained source of truth for the Salon Hup backend. It ex
 
 The document distinguishes between implemented behavior and planned behavior. A capability is only marked as implemented when corresponding source code exists in the repository. Future changes should update this source after the implementation has been reviewed and approved.
 
+> **Document convention:** `Implemented` means working source code exists in this repository. `Partial` means a foundation exists but production controls are incomplete. `Planned` describes an approved direction that has not yet been implemented. Planned content is never presented as current behavior.
+
 ## Executive overview
 
 Salon Hup is a platform for managing salons, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, and workforce-management foundation needed before appointment scheduling and production deployment can be completed.
@@ -20,6 +22,49 @@ Salon Hup is a platform for managing salons, salon ownership, employment, hiring
 The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, and owner acceptance and rejection.
 
 Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, and protected transfer cancellation are implemented. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
+
+### Product status snapshot
+
+| Capability group | Delivery state | Product meaning |
+| --- | --- | --- |
+| Identity and access | Implemented | Registration, login, logout, JWT authentication, role authorization, and blocked-account enforcement exist |
+| Career and hiring | Implemented | Unified career profiles, discovery ranking, applications, owner decisions, and hiring lifecycle exist |
+| Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
+| Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
+| Customer booking | Planned | Services, availability, appointments, customer history, and calendar APIs do not yet exist |
+| Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
+
+## Product scope
+
+### In scope for the product
+
+- Consumer accounts, salon owners, salon employees, and platform administrators.
+- Salon onboarding and administrative governance.
+- Career profiles, recruitment discovery, applications, and hiring decisions.
+- Direct employment invitations, requests, leave, and salon transfer workflows.
+- Public salon discovery and the future customer booking journey.
+- Operational controls required to deploy and support the backend safely.
+
+### Current release boundary
+
+The current backend release is a workforce and salon-management foundation. It can support authentication, salon approval, career profiles, hiring, employment, and administrative moderation. It is not yet a complete customer booking product because services, schedules, slot calculation, appointments, payments, notifications, reviews, and production infrastructure remain planned.
+
+### Explicitly outside the current implementation
+
+- Payment collection, refunds, invoices, and financial reconciliation.
+- Customer appointment creation, rescheduling, cancellation, and reminders.
+- Real-time chat, social feeds, reviews, and content moderation.
+- Native mobile push notifications and production email templates.
+- Multi-tenant billing, subscription plans, and salon analytics.
+
+## Product principles
+
+- **Server-owned identity:** clients never choose the authenticated user, owner, or salon relationship for protected workflows.
+- **Reversible administration:** moderation preserves recoverable business state unless an explicit deletion policy applies.
+- **One user profile:** career information extends the registered profile instead of creating a second identity.
+- **Transparent ranking:** hiring labels and scores come from documented, reproducible rules.
+- **Permanent application history:** a user applies once to a hiring post and historical decisions remain traceable.
+- **Safe evolution:** implemented behavior, planned behavior, and known production gaps remain visibly separated.
 
 ## Product goals
 
@@ -42,6 +87,30 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 | ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, manage user directories, and reversibly block or unblock non-admin users and salons |
 
 Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, and `Employee`. A future normalization may standardize the casing, but that change requires migration planning.
+
+### Stakeholder responsibilities
+
+| Stakeholder | Primary concern | Decision responsibility |
+| --- | --- | --- |
+| Product owner | Correct business behavior and release priority | Approves workflows, edge cases, and scope changes |
+| Backend engineering | Reliable domain logic and API contracts | Implements reviewed behavior and technical controls |
+| Frontend engineering | Clear user journeys and valid client integration | Uses documented DTOs, authentication, and route contracts |
+| Quality assurance | Repeatable evidence and regression protection | Verifies acceptance criteria, authorization, and failure paths |
+| Operations | Deployability, observability, recovery, and secrets | Owns environment configuration and production runbooks |
+
+## Functional requirements
+
+| ID | Requirement | Current state |
+| --- | --- | --- |
+| FR-01 | A visitor can register a unique validated account and authenticate securely | Implemented |
+| FR-02 | A user has one profile that can be upgraded with career information | Implemented |
+| FR-03 | A user can request a salon and an administrator governs activation | Implemented |
+| FR-04 | Owners and users can create and decide employment relationships through controlled workflows | Implemented |
+| FR-05 | Owners can publish vacancies and receive every application ranked by transparent fit rules | Implemented |
+| FR-06 | Administrators can reversibly restrict non-admin users and salons | Implemented |
+| FR-07 | Customers can discover services and reserve valid appointment slots | Planned |
+| FR-08 | The platform can notify participants about time-sensitive workflow changes | Planned |
+| FR-09 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
 
 ## Technology stack
 
@@ -84,6 +153,25 @@ The main Java package is `com.salon.backend` and contains:
 - `Services` for authentication, administration, salon management, employment, and hiring-post rules.
 
 All service responses use the generic `ApiResponse<T>` envelope containing `success`, `message`, and `data`.
+
+### Architectural responsibilities
+
+| Layer | Owns | Must not own |
+| --- | --- | --- |
+| Controller | Route mapping, request binding, authenticated principal extraction | Domain decisions or direct repository orchestration |
+| DTO | External request and response shape | Persistence behavior or service dependencies |
+| Service | Validation, authorization, state transitions, transactions | HTTP rendering concerns |
+| Repository | Query intent, locking, and persistence access | Product policy |
+| Entity | Persisted state and relationships | Client-facing response contracts |
+
+### Key architecture decisions
+
+- JWT subjects use immutable database user IDs; email remains available through the authenticated principal for compatible routes.
+- DTOs are required at external boundaries to prevent password and persistence-graph exposure.
+- Business outcomes continue through `ApiResponse.success(...)` and `ApiResponse.error(...)` under the approved API convention.
+- Pessimistic write locks and entity versioning protect sensitive hiring, transfer, and moderation transitions.
+- H2 in MySQL compatibility mode isolates automated tests from developer and production databases.
+- Secrets enter through environment variables and never through committed production values.
 
 ## Core domain model
 
@@ -136,6 +224,33 @@ The backend obtains salon and owner details from the authenticated owner and dat
 A hiring application links one applicant, hiring post, and employment request. It stores a submission-time snapshot of the applicant's date of birth, preferred work locations, years of experience, skills, optional résumé URL, optional portfolio URL, application note, and creation time.
 
 Known identity fields including name, username, email, phone number, role, and user ID come from the authenticated user and are not accepted from the client. The linked employment request provides the application status and allows acceptance to reuse the existing employment and transfer workflows.
+
+## Domain state model
+
+### Primary state transitions
+
+| Aggregate | From | Trigger | To | Restorable |
+| --- | --- | --- | --- | --- |
+| User | Active | Administrator blocks a non-admin account | Blocked | Yes, to Active |
+| Salon | Requested | Administrator accepts request | Accepted | No automatic rollback |
+| Salon | Requested | Administrator rejects with reason | Rejected | Yes, through correction and resubmission |
+| Salon | Accepted, Requested, or Rejected | Direct administrator salon block | Inactive | Yes, to exact prior state |
+| Hiring post | Open | Positions filled or owner closes post | Closed | Conditional reopen |
+| Hiring post | Open | Expiration time passes | Expired | Yes, with future date and valid positions |
+| Employment request | Requested | Receiver accepts available applicant | Accepted | Employment ends through leave workflow |
+| Employment request | Requested | Receiver accepts applicant employed elsewhere | Accepted_Pending_Leave | Can cancel pending join |
+| Leave request | Requested | Current owner accepts | Accepted | No automatic rollback |
+
+### Invariants
+
+- A user may apply to a specific hiring post only once.
+- A hiring application never changes its career-data snapshot after submission.
+- A salon must be `Accepted` for active employment and hiring operations.
+- A hiring post must be open, unexpired, and have a remaining position before application or acceptance.
+- Employee counts and reserved positions change in the same transaction as the related employment decision.
+- A direct salon block and an owner-derived block are independent; both must be removed before restoration.
+- Direct salon unblocking restores the saved owner role and exact prior salon status.
+- Deleted entities are not restored through block and unblock operations.
 
 ## Implemented business workflows
 
@@ -319,6 +434,33 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 
 All routes except explicitly public authentication routes require a valid bearer token under the current security configuration.
 
+### Response convention
+
+Every service response uses the existing envelope:
+
+```text
+{
+  "success": true or false,
+  "message": "Human-readable outcome",
+  "data": object, array, scalar, or null
+}
+```
+
+The current product decision is to represent business outcomes through `ApiResponse.success(...)` and `ApiResponse.error(...)`. New work must preserve this contract and must not introduce a competing centralized exception handler or independent HTTP-status strategy without a separately approved migration.
+
+### Access matrix
+
+| API group | Public | Authenticated user | OWNER | Employee | ADMIN |
+| --- | --- | --- | --- | --- | --- |
+| Registration and login | Yes | Yes | Yes | Yes | Dashboard login only |
+| Unified profile | No | Own profile | Own profile | Own profile | Own profile |
+| Active salon discovery | No | Yes | Yes | Yes | Yes |
+| Salon ownership actions | No | Request only | Owned salon | No | Approval and moderation |
+| Employment and leave | No | Applicable requests | Owned salon decisions | Applicable requests | No special access |
+| Hiring discovery and application | No | Yes | Owner cannot apply as owner | Yes | No special access |
+| Hiring-post management | No | No | Owned salon only | No | No special access |
+| User directory and dashboard moderation | No | No | No | No | Yes |
+
 ### Authentication
 
 | Method | Route | Purpose |
@@ -409,6 +551,131 @@ The JWT signing secret must be Base64 encoded and contain at least 32 random byt
 
 Automated tests use an isolated H2 in-memory database with test-only mail and JWT values. Tests do not require developer MySQL or SMTP credentials and do not write to the production database.
 
+## Data protection and governance
+
+### Data classification
+
+| Classification | Examples | Required handling |
+| --- | --- | --- |
+| Authentication secret | Password hashes, JWT signing secret, SMTP password | Never returned by APIs or logged; inject secrets at runtime |
+| Personal information | Name, email, username, phone, date of birth | Return only through approved DTOs and authorized routes |
+| Career information | Skills, experience, résumé URL, portfolio URL, biography | User-controlled profile data; snapshot only when applying |
+| Business information | Salon profile, location, hours, hiring posts | Publish only for accepted and active salons |
+| Workflow history | Applications, employment requests, leave decisions, rejection reasons | Preserve for product history and future audit requirements |
+
+The current implementation does not yet define retention periods, user data export, consent records, or permanent erasure rules. Those policies must be agreed before production because they affect database relationships, audit history, and regulatory obligations.
+
+### Logging rules
+
+- Never log passwords, JWTs, authorization headers, signing secrets, SMTP credentials, or full résumé content.
+- Avoid logging complete personal profiles; use immutable IDs and workflow IDs for correlation.
+- Production logs should be structured and include request correlation IDs, severity, event name, and safe entity identifiers.
+- Security and moderation events should become durable audit records before launch.
+
+## Non-functional requirements
+
+> **Status:** The targets below define production acceptance criteria. They are requirements for release planning and are not claims about the current runtime.
+
+| Category | Production target | Current assessment |
+| --- | --- | --- |
+| Availability | Define an uptime objective and maintenance policy before launch | Not defined |
+| Performance | Establish p95 latency targets per API class and test realistic data volumes | Not measured |
+| Scalability | Support stateless horizontal API scaling with shared revocation and persistence services | Blocked by in-memory token blacklist |
+| Security | TLS, managed secrets, least privilege, dependency scanning, and authorization tests | Partial |
+| Reliability | Transactional state changes, idempotency where required, and recovery procedures | Partial |
+| Data integrity | Versioned migrations, constraints, locking, and production backup validation | Partial |
+| Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Planned |
+| Accessibility | Frontend journeys should target WCAG 2.2 AA | Frontend responsibility; not yet verified |
+| Localization | Define supported languages, locale-sensitive dates, and message strategy | Planned |
+
+## Environment and configuration model
+
+| Environment | Purpose | Database | Secrets | Schema strategy |
+| --- | --- | --- | --- | --- |
+| Local development | Developer implementation and manual testing | Local MySQL | IDE or shell environment | Hibernate update currently used |
+| Automated test | Repeatable unit and Spring context verification | Ephemeral H2 in MySQL mode | Test-only values | Create and drop |
+| Staging | Production-like validation and release acceptance | Managed isolated MySQL | Deployment secret manager | Planned versioned migrations |
+| Production | Customer traffic and durable business data | Managed MySQL with backup policy | Deployment secret manager | Required versioned migrations |
+
+Required runtime variables are `DB_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `JWT_SECRET`. `DB_URL`, `DB_USERNAME`, `MAIL_HOST`, `MAIL_PORT`, and `JWT_EXPIRATION_MS` have development defaults and remain overrideable. Spring Boot does not automatically import `.env`; the launcher, IDE, container platform, or hosting platform must inject the values.
+
+## Deployment architecture
+
+### Target production topology - planned
+
+```text
+Internet client
+  -> TLS load balancer / reverse proxy
+      -> Salon Hup API instances
+          -> Managed MySQL
+          -> Durable token/session revocation store
+          -> SMTP or transactional email provider
+          -> Object storage for managed résumé and media uploads
+          -> Metrics, logs, alerts, and error tracking
+```
+
+The application is currently packaged as a Spring Boot service. A production container definition, environment-specific configuration, database migrations, shared token revocation, health/readiness policy, and hosting pipeline still need implementation.
+
+### Deployment sequence - planned
+
+1. Build and test an immutable application artifact.
+2. Scan dependencies and the container image for known vulnerabilities.
+3. Back up the production database and verify migration compatibility.
+4. Apply versioned database migrations through a controlled release job.
+5. Deploy to staging and run smoke, authorization, and critical workflow tests.
+6. Deploy gradually to production with health checks and rollback criteria.
+7. Verify logs, metrics, email connectivity, database health, and core user journeys.
+
+## Testing and quality strategy
+
+### Current automated evidence
+
+The current suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, and URL validation. The suite runs against an isolated H2 test database. At document version 1.0.0, the latest approved suite contains 22 passing tests.
+
+### Required test layers
+
+| Layer | Purpose | Release expectation |
+| --- | --- | --- |
+| Unit | Validate scoring, validation, and isolated state rules | Required for complex branching rules |
+| Service integration | Validate transactions, repositories, locks, and mappings | Required for critical workflows |
+| Authorization | Verify every role and ownership boundary | Required before production |
+| API contract | Protect request, response, and `ApiResponse` compatibility | Required before frontend release |
+| Concurrency | Prove capacity, position, transfer, and block transitions under contention | Required before production |
+| End-to-end | Validate registration through business outcome in staging | Required for release candidates |
+| Performance | Establish capacity, latency, and database-query baselines | Required before launch |
+
+## Observability and operations
+
+### Required operational signals - planned
+
+- Health and readiness checks for the API, database, and required external services.
+- Request volume, error rate, latency percentiles, JVM health, connection-pool pressure, and database saturation.
+- Business metrics for registration, salon approvals, applications, hiring acceptance, and future bookings.
+- Alerts tied to user impact, with an owner, severity, runbook, and escalation path.
+- Centralized structured logs with retention and access controls.
+
+### Incident response outline - planned
+
+1. Detect and classify the incident from an alert or user report.
+2. Protect users and data by disabling the affected path or rolling back when necessary.
+3. Preserve safe logs, deployment metadata, and database evidence.
+4. Restore service using the documented rollback or recovery process.
+5. Communicate status and impact through the agreed channel.
+6. Complete a blameless review with corrective actions and owners.
+
+## Release readiness checklist
+
+| Gate | Required evidence | Current state |
+| --- | --- | --- |
+| Product scope | Approved release journeys and acceptance criteria | Partial |
+| Security | Threat review, authorization matrix tests, secret rotation, TLS | Partial |
+| Data | Versioned migrations, backup and restore test, retention policy | Planned |
+| Quality | Passing unit, integration, contract, concurrency, and staging E2E suites | Partial |
+| Operations | Dashboards, alerts, runbooks, health checks, and ownership | Planned |
+| Deployment | Reproducible artifact, staging promotion, rollback procedure | Planned |
+| Legal and privacy | Privacy notice, terms, consent and deletion decisions | Planned |
+| Customer support | Support channel, issue triage, and escalation process | Planned |
+
 ## Current implementation status
 
 | Area | Status | Notes |
@@ -427,11 +694,24 @@ Automated tests use an isolated H2 in-memory database with test-only mail and JW
 | Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
 | Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
 | Customer booking | Planned | Domain and APIs not yet created |
-| Automated tests | Initial | JWT identity, employment authorization, hiring lifecycle, expiration, and URL-validation tests run against isolated H2 configuration; broader coverage remains required |
+| Automated tests | Initial | 22 tests cover application startup and selected JWT, moderation, employment, hiring, salon, directory, and URL-validation behavior against isolated H2; broader authorization, integration, concurrency, and performance coverage remains required |
 | Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
 | Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
 ## Known technical risks
+
+### Risk register
+
+| ID | Risk | Impact | Likelihood | Treatment |
+| --- | --- | --- | --- | --- |
+| R-01 | In-memory logout blacklist is lost on restart and cannot coordinate multiple instances | High | High | Add durable shared revocation or refresh-token design |
+| R-02 | Automatic schema update can create uncontrolled production changes | High | High | Adopt Flyway or Liquibase before production |
+| R-03 | Earlier credentials remain in Git history | High | Medium | Rotate every exposed value and use deployment secrets |
+| R-04 | Authorization coverage is incomplete across the full API surface | High | Medium | Add route and service authorization tests |
+| R-05 | Employee capacity changes need wider concurrency verification | High | Medium | Add database-backed contention tests and constraints |
+| R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
+| R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
+| R-08 | Booking domain is not implemented | High | Certain | Complete booking foundation before customer launch |
 
 ### Entity exposure
 
@@ -499,6 +779,21 @@ Hibernate currently uses automatic schema update. Production environments should
 - Configure production CORS, TLS, backups, and recovery procedures.
 - Perform final security and performance reviews.
 
+## Glossary
+
+| Term | Meaning |
+| --- | --- |
+| Career profile | The optional professional section of the single user profile |
+| Direct salon block | An administrator restriction placed on the salon itself; owner stays active as `USER` |
+| Owner-derived salon block | Salon inactivity caused by blocking the salon owner account |
+| Hiring application snapshot | Applicant career data copied at submission time for historical consistency |
+| Suggested | A complete match that exceeds experience requirements and contains additional skills |
+| Matched | An application or post where every required condition is satisfied |
+| Missing requirements | A visible candidate with one or more unmet post conditions |
+| Pending leave | A transfer stage in which a new opportunity is accepted but the current salon must release the employee |
+| Reserved position | A hiring-post position consumed while an accepted transfer is waiting for leave completion |
+| DTO | A request or response object that defines an external API contract without exposing persistence entities |
+
 ## Quality and review policy
 
 Every feature should move through a small reviewable slice:
@@ -519,14 +814,22 @@ The editable source is `documentation/Salon-Hup-Project-Documentation.md`. The p
 
 Approved feature batches should update the document version, last-updated date, implementation-status table, relevant workflow, API catalog, domain model, and roadmap. Draft or unapproved behavior should remain marked as planned and should not be described as implemented.
 
+Document versions use three numeric positions: `major.minor.patch`.
+
+- Increase `patch` for a small correction or routine documentation update: `0.0.1` through `0.0.9`.
+- Increase `minor` for a large feature or substantial section update and reset `patch` to zero: `0.1.0`.
+- Increase `major` for a complete document restructuring or redesign and reset the other positions: `1.0.0`.
+- Each position rolls over after nine. For example, the update after `0.0.9` is `0.1.0`.
+
 ## Revision history
 
 | Version | Date | Summary |
 | --- | --- | --- |
-| 1.6 | 29 September 2026 | Added reversible non-admin user and salon blocking, independent overlapping block state, exact salon-status and owner-role restoration, administrator-only user directories, and immediate blocked-token enforcement |
-| 1.5 | 29 September 2026 | Added safe user and salon listing DTOs, administrator-only full salon listing, persisted salon rejection reasons, owner correction, and a three-resubmission limit |
-| 1.4 | 29 September 2026 | Externalized database, SMTP, and JWT secrets; added a safe environment contract, configurable JWT lifetime, and isolated H2 test configuration |
-| 1.3 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
-| 1.2 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
-| 1.1 | 26 September 2026 | Added ranked hiring applications, optional résumé scoring, owner decisions, position reservation, and transfer integration |
-| 1.0 | 26 September 2026 | Initial professional project specification covering the existing backend and hiring-post creation workflow |
+| 1.0.0 | 29 September 2026 | Rebuilt the complete document as a production product and engineering specification with document control, linked contents, product scope and principles, functional requirements, domain transitions, API conventions, governance, non-functional requirements, environment and deployment models, testing strategy, operations, release gates, risk register, and glossary |
+| 0.7.0 | 29 September 2026 | Added reversible non-admin user and salon blocking, independent overlapping block state, exact salon-status and owner-role restoration, administrator-only user directories, and immediate blocked-token enforcement |
+| 0.6.0 | 29 September 2026 | Added safe user and salon listing DTOs, administrator-only full salon listing, persisted salon rejection reasons, owner correction, and a three-resubmission limit |
+| 0.5.0 | 29 September 2026 | Externalized database, SMTP, and JWT secrets; added a safe environment contract, configurable JWT lifetime, and isolated H2 test configuration |
+| 0.4.0 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
+| 0.3.0 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
+| 0.2.0 | 26 September 2026 | Added ranked hiring applications, optional résumé scoring, owner decisions, position reservation, and transfer integration |
+| 0.1.0 | 26 September 2026 | Initial professional project specification covering the existing backend and hiring-post creation workflow |
