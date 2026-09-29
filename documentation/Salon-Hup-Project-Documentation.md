@@ -3,7 +3,7 @@
 **Document type:** Product and technical specification  
 **Project:** Salon Hup  
 **Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.5
+**Document version:** 1.6
 **Last updated:** 29 September 2026
 **Status:** Active development
 
@@ -17,7 +17,7 @@ The document distinguishes between implemented behavior and planned behavior. A 
 
 Salon Hup is a platform for managing salons, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, and workforce-management foundation needed before appointment scheduling and production deployment can be completed.
 
-The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, user administration, hiring-post creation, ranked applications, and owner acceptance and rejection.
+The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, and owner acceptance and rejection.
 
 Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, and protected transfer cancellation are implemented. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
 
@@ -39,7 +39,7 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 | USER | Default registered account and potential employee | Sign in, view the unified profile, enable career mode, receive personalized hiring suggestions, request employment, and apply to hiring posts |
 | OWNER | User approved as the owner of a salon | Manage the owned salon, invite users, review employment requests, accept leave requests, and create hiring posts |
 | Employee | User currently assigned to a salon | Participate in employment and leave workflows and transfer to another salon after the required workflow |
-| ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, and block users |
+| ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, manage user directories, and reversibly block or unblock non-admin users and salons |
 
 Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, and `Employee`. A future normalization may standardize the casing, but that change requires migration planning.
 
@@ -97,7 +97,7 @@ User status values are `Active`, `Blocked`, and `Deleted`.
 
 ### Salon
 
-A salon stores its name, salon phone, owner phone, email, location, description, owner, employees, current and maximum employee counts, creation date, opening and closing times, profile picture URL, approval status, and opening status.
+A salon stores its name, salon phone, owner phone, email, location, description, owner, employees, current and maximum employee counts, creation date, opening and closing times, profile picture URL, approval status, and opening status. Reversible administration also stores the status that existed before a block, independent owner-block and direct admin-block flags, and the owner's role before a direct salon block.
 
 Salon approval status values are `Inactive`, `Requested`, `Accepted`, `Rejected`, and `DELETED`.
 
@@ -178,6 +178,16 @@ The same career endpoint activates a normal profile and updates an existing care
 8. Each resubmission clears the previous reason and returns the salon to `Requested`. A salon may be resubmitted at most three times.
 
 Only the salon owner can update or resubmit the owned salon through the service ownership check. Editing alone does not resubmit a rejected salon. A rejected owner cannot create a second salon request to bypass the resubmission limit. Acceptance, rejection, and resubmission use transactional write locks.
+
+### Reversible user and salon blocking
+
+Dashboard administrators can block or unblock non-admin users and salons. Administrators cannot block an account whose role is `ADMIN`; approval by the future application owner is planned before administrator-to-administrator blocking is introduced. Deleted users and salons are outside this workflow.
+
+Blocking a normal user or employee changes the account status from `Active` to `Blocked`. The JWT filter reloads account state for every authenticated request, so both new login attempts and already-issued tokens stop granting access while the account remains blocked. Unblocking returns the account to `Active` without deleting profile, application, or employment history.
+
+Blocking a salon directly is different from blocking its owner. The owner account remains active, but the owner's current role is saved and temporarily changed to `USER`. The salon's current approval status is saved and changed to `Inactive`. Hiring posts, applications, employment links, and other related records remain persisted but become unavailable through the accepted-salon business checks. Unblocking restores the exact previous salon status and owner role, making records that were valid before the block usable again.
+
+Blocking a salon owner blocks the owner account and makes the owned salon inactive while preserving the owner's role. Direct salon blocks and owner-derived blocks are tracked independently. If both restrictions apply, removing only one keeps the salon inactive; the salon is restored only after both restrictions are removed. Transactional pessimistic locks protect these state transitions.
 
 ### Direct employment request
 
@@ -377,18 +387,21 @@ The authenticated user for every route above comes from the JWT principal. No ro
 | GET | `/api/dashboard/salons/requested` | Review requested salons |
 | POST | `/api/dashboard/salons/requested/accept` | Accept a salon request by salon ID |
 | POST | `/api/dashboard/salons/requested/reject` | Reject a salon request with a required persisted reason |
-| POST | `/api/dashboard/users/{userId}/block` | Block a user |
-| GET | `/api/users` | Return users |
-| GET | `/api/users/active` | Return active users |
-| GET | `/api/users/blocked` | Return blocked users |
+| POST | `/api/dashboard/users/{userId}/block` | Block a non-admin user and inactivate an owned salon |
+| POST | `/api/dashboard/users/{userId}/unblock` | Restore a blocked user and remove the owner-derived salon block |
+| POST | `/api/dashboard/salons/{salonId}/block` | Inactivate a salon and temporarily return its active owner role to `USER` |
+| POST | `/api/dashboard/salons/{salonId}/unblock` | Remove the direct salon block and restore its prior status and owner role |
+| GET | `/api/users` | Return users to an administrator |
+| GET | `/api/users/active` | Return active users to an administrator |
+| GET | `/api/users/blocked` | Return blocked users to an administrator |
 
 ## Security model
 
-Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt. Tokens issued before this subject change require a new login.
+Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, verifies that the account is still active, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt. Tokens issued before this subject change require a new login.
 
 The authentication filter does not log authorization headers or bearer-token values. Employment and leave controllers derive caller identity from `@AuthenticationPrincipal` and return response DTOs.
 
-Public routes include login, registration, password-recovery placeholders, dashboard login, API documentation routes, and selected search routes. Dashboard salon and user routes require the `ADMIN` role. Other routes require authentication unless explicitly allowed.
+Public routes include login, registration, password-recovery placeholders, dashboard login, API documentation routes, and selected search routes. Dashboard salon and user routes and every user-directory route require the `ADMIN` role. Blocked administrators cannot obtain a dashboard token. Other routes require authentication unless explicitly allowed.
 
 Database, SMTP, and JWT secrets are supplied through environment variables and are absent from the current source configuration. The repository includes a safe `.env.example` contract, while real `.env` variants are ignored by Git. Credentials that existed in earlier repository history must still be rotated before deployment.
 
@@ -406,6 +419,7 @@ Automated tests use an isolated H2 in-memory database with test-only mail and JW
 | Salon onboarding | Implemented | Admin approval, persisted rejection reason, correction, and three explicit resubmissions available |
 | Salon profile update | Implemented | Ownership check and rejected-request correction exist |
 | User and salon response DTOs | Implemented | Listing endpoints omit passwords and persistence entity graphs |
+| Administrative blocking | Implemented | Non-admin user and salon blocking is reversible; prior salon status and owner role are restored after all applicable blocks are removed |
 | Direct employment | Implemented | Request, invite, accept, reject, cancel, authenticated identity, and response DTOs available |
 | Leave and transfer | Implemented | Normal departure, cross-salon transfer, secure cancellation, and position restoration available |
 | Hiring-post creation | Implemented | DTO, repository, service, controller, and validation compile successfully |
@@ -457,7 +471,7 @@ Hibernate currently uses automatic schema update. Production environments should
 - Replace request-supplied current user IDs with authenticated identities. Completed for employment and leave.
 - Introduce response DTOs for users, salons, employment requests, and leave requests. Completed for these current API surfaces; remaining controllers still require an exposure audit.
 - Add role checks at route and service levels.
-- Correct the admin salon lookup and owner-blocking behavior.
+- Correct the admin salon lookup and owner-blocking behavior. Completed with reversible user and salon blocking, independent overlapping restrictions, role restoration, and blocked-token enforcement.
 - Correct the salon-rejection request contract. Completed with persisted reasons and controlled resubmission.
 
 ### Priority 3 Hiring workflow hardening
@@ -509,6 +523,7 @@ Approved feature batches should update the document version, last-updated date, 
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.6 | 29 September 2026 | Added reversible non-admin user and salon blocking, independent overlapping block state, exact salon-status and owner-role restoration, administrator-only user directories, and immediate blocked-token enforcement |
 | 1.5 | 29 September 2026 | Added safe user and salon listing DTOs, administrator-only full salon listing, persisted salon rejection reasons, owner correction, and a three-resubmission limit |
 | 1.4 | 29 September 2026 | Externalized database, SMTP, and JWT secrets; added a safe environment contract, configurable JWT lifetime, and isolated H2 test configuration |
 | 1.3 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
