@@ -3,16 +3,23 @@ package com.salon.backend.Services.Salon.HiringPost;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
+import com.salon.backend.DTOs.Salon.HiringPost.ReopenHiringPostRequest;
+import com.salon.backend.DTOs.Salon.HiringPost.HiringApplicationResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.hiringposts.ApplicationMatchLevel;
 import com.salon.backend.Entities.salons.hiringposts.HiringPost;
 import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
+import com.salon.backend.Entities.salons.hiringposts.HiringPostClosureReason;
+import com.salon.backend.Entities.salons.hiringposts.HiringApplication;
+import com.salon.backend.Entities.salons.employment.EmploymentRequest;
+import com.salon.backend.Entities.salons.employment.EmploymentRequestStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.HiringApplicationRepo;
 import com.salon.backend.Repositories.Salon.HiringPostRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
+import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employment.EmploymentService;
 import org.junit.jupiter.api.Test;
@@ -26,10 +33,12 @@ import org.springframework.data.jpa.domain.Specification;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class HiringPostServiceImplTest {
@@ -46,6 +55,8 @@ class HiringPostServiceImplTest {
     private UserRepo userRepo;
     @Mock
     private EmploymentService employmentService;
+    @Mock
+    private LeaveRequestRepo leaveRequestRepo;
 
     @InjectMocks
     private HiringPostServiceImpl hiringPostService;
@@ -110,6 +121,113 @@ class HiringPostServiceImplTest {
                 .isEqualTo(ApplicationMatchLevel.SUGGESTED);
         assertThat(response.getData().getContent().get(1).matchLevel())
                 .isEqualTo(ApplicationMatchLevel.MISSING_REQUIREMENTS);
+    }
+
+    @Test
+    void reopensPostWithRestoredAvailabilityWithoutAddingPositions() {
+        User owner = new User();
+        owner.setId(1L);
+        owner.setEmail("owner@example.com");
+        owner.setFirstName("Salon");
+        owner.setLastName("Owner");
+
+        Salon salon = new Salon();
+        salon.setId(10L);
+        salon.setName("Style Salon");
+        salon.setLocation("Amman");
+        salon.setOwner(owner);
+
+        HiringPost post = createPost(
+                22L,
+                "Hair Stylist",
+                List.of("Haircut"),
+                "Amman",
+                3,
+                salon
+        );
+        post.setStatus(HiringPostStatus.Closed);
+        post.setClosureReason(HiringPostClosureReason.POSITIONS_FILLED);
+        post.setNumOfPositions(1);
+
+        when(hiringPostRepo.findByIdForUpdate(22L)).thenReturn(Optional.of(post));
+
+        ApiResponse<?> response = hiringPostService.reopenHiringPost(
+                22L,
+                new ReopenHiringPostRequest(LocalDateTime.now().plusDays(20), 0),
+                "owner@example.com"
+        );
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(post.getStatus()).isEqualTo(HiringPostStatus.Open);
+        assertThat(post.getNumOfPositions()).isEqualTo(1);
+        assertThat(post.getClosureReason()).isNull();
+        verify(hiringPostRepo).save(post);
+    }
+
+    @Test
+    void cancellingPendingTransferRetainsApplicationAndRestoresPosition() {
+        User owner = new User();
+        owner.setId(1L);
+        owner.setEmail("owner@example.com");
+        owner.setFirstName("Salon");
+        owner.setLastName("Owner");
+
+        Salon salon = new Salon();
+        salon.setId(10L);
+        salon.setName("Style Salon");
+        salon.setLocation("Amman");
+        salon.setOwner(owner);
+
+        HiringPost post = createPost(
+                23L,
+                "Hair Stylist",
+                List.of("Haircut"),
+                "Amman",
+                3,
+                salon
+        );
+        post.setStatus(HiringPostStatus.Closed);
+        post.setClosureReason(HiringPostClosureReason.POSITIONS_FILLED);
+        post.setNumOfPositions(0);
+
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setEmail("applicant@example.com");
+
+        EmploymentRequest employmentRequest = new EmploymentRequest();
+        employmentRequest.setId(30L);
+        employmentRequest.setStatus(EmploymentRequestStatus.Accepted_Pending_Leave);
+
+        HiringApplication application = new HiringApplication();
+        application.setId(40L);
+        application.setApplicant(applicant);
+        application.setHiringPost(post);
+        application.setEmploymentRequest(employmentRequest);
+        application.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        application.setYearsOfExperience(5);
+        application.setSkills(List.of("Haircut", "Coloring"));
+        application.setPreferredWorkLocations(List.of("Amman"));
+        application.setCreatedAt(LocalDateTime.now());
+
+        when(hiringApplicationRepo.findByIdForUpdate(40L))
+                .thenReturn(Optional.of(application));
+        when(hiringPostRepo.findByIdForUpdate(23L)).thenReturn(Optional.of(post));
+        when(leaveRequestRepo.findByEmploymentRequest(employmentRequest))
+                .thenReturn(Optional.empty());
+
+        ApiResponse<HiringApplicationResponse> response =
+                hiringPostService.cancelLinkedJoinRequest(
+                        40L,
+                        "applicant@example.com"
+                );
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(employmentRequest.getStatus())
+                .isEqualTo(EmploymentRequestStatus.Cancelled);
+        assertThat(post.getNumOfPositions()).isEqualTo(1);
+        assertThat(post.getStatus()).isEqualTo(HiringPostStatus.Open);
+        verify(hiringPostRepo).save(post);
+        verify(employmentRepo).save(employmentRequest);
     }
 
     private HiringPost createPost(

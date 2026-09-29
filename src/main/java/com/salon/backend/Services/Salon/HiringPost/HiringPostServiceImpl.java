@@ -8,6 +8,9 @@ import com.salon.backend.DTOs.Salon.HiringPost.HiringPostResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostDiscoveryResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostSearchRequest;
+import com.salon.backend.DTOs.Salon.HiringPost.UpdateHiringPostRequest;
+import com.salon.backend.DTOs.Salon.HiringPost.ReopenHiringPostRequest;
+import com.salon.backend.DTOs.Salon.HiringPost.OwnerHiringPostResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.RejectHiringApplicationRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.AcceptRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.EmployeeRequestResponse;
@@ -17,6 +20,7 @@ import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.employment.EmploymentRequest;
 import com.salon.backend.Entities.salons.employment.EmploymentRequestSource;
 import com.salon.backend.Entities.salons.employment.EmploymentRequestStatus;
+import com.salon.backend.Entities.salons.employment.LeaveRequestStatus;
 import com.salon.backend.Entities.salons.employment.RequestType;
 import com.salon.backend.Entities.salons.hiringposts.*;
 import com.salon.backend.Entities.users.User;
@@ -24,6 +28,7 @@ import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.HiringApplicationRepo;
 import com.salon.backend.Repositories.Salon.HiringPostRepo;
+import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employment.EmploymentService;
@@ -50,6 +55,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     private final HiringPostRepo hiringPostRepo;
     private final HiringApplicationRepo hiringApplicationRepo;
     private final EmploymentRepo employmentRepo;
+    private final LeaveRequestRepo leaveRequestRepo;
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final EmploymentService employmentService;
@@ -173,6 +179,193 @@ public class HiringPostServiceImpl implements HiringPostService {
                 "Hiring post created successfully",
                 mapToResponse(hiringPost)
         );
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<List<OwnerHiringPostResponse>> getOwnerHiringPosts(
+            HiringPostStatus status,
+            String ownerEmail) {
+
+        Salon salon = findOwnedSalon(ownerEmail);
+        if (salon == null) {
+            return ApiResponse.error("Salon not found for this owner");
+        }
+
+        List<HiringPost> posts = status == null
+                ? hiringPostRepo.findAllBySalonOrderByCreatedAtDesc(salon)
+                : hiringPostRepo.findAllBySalonAndStatusOrderByCreatedAtDesc(salon, status);
+
+        List<HiringPost> refreshedPosts = posts.stream()
+                .map(this::refreshExpiration)
+                .filter(post -> status == null || post.getStatus() == status)
+                .toList();
+        Map<Long, List<HiringApplication>> applicationsByPost = refreshedPosts.isEmpty()
+                ? Map.of()
+                : hiringApplicationRepo.findAllByHiringPostIn(refreshedPosts)
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        application -> application.getHiringPost().getId()
+                ));
+
+        List<OwnerHiringPostResponse> response = refreshedPosts.stream()
+                .map(post -> mapToOwnerResponse(
+                        post,
+                        applicationsByPost.getOrDefault(post.getId(), List.of())
+                ))
+                .toList();
+
+        return ApiResponse.success("Owner hiring posts fetched successfully", response);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<OwnerHiringPostResponse> getOwnerHiringPost(
+            Long hiringPostId,
+            String ownerEmail) {
+
+        Optional<HiringPost> optionalPost = hiringPostRepo.findById(hiringPostId);
+        if (optionalPost.isEmpty()) {
+            return ApiResponse.error("Hiring post not found");
+        }
+
+        HiringPost post = optionalPost.get();
+        if (!isOwnedBy(post, ownerEmail)) {
+            return ApiResponse.error("Only the salon owner can inspect this hiring post");
+        }
+
+        return ApiResponse.success(
+                "Owner hiring post fetched successfully",
+                mapToOwnerResponse(refreshExpiration(post))
+        );
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<HiringPostResponse> updateHiringPost(
+            Long hiringPostId,
+            UpdateHiringPostRequest request,
+            String ownerEmail) {
+
+        Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
+        if (optionalPost.isEmpty()) {
+            return ApiResponse.error("Hiring post not found");
+        }
+
+        HiringPost post = refreshExpiration(optionalPost.get());
+        if (!isOwnedBy(post, ownerEmail)) {
+            return ApiResponse.error("Only the salon owner can update this hiring post");
+        }
+
+        ApiResponse<Void> validationResponse = validateUpdateRequest(request);
+        if (!validationResponse.isSuccess()) {
+            return ApiResponse.error(validationResponse.getMessage());
+        }
+
+        if (request.getExpiresAt() != null
+                && post.getStatus() == HiringPostStatus.Expired) {
+            return ApiResponse.error("Use the reopen action to extend an expired post");
+        }
+
+        if (request.getAdditionalPositions() != null
+                && (long) post.getNumOfPositions()
+                + request.getAdditionalPositions() > Integer.MAX_VALUE) {
+            return ApiResponse.error("Resulting available positions value is too large");
+        }
+
+        if (request.getTitle() != null) {
+            post.setTitle(request.getTitle().trim());
+        }
+        if (request.getDescription() != null) {
+            post.setDescription(request.getDescription().trim());
+        }
+        if (request.getExpiresAt() != null) {
+            post.setExpiresAt(request.getExpiresAt());
+        }
+        if (request.getAdditionalPositions() != null
+                && request.getAdditionalPositions() > 0) {
+            post.setNumOfPositions(Math.addExact(
+                    post.getNumOfPositions(),
+                    request.getAdditionalPositions()
+            ));
+        }
+
+        hiringPostRepo.save(post);
+        return ApiResponse.success("Hiring post updated successfully", mapToResponse(post));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<HiringPostResponse> closeHiringPost(
+            Long hiringPostId,
+            String ownerEmail) {
+
+        Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
+        if (optionalPost.isEmpty()) {
+            return ApiResponse.error("Hiring post not found");
+        }
+
+        HiringPost post = refreshExpiration(optionalPost.get());
+        if (!isOwnedBy(post, ownerEmail)) {
+            return ApiResponse.error("Only the salon owner can close this hiring post");
+        }
+        if (post.getStatus() != HiringPostStatus.Open) {
+            return ApiResponse.error("Only an open hiring post can be closed");
+        }
+
+        post.setStatus(HiringPostStatus.Closed);
+        post.setClosureReason(HiringPostClosureReason.MANUALLY_CLOSED);
+        hiringPostRepo.save(post);
+        return ApiResponse.success("Hiring post closed successfully", mapToResponse(post));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<HiringPostResponse> reopenHiringPost(
+            Long hiringPostId,
+            ReopenHiringPostRequest request,
+            String ownerEmail) {
+
+        Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
+        if (optionalPost.isEmpty()) {
+            return ApiResponse.error("Hiring post not found");
+        }
+
+        HiringPost post = refreshExpiration(optionalPost.get());
+        if (!isOwnedBy(post, ownerEmail)) {
+            return ApiResponse.error("Only the salon owner can reopen this hiring post");
+        }
+        if (post.getStatus() == HiringPostStatus.Open) {
+            return ApiResponse.error("This hiring post is already open");
+        }
+
+        ApiResponse<Void> validationResponse = validateReopenRequest(request);
+        if (!validationResponse.isSuccess()) {
+            return ApiResponse.error(validationResponse.getMessage());
+        }
+
+        int additionalPositions = request.getAdditionalPositions() == null
+                ? 0
+                : request.getAdditionalPositions();
+        long resultingPositions = (long) post.getNumOfPositions()
+                + additionalPositions;
+        if (resultingPositions > Integer.MAX_VALUE) {
+            return ApiResponse.error("Resulting available positions value is too large");
+        }
+        int availablePositions = (int) resultingPositions;
+        if (availablePositions <= 0) {
+            return ApiResponse.error(
+                    "Add at least one position because this post has no restored availability"
+            );
+        }
+
+        post.setNumOfPositions(availablePositions);
+        post.setExpiresAt(request.getExpiresAt());
+        post.setStatus(HiringPostStatus.Open);
+        post.setClosureReason(null);
+        hiringPostRepo.save(post);
+
+        return ApiResponse.success("Hiring post reopened successfully", mapToResponse(post));
     }
 
     @Override
@@ -322,15 +515,18 @@ public class HiringPostServiceImpl implements HiringPostService {
             String ownerEmail) {
 
         Optional<HiringApplication> optionalApplication =
-                hiringApplicationRepo.findById(applicationId);
+                hiringApplicationRepo.findByIdForUpdate(applicationId);
 
         if (optionalApplication.isEmpty()) {
             return ApiResponse.error("Hiring application not found");
         }
 
         HiringApplication application = optionalApplication.get();
-        HiringPost hiringPost = application.getHiringPost();
-        Salon salon = hiringPost.getSalon();
+        HiringPost hiringPost = hiringPostRepo.findByIdForUpdate(
+                application.getHiringPost().getId()
+        ).orElse(application.getHiringPost());
+        Salon salon = salonRepo.findByIdForUpdate(hiringPost.getSalon().getId())
+                .orElse(hiringPost.getSalon());
         User owner = userRepo.findByemail(ownerEmail);
 
         if (owner == null || salon.getOwner().getId() != owner.getId()) {
@@ -349,6 +545,7 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (hiringPost.getNumOfPositions() <= 0) {
             hiringPost.setStatus(HiringPostStatus.Closed);
+            hiringPost.setClosureReason(HiringPostClosureReason.POSITIONS_FILLED);
             hiringPostRepo.save(hiringPost);
             return ApiResponse.error("This hiring post has no available positions");
         }
@@ -369,6 +566,7 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (hiringPost.getNumOfPositions() == 0) {
             hiringPost.setStatus(HiringPostStatus.Closed);
+            hiringPost.setClosureReason(HiringPostClosureReason.POSITIONS_FILLED);
         }
 
         hiringPostRepo.save(hiringPost);
@@ -390,7 +588,7 @@ public class HiringPostServiceImpl implements HiringPostService {
             String ownerEmail) {
 
         Optional<HiringApplication> optionalApplication =
-                hiringApplicationRepo.findById(applicationId);
+                hiringApplicationRepo.findByIdForUpdate(applicationId);
 
         if (optionalApplication.isEmpty()) {
             return ApiResponse.error("Hiring application not found");
@@ -431,6 +629,223 @@ public class HiringPostServiceImpl implements HiringPostService {
                 "Hiring application rejected successfully",
                 mapApplicationToResponse(application)
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<List<HiringApplicationResponse>> getMyHiringApplications(
+            String applicantEmail) {
+
+        User applicant = userRepo.findByemail(applicantEmail);
+        if (applicant == null) {
+            return ApiResponse.error("Applicant not found");
+        }
+
+        List<HiringApplicationResponse> applications = hiringApplicationRepo
+                .findAllByApplicantOrderByCreatedAtDesc(applicant)
+                .stream()
+                .map(this::mapApplicationToResponse)
+                .toList();
+
+        return ApiResponse.success(
+                "Hiring application history fetched successfully",
+                applications
+        );
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<HiringApplicationResponse> cancelLinkedJoinRequest(
+            Long applicationId,
+            String applicantEmail) {
+
+        Optional<HiringApplication> optionalApplication =
+                hiringApplicationRepo.findByIdForUpdate(applicationId);
+        if (optionalApplication.isEmpty()) {
+            return ApiResponse.error("Hiring application not found");
+        }
+
+        HiringApplication application = optionalApplication.get();
+        if (!application.getApplicant().getEmail().equalsIgnoreCase(applicantEmail)) {
+            return ApiResponse.error(
+                    "Only the applicant can cancel the linked join request"
+            );
+        }
+
+        EmploymentRequest employmentRequest = employmentRepo.findByIdForUpdate(
+                application.getEmploymentRequest().getId()
+        ).orElse(application.getEmploymentRequest());
+        EmploymentRequestStatus status = employmentRequest.getStatus();
+        if (status != EmploymentRequestStatus.Requested
+                && status != EmploymentRequestStatus.Accepted_Pending_Leave) {
+            return ApiResponse.error(
+                    "Only a requested or pending-transfer join request can be cancelled"
+            );
+        }
+
+        if (status == EmploymentRequestStatus.Accepted_Pending_Leave) {
+            leaveRequestRepo.findByEmploymentRequest(employmentRequest)
+                    .filter(leaveRequest ->
+                            leaveRequest.getStatus() == LeaveRequestStatus.Requested)
+                    .ifPresent(leaveRequest -> {
+                        leaveRequest.setStatus(LeaveRequestStatus.Cancelled);
+                        leaveRequestRepo.save(leaveRequest);
+                    });
+
+            HiringPost hiringPost = hiringPostRepo.findByIdForUpdate(
+                    application.getHiringPost().getId()
+            ).orElse(application.getHiringPost());
+            hiringPost.setNumOfPositions(hiringPost.getNumOfPositions() + 1);
+
+            if (hiringPost.getStatus() == HiringPostStatus.Closed
+                    && hiringPost.getClosureReason()
+                    == HiringPostClosureReason.POSITIONS_FILLED
+                    && hiringPost.getExpiresAt().isAfter(LocalDateTime.now())) {
+                hiringPost.setStatus(HiringPostStatus.Open);
+                hiringPost.setClosureReason(null);
+            }
+
+            hiringPostRepo.save(hiringPost);
+        }
+
+        employmentRequest.setStatus(EmploymentRequestStatus.Cancelled);
+        employmentRepo.save(employmentRequest);
+
+        return ApiResponse.success(
+                "Linked join request cancelled; application retained in history",
+                mapApplicationToResponse(application)
+        );
+    }
+
+    private Salon findOwnedSalon(String ownerEmail) {
+        User owner = userRepo.findByemail(ownerEmail);
+        if (owner == null || owner.getRole() != UserRole.OWNER) {
+            return null;
+        }
+        return salonRepo.findByOwnerEmail(ownerEmail);
+    }
+
+    private boolean isOwnedBy(HiringPost hiringPost, String ownerEmail) {
+        return hiringPost.getSalon() != null
+                && hiringPost.getSalon().getOwner() != null
+                && hiringPost.getSalon().getOwner().getEmail()
+                .equalsIgnoreCase(ownerEmail);
+    }
+
+    private HiringPost refreshExpiration(HiringPost hiringPost) {
+        if (hiringPost.getStatus() == HiringPostStatus.Open
+                && !hiringPost.getExpiresAt().isAfter(LocalDateTime.now())) {
+            hiringPost.setStatus(HiringPostStatus.Expired);
+            hiringPost.setClosureReason(null);
+            return hiringPostRepo.save(hiringPost);
+        }
+        return hiringPost;
+    }
+
+    private OwnerHiringPostResponse mapToOwnerResponse(HiringPost hiringPost) {
+        return mapToOwnerResponse(
+                hiringPost,
+                hiringApplicationRepo.findAllByHiringPost(hiringPost)
+        );
+    }
+
+    private OwnerHiringPostResponse mapToOwnerResponse(
+            HiringPost hiringPost,
+            List<HiringApplication> applications) {
+
+        long requested = countApplicationsByStatus(
+                applications,
+                EmploymentRequestStatus.Requested
+        );
+        long pendingTransfer = countApplicationsByStatus(
+                applications,
+                EmploymentRequestStatus.Accepted_Pending_Leave
+        );
+        long accepted = countApplicationsByStatus(
+                applications,
+                EmploymentRequestStatus.Accepted
+        );
+        long rejected = countApplicationsByStatus(
+                applications,
+                EmploymentRequestStatus.Rejected
+        );
+        long cancelled = countApplicationsByStatus(
+                applications,
+                EmploymentRequestStatus.Cancelled
+        );
+
+        return new OwnerHiringPostResponse(
+                mapToResponse(hiringPost),
+                (long) applications.size(),
+                requested,
+                pendingTransfer,
+                accepted,
+                rejected,
+                cancelled
+        );
+    }
+
+    private long countApplicationsByStatus(
+            List<HiringApplication> applications,
+            EmploymentRequestStatus status) {
+        return applications.stream()
+                .filter(application ->
+                        application.getEmploymentRequest().getStatus() == status)
+                .count();
+    }
+
+    private ApiResponse<Void> validateUpdateRequest(UpdateHiringPostRequest request) {
+        if (request == null) {
+            return ApiResponse.error("Hiring post update information is required");
+        }
+
+        if (request.getTitle() == null
+                && request.getDescription() == null
+                && request.getExpiresAt() == null
+                && request.getAdditionalPositions() == null) {
+            return ApiResponse.error("At least one editable field is required");
+        }
+
+        if (request.getTitle() != null && request.getTitle().trim().length() < 3) {
+            return ApiResponse.error("Title must contain at least 3 characters");
+        }
+        if (request.getDescription() != null
+                && request.getDescription().trim().length() < 10) {
+            return ApiResponse.error("Description must contain at least 10 characters");
+        }
+        if (request.getExpiresAt() != null
+                && !request.getExpiresAt().isAfter(LocalDateTime.now())) {
+            return ApiResponse.error("Expiration date must be in the future");
+        }
+        if (request.getAdditionalPositions() != null
+                && request.getAdditionalPositions() < 0) {
+            return ApiResponse.error("Additional positions cannot be negative");
+        }
+        if (request.getAdditionalPositions() != null
+                && request.getAdditionalPositions() > Integer.MAX_VALUE / 2) {
+            return ApiResponse.error("Additional positions value is too large");
+        }
+
+        return ApiResponse.success("Hiring post update is valid", null);
+    }
+
+    private ApiResponse<Void> validateReopenRequest(ReopenHiringPostRequest request) {
+        if (request == null || request.getExpiresAt() == null) {
+            return ApiResponse.error("A new expiration date is required");
+        }
+        if (!request.getExpiresAt().isAfter(LocalDateTime.now())) {
+            return ApiResponse.error("The new expiration date must be in the future");
+        }
+        if (request.getAdditionalPositions() != null
+                && request.getAdditionalPositions() < 0) {
+            return ApiResponse.error("Additional positions cannot be negative");
+        }
+        if (request.getAdditionalPositions() != null
+                && request.getAdditionalPositions() > Integer.MAX_VALUE / 2) {
+            return ApiResponse.error("Additional positions value is too large");
+        }
+
+        return ApiResponse.success("Hiring post reopen information is valid", null);
     }
 
     private ApiResponse<Void> validateSearchRequest(HiringPostSearchRequest request) {
@@ -1016,6 +1431,7 @@ public class HiringPostServiceImpl implements HiringPostService {
                 hiringPost.getMinimumYearsOfExperience(),
                 hiringPost.getNumOfPositions(),
                 hiringPost.getStatus(),
+                hiringPost.getClosureReason(),
                 hiringPost.getCreatedAt(),
                 hiringPost.getExpiresAt(),
                 salon.getId(),

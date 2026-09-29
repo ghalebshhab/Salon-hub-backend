@@ -22,6 +22,9 @@ public class Salon {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     private String name;
 
     // this is the salon phone , not the owner .

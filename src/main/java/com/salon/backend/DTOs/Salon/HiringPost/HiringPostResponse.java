@@ -1,6 +1,7 @@
 package com.salon.backend.DTOs.Salon.HiringPost;
 
 import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
+import com.salon.backend.Entities.salons.hiringposts.HiringPostClosureReason;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class HiringPostResponse {
     private Integer minimumYearsOfExperience;
     private Integer numOfPositions;
     private HiringPostStatus status;
+    private HiringPostClosureReason closureReason;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
     private Long salonId;
