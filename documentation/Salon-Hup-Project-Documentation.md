@@ -3,8 +3,8 @@
 **Document type:** Product and technical specification  
 **Project:** Salon Hup  
 **Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.2
-**Last updated:** 26 September 2026  
+**Document version:** 1.3
+**Last updated:** 29 September 2026
 **Status:** Active development
 
 ## Document purpose
@@ -19,7 +19,7 @@ Salon Hup is a platform for managing salons, salon ownership, employment, hiring
 
 The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, user administration, hiring-post creation, ranked applications, and owner acceptance and rejection.
 
-Owner-side hiring-post management is the next active feature. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
+Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, and protected transfer cancellation are implemented. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
 
 ## Product goals
 
@@ -125,9 +125,10 @@ A hiring post belongs to one salon and stores:
 - Minimum years of experience.
 - Number of available positions.
 - `Open`, `Closed`, or `Expired` status.
+- A closure reason that distinguishes manual closure from closure caused by filled positions.
 - Creation and expiration timestamps.
 
-The backend obtains salon and owner details from the authenticated owner and database. The client cannot choose another owner or salon while creating a post.
+The backend obtains salon and owner details from the authenticated owner and database. The client cannot choose another owner or salon while creating a post. A version field and transactional write locks protect concurrent lifecycle and position updates.
 
 ### Hiring application
 
@@ -147,7 +148,7 @@ Login verifies account status and password, then returns a bearer JWT valid for 
 
 1. A visitor registers with first name, last name, username, email, phone number, and password.
 2. Registration validates identity fields, uniqueness, supported formats, and password strength, then creates an active `USER` account.
-3. The user logs in and receives a JWT. Authenticated endpoints identify the user from the token email.
+3. The user logs in and receives a JWT whose subject is the immutable database user ID. The authenticated principal also exposes email and role without accepting identity from the client.
 4. `GET /api/profile` returns one unified profile populated with the identity information already collected during registration.
 5. The user may keep the normal profile or select the client action represented by "Make your profile career."
 6. `PUT /api/profile/career` validates and stores the career section, then enables career mode on the same profile.
@@ -228,6 +229,22 @@ The match score is transparent and reproducible. Required skills contribute up t
 Only the owner of the salon connected to a hiring post can accept or reject its applications. Rejection requires a reason and reuses the existing employment-request rejection workflow.
 
 Acceptance reuses the employment-request acceptance workflow. An applicant without a current salon joins immediately. An applicant already employed elsewhere enters `Accepted_Pending_Leave`, and the existing transfer leave request is created. Acceptance reserves one advertised position. A post closes when no positions remain. If a pending transfer is cancelled, the reserved position is restored and an unexpired post reopens when appropriate.
+
+### Hiring-post lifecycle management
+
+The salon owner can list all owned hiring posts, inspect one post with application counts, edit allowed fields, close a post manually, and reopen it. Requirements remain editable until the first application exists. After an application exists, the owner may change only the title, description, expiration date, and number of positions so the requirements used for ranking historical applicants remain stable.
+
+Reopening requires a future expiration date. A closed or expired post can reopen with its restored positions; when no position is available, the owner must add at least one. Manual closure remains closed when a position is later restored. A post closed because all positions were filled automatically reopens after a pending hiring transfer is cancelled when it is still unexpired.
+
+A scheduled service marks open posts as expired when their expiration time passes. Request-time checks also expire stale posts before an operation continues, so correctness does not depend only on the scheduler.
+
+Applicants can view their permanent application history. An application itself cannot be deleted or cancelled and a rejected or cancelled applicant cannot apply again to the same post. When an accepted application is waiting for the applicant to leave a current salon, the applicant may cancel the linked join request. This cancels the employment transfer and restores the reserved position. Fully accepted employment uses the normal leave workflow instead.
+
+### Authenticated employment identity
+
+Employment and leave endpoints never accept a current-user ID from request parameters. The JWT subject stores the immutable user ID, the authentication filter loads that user by primary key, and controllers receive a typed authenticated principal. Service authorization compares the authenticated ID with the request sender, receiver, employee, or salon owner as required.
+
+Employment and leave endpoints return dedicated response DTOs instead of exposing JPA entities. The DTOs contain the request, salon, participant, hiring-post, status, reason, and timestamp fields needed by clients without exposing entity graphs or account secrets.
 
 ## Hiring-post creation contract
 
@@ -327,6 +344,8 @@ All routes except explicitly public authentication routes require a valid bearer
 | POST | `/api/employment/leave/cancel/{requestId}` | Cancel a leave request |
 | POST | `/api/employment/invitation/accept-and-leave` | Accept an invitation and start a transfer |
 
+The authenticated user for every route above comes from the JWT principal. No route accepts `currentUserId` from the client.
+
 ### Hiring
 
 | Method | Route | Purpose | Status |
@@ -337,6 +356,13 @@ All routes except explicitly public authentication routes require a valid bearer
 | GET | `/api/hiring-posts/{id}/applications` | Owner reviews ranked post applications | Implemented |
 | POST | `/api/hiring-posts/applications/{id}/accept` | Accept an applicant and execute employment rules | Implemented |
 | POST | `/api/hiring-posts/applications/{id}/reject` | Reject an applicant with a reason | Implemented |
+| GET | `/api/hiring-posts/owner` | List the authenticated owner's posts, optionally filtered by status | Implemented |
+| GET | `/api/hiring-posts/owner/{id}` | Inspect an owned post and its application counts | Implemented |
+| PUT | `/api/hiring-posts/owner/{id}` | Edit an owned post under lifecycle locking rules | Implemented |
+| POST | `/api/hiring-posts/owner/{id}/close` | Close an owned post manually | Implemented |
+| POST | `/api/hiring-posts/owner/{id}/reopen` | Reopen a closed or expired post with a future expiration | Implemented |
+| GET | `/api/hiring-posts/applications/me` | Return the authenticated applicant's permanent history | Implemented |
+| POST | `/api/hiring-posts/applications/{id}/cancel-join` | Cancel a linked pending transfer and restore its reserved position | Implemented |
 
 ### Administration and users
 
@@ -353,7 +379,9 @@ All routes except explicitly public authentication routes require a valid bearer
 
 ## Security model
 
-Spring Security runs without server sessions. The JWT filter reads the bearer token, validates its signature and expiration, loads the user by email, and places the authenticated identity and role in the security context. Passwords use BCrypt.
+Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt. Tokens issued before this subject change require a new login.
+
+The authentication filter does not log authorization headers or bearer-token values. Employment and leave controllers derive caller identity from `@AuthenticationPrincipal` and return response DTOs.
 
 Public routes include login, registration, password-recovery placeholders, dashboard login, API documentation routes, and selected search routes. Dashboard salon and user routes require the `ADMIN` role. Other routes require authentication unless explicitly allowed.
 
@@ -363,29 +391,26 @@ Production deployment requires moving database, email, and JWT secrets to enviro
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Registration and login | Implemented | Core validation, BCrypt, and JWT available |
+| Registration and login | Implemented | Core validation, BCrypt, JWT, and immutable-ID authenticated principal available |
 | Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
 | Logout | Implemented | In-memory blacklist; not durable across restarts |
 | Salon onboarding | Implemented | User request and admin decision available |
 | Salon profile update | Implemented | Ownership check exists |
-| Direct employment | Implemented | Request, invite, accept, reject, and cancel available |
-| Leave and transfer | Implemented | Normal departure and cross-salon transfer available |
+| Direct employment | Implemented | Request, invite, accept, reject, cancel, authenticated identity, and response DTOs available |
+| Leave and transfer | Implemented | Normal departure, cross-salon transfer, secure cancellation, and position restoration available |
 | Hiring-post creation | Implemented | DTO, repository, service, controller, and validation compile successfully |
 | Hiring-post discovery | Implemented | Pagination, filters, controlled sorting, personalized labels, and ranked results available |
 | Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
+| Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
 | Customer booking | Planned | Domain and APIs not yet created |
-| Automated tests | Initial | Context, personalized ranking, and URL-validation tests exist; broader coverage remains required |
+| Automated tests | Initial | JWT identity, employment authorization, hiring lifecycle, expiration, and URL-validation tests exist; broader coverage remains required |
 | Deployment configuration | Planned | Profiles, secrets, migrations, packaging, monitoring, and hosting remain |
 
 ## Known technical risks
 
-### Authorization identity
-
-Several employment endpoints currently accept `currentUserId` as a request parameter. The authenticated user identity should instead be obtained from Spring Security to prevent one authenticated user from acting as another user.
-
 ### Entity exposure
 
-Some controllers return JPA entities directly. This can expose password hashes, create circular JSON graphs, and couple the API to the database structure. Response DTOs should be used for all public API responses.
+Employment and leave routes now return dedicated DTOs. Some other controllers still return JPA entities directly, which can expose password hashes, create circular JSON graphs, and couple the API to the database structure. Response DTOs should be completed for the remaining public API responses.
 
 ### Secret management
 
@@ -397,7 +422,7 @@ The logout blacklist is stored in application memory. It disappears after a rest
 
 ### Data integrity and concurrency
 
-Employee capacity changes can race when multiple requests are accepted simultaneously. Database constraints, transactional locking, or optimistic version fields should protect capacity and employment state.
+Hiring-post position reservation, post lifecycle changes, and linked transfer cancellation now use transactional locks and version fields. Remaining employee-capacity mutations should be audited and covered with database-backed concurrency tests before deployment.
 
 ### Error and validation consistency
 
@@ -409,17 +434,17 @@ Hibernate currently uses automatic schema update. Production environments should
 
 ## Development roadmap
 
-### Priority 1 Complete hiring management
+### Priority 1 Complete hiring management - completed
 
 - Allow owners to edit, close, and inspect their posts.
 - Add scheduled expiration handling.
 - Let applicants list and cancel their pending applications.
-- Define whether a rejected applicant may apply again to the same post.
+- Prevent repeat application after rejection or cancellation.
 
-### Priority 2 Secure existing workflows
+### Priority 2 Secure existing workflows - in progress
 
-- Replace request-supplied current user IDs with authenticated identities.
-- Introduce response DTOs for users, salons, employment requests, and leave requests.
+- Replace request-supplied current user IDs with authenticated identities. Completed for employment and leave.
+- Introduce response DTOs for users, salons, employment requests, and leave requests. Completed for employment and leave; remaining resources still require DTO coverage.
 - Add role checks at route and service levels.
 - Correct the admin salon lookup and owner-blocking behavior.
 - Correct the salon-rejection request contract.
@@ -473,6 +498,7 @@ Approved feature batches should update the document version, last-updated date, 
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.3 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
 | 1.2 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
 | 1.1 | 26 September 2026 | Added ranked hiring applications, optional résumé scoring, owner decisions, position reservation, and transfer integration |
 | 1.0 | 26 September 2026 | Initial professional project specification covering the existing backend and hiring-post creation workflow |
