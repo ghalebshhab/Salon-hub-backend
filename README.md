@@ -44,6 +44,19 @@ The project follows a structured backend design with separation between:
 
 Active development.
 
+## Local configuration
+
+The application reads credentials and signing material from environment variables. Use [`.env.example`](.env.example) as the list of required values; Spring Boot does not automatically load `.env` files, so provide the variables through your IDE, shell, container, or deployment secret manager.
+
+Required secrets:
+
+- `DB_PASSWORD`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
+- `JWT_SECRET`, encoded as Base64 and containing at least 32 random bytes before encoding
+
+The database URL, database username, mail host, mail port, and JWT lifetime have development defaults and may also be overridden through the variables shown in `.env.example`.
+
 ## Related Repository
 
 Frontend:

@@ -7,7 +7,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JwtServiceTest {
 
-    private final JwtService jwtService = new JwtService();
+    private static final String TEST_SECRET =
+            "VGhpcy1pcy1hLXRlc3Qtc2VjcmV0LXdpdGgtYXQtbGVhc3QtMzItYnl0ZXM=";
+
+    private final JwtService jwtService = new JwtService(TEST_SECRET, 86_400_000L);
 
     @Test
     void tokenUsesImmutableUserIdAsSubjectAndKeepsEmailAsClaim() {
