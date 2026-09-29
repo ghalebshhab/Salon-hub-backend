@@ -3,7 +3,7 @@
 **Document type:** Product and technical specification  
 **Project:** Salon Hup  
 **Backend version:** 0.0.1 SNAPSHOT  
-**Document version:** 1.4
+**Document version:** 1.5
 **Last updated:** 29 September 2026
 **Status:** Active development
 
@@ -173,9 +173,11 @@ The same career endpoint activates a normal profile and updates an existing care
 3. The salon is created with `Requested` status.
 4. An administrator reviews the request.
 5. Acceptance changes the salon to `Accepted` and promotes its user to `OWNER`.
-6. Rejection changes the salon to `Rejected`.
+6. Rejection requires a reason, stores it on the salon, and changes the salon to `Rejected`.
+7. The owner can view the reason, correct the rejected salon details, and explicitly resubmit the same request.
+8. Each resubmission clears the previous reason and returns the salon to `Requested`. A salon may be resubmitted at most three times.
 
-Only the salon owner can update the owned salon through the service ownership check.
+Only the salon owner can update or resubmit the owned salon through the service ownership check. Editing alone does not resubmit a rejected salon. A rejected owner cannot create a second salon request to bypass the resubmission limit. Acceptance, rejection, and resubmission use transactional write locks.
 
 ### Direct employment request
 
@@ -326,10 +328,12 @@ All routes except explicitly public authentication routes require a valid bearer
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/api/salons` | Return salons |
+| GET | `/api/salons` | Return all salons to an administrator |
 | GET | `/api/salons/active` | Return accepted salons |
+| GET | `/api/salons/mine` | Return the authenticated owner's salon, rejection reason, and resubmission counters |
 | POST | `/api/salons/create` | Request creation of a salon |
 | PUT | `/api/salons/{salonId}/edit` | Update an owned salon |
+| POST | `/api/salons/{salonId}/resubmit` | Resubmit a rejected owned salon, up to three times |
 
 ### Employment and leave
 
@@ -371,8 +375,8 @@ The authenticated user for every route above comes from the JWT principal. No ro
 | --- | --- | --- |
 | POST | `/api/dashboard/login` | Authenticate an administrator |
 | GET | `/api/dashboard/salons/requested` | Review requested salons |
-| POST | `/api/dashboard/salons/requested/accept` | Accept a salon request |
-| POST | `/api/dashboard/salons/requested/reject` | Reject a salon request |
+| POST | `/api/dashboard/salons/requested/accept` | Accept a salon request by salon ID |
+| POST | `/api/dashboard/salons/requested/reject` | Reject a salon request with a required persisted reason |
 | POST | `/api/dashboard/users/{userId}/block` | Block a user |
 | GET | `/api/users` | Return users |
 | GET | `/api/users/active` | Return active users |
@@ -399,8 +403,9 @@ Automated tests use an isolated H2 in-memory database with test-only mail and JW
 | Registration and login | Implemented | Core validation, BCrypt, JWT, and immutable-ID authenticated principal available |
 | Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
 | Logout | Implemented | In-memory blacklist; not durable across restarts |
-| Salon onboarding | Implemented | User request and admin decision available |
-| Salon profile update | Implemented | Ownership check exists |
+| Salon onboarding | Implemented | Admin approval, persisted rejection reason, correction, and three explicit resubmissions available |
+| Salon profile update | Implemented | Ownership check and rejected-request correction exist |
+| User and salon response DTOs | Implemented | Listing endpoints omit passwords and persistence entity graphs |
 | Direct employment | Implemented | Request, invite, accept, reject, cancel, authenticated identity, and response DTOs available |
 | Leave and transfer | Implemented | Normal departure, cross-salon transfer, secure cancellation, and position restoration available |
 | Hiring-post creation | Implemented | DTO, repository, service, controller, and validation compile successfully |
@@ -416,7 +421,7 @@ Automated tests use an isolated H2 in-memory database with test-only mail and JW
 
 ### Entity exposure
 
-Employment and leave routes now return dedicated DTOs. Some other controllers still return JPA entities directly, which can expose password hashes, create circular JSON graphs, and couple the API to the database structure. Response DTOs should be completed for the remaining public API responses.
+Employment, leave, user-listing, salon-listing, and requested-salon routes return dedicated DTOs. Remaining controllers should be audited for direct JPA entity responses before deployment.
 
 ### Secret management
 
@@ -450,10 +455,10 @@ Hibernate currently uses automatic schema update. Production environments should
 ### Priority 2 Secure existing workflows - in progress
 
 - Replace request-supplied current user IDs with authenticated identities. Completed for employment and leave.
-- Introduce response DTOs for users, salons, employment requests, and leave requests. Completed for employment and leave; remaining resources still require DTO coverage.
+- Introduce response DTOs for users, salons, employment requests, and leave requests. Completed for these current API surfaces; remaining controllers still require an exposure audit.
 - Add role checks at route and service levels.
 - Correct the admin salon lookup and owner-blocking behavior.
-- Correct the salon-rejection request contract.
+- Correct the salon-rejection request contract. Completed with persisted reasons and controlled resubmission.
 
 ### Priority 3 Hiring workflow hardening
 
@@ -504,6 +509,7 @@ Approved feature batches should update the document version, last-updated date, 
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.5 | 29 September 2026 | Added safe user and salon listing DTOs, administrator-only full salon listing, persisted salon rejection reasons, owner correction, and a three-resubmission limit |
 | 1.4 | 29 September 2026 | Externalized database, SMTP, and JWT secrets; added a safe environment contract, configurable JWT lifetime, and isolated H2 test configuration |
 | 1.3 | 29 September 2026 | Added owner hiring-post lifecycle management, scheduled expiration, applicant history, protected position restoration, employment and leave DTOs, and immutable user-ID JWT principals |
 | 1.2 | 26 September 2026 | Added the unified normal/career profile, multiple preferred locations, personalized hiring discovery, profile-based application snapshots, URL validation, and ranking tests |
