@@ -59,4 +59,10 @@ public class Salon {
     private SalonStatus status;
 
     private SalonOpenningStatus openningStatus;
+
+    @Column(length = 1000)
+    private String rejectionReason;
+
+    @Column(nullable = false)
+    private int resubmissionCount;
 }

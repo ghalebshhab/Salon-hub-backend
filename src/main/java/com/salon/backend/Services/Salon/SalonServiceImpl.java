@@ -4,6 +4,7 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.CreateSalonResponse;
 import com.salon.backend.DTOs.Salon.UpdateSalonRequest;
+import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
@@ -12,6 +13,7 @@ import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -20,6 +22,8 @@ import java.util.Optional;
 @Service
 @AllArgsConstructor
 public class SalonServiceImpl implements SalonService {
+
+    private static final int MAX_RESUBMISSIONS = 3;
 
     private final SalonRepo salonRepo;
     private  final UserRepo userRepo;
@@ -35,10 +39,19 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("User not found");
         }
         User newUser=user.get();
-        Salon salo= salonRepo.findByOwnerPhoneNumber(newUser.getPhoneNumber());
+        Salon salo = salonRepo.findByOwnerEmail(newUser.getEmail());
 
-        if(salo!=null&&salo.getStatus()==SalonStatus.Requested){
-            return ApiResponse.error("You have a Salon already requested");
+        if (salo != null && salo.getStatus() == SalonStatus.Requested) {
+            return ApiResponse.error("You already have a salon request under review");
+        }
+        if (salo != null && salo.getStatus() == SalonStatus.Rejected) {
+            if (salo.getResubmissionCount() >= MAX_RESUBMISSIONS) {
+                return ApiResponse.error("You have reached the maximum of 3 salon resubmissions");
+            }
+            return ApiResponse.error("Edit and resubmit your existing rejected salon request");
+        }
+        if (salo != null && salo.getStatus() != SalonStatus.DELETED) {
+            return ApiResponse.error("You already have a salon");
         }
         if(newUser.getRole()== UserRole.OWNER) {
             return ApiResponse.error("You are Owner for an Another Salon");
@@ -95,6 +108,8 @@ public class SalonServiceImpl implements SalonService {
         salon.setStatus(SalonStatus.Requested);
         salon.setName(createSalonRequest.getSalonName());
         salon.setCurrentEmployeesNumber(1L);
+        salon.setResubmissionCount(0);
+        salon.setRejectionReason(null);
         salonRepo.save(salon);
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
@@ -254,26 +269,97 @@ public class SalonServiceImpl implements SalonService {
     }
 
     @Override
-    public ApiResponse<CreateSalonResponse> getSalonByOwnerEmail(String email) {
+    public ApiResponse<SalonResponse> getSalonByOwnerEmail(String email) {
         Salon salon=salonRepo.findByOwnerEmail(email);
         if(salon==null){
             return ApiResponse.error("Salon Not Found");
         }
-        CreateSalonResponse createSalonResponse=new CreateSalonResponse(
+        return ApiResponse.success("Salon Fetched Successfully", mapSalonResponse(salon));
+    }
+
+    @Override
+    public ApiResponse<List<SalonResponse>> getAllSalons() {
+        List<SalonResponse> salons = salonRepo.findAll().stream()
+                .map(this::mapSalonResponse)
+                .toList();
+        return ApiResponse.success("Salons Fetched Successfully", salons);
+    }
+
+    @Override
+    public ApiResponse<List<SalonResponse>> getActiveSalons() {
+        List<SalonResponse> salons = salonRepo.findByStatus(SalonStatus.Accepted).stream()
+                .map(this::mapSalonResponse)
+                .toList();
+        return ApiResponse.success("Active Salons Fetched Successfully", salons);
+    }
+
+    @Override
+    public ApiResponse<List<SalonResponse>> getRequestedSalons() {
+        List<SalonResponse> salons = salonRepo.findByStatus(SalonStatus.Requested).stream()
+                .map(this::mapSalonResponse)
+                .toList();
+        return ApiResponse.success("Requested Salons Fetched Successfully", salons);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, String ownerEmail) {
+        if (salonId == null) {
+            return ApiResponse.error("Salon id is required");
+        }
+
+        User owner = userRepo.findByemail(ownerEmail);
+        if (owner == null) {
+            return ApiResponse.error("User not found");
+        }
+
+        Optional<Salon> optionalSalon = salonRepo.findByIdForUpdate(salonId);
+        if (optionalSalon.isEmpty()) {
+            return ApiResponse.error("Salon Not Found");
+        }
+
+        Salon salon = optionalSalon.get();
+        if (salon.getOwner() == null || salon.getOwner().getId() != owner.getId()) {
+            return ApiResponse.error("You can only resubmit your salon request");
+        }
+        if (salon.getStatus() != SalonStatus.Rejected) {
+            return ApiResponse.error("Only a rejected salon request can be resubmitted");
+        }
+        if (salon.getResubmissionCount() >= MAX_RESUBMISSIONS) {
+            return ApiResponse.error("You have reached the maximum of 3 salon resubmissions");
+        }
+
+        salon.setResubmissionCount(salon.getResubmissionCount() + 1);
+        salon.setRejectionReason(null);
+        salon.setStatus(SalonStatus.Requested);
+        salonRepo.save(salon);
+
+        return ApiResponse.success("Salon resubmitted successfully", mapSalonResponse(salon));
+    }
+
+    private SalonResponse mapSalonResponse(Salon salon) {
+        User owner = salon.getOwner();
+        return new SalonResponse(
                 salon.getId(),
                 salon.getName(),
                 salon.getSalonPhoneNumber(),
                 salon.getEmail(),
                 salon.getLocation(),
+                salon.getDescription(),
+                owner == null ? null : owner.getId(),
+                owner == null ? null : owner.getUserName(),
                 salon.getOwnerPhoneNumber(),
-                salon.getOwner().getUserName(),
+                salon.getCurrentEmployeesNumber(),
+                salon.getMaxEmployeesNumber(),
+                salon.getCreatedAt(),
                 salon.getOpeningTime(),
                 salon.getClosingTime(),
                 salon.getProfilePictureUrl(),
-                salon.getCurrentEmployeesNumber(),
-                salon.getMaxEmployeesNumber()
-
+                salon.getStatus(),
+                salon.getOpenningStatus(),
+                salon.getRejectionReason(),
+                salon.getResubmissionCount(),
+                Math.max(0, MAX_RESUBMISSIONS - salon.getResubmissionCount())
         );
-        return ApiResponse.success("Salon Fetched Successfully", createSalonResponse);
     }
 }

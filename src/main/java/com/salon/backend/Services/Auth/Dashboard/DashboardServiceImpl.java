@@ -3,8 +3,7 @@ package com.salon.backend.Services.Auth.Dashboard;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginRequest;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginResponse;
-import com.salon.backend.DTOs.Salon.CreateSalonRequest;
-import com.salon.backend.DTOs.Salon.CreateSalonResponse;
+import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
@@ -13,11 +12,13 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Salon.SalonService;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -28,6 +29,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final JwtService jwtService;
     private final SalonRepo salonRepo;
+    private final SalonService salonService;
     @Override
     public ApiResponse<DashboardLoginResponse> DashboardLogin(
             DashboardLoginRequest dashboardLoginRequest) {
@@ -65,76 +67,73 @@ public class DashboardServiceImpl implements DashboardService {
         );
     }
     @Override
-    public ApiResponse<CreateSalonResponse> AcceptSalonRequest(CreateSalonRequest createSalonRequest,String adminEmail) {
-        User user=validateAdmin(adminEmail).getData();
-        Optional<User> own=userRepo.findById(createSalonRequest.getOwnerId());
-        if(own.isEmpty()){
-            return ApiResponse.error("Owner not found");
+    @Transactional
+    public ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, String adminEmail) {
+        ApiResponse<User> adminResponse = validateAdmin(adminEmail);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
         }
 
-        Salon salon=salonRepo.findByEmail(own.get().getEmail());
-        if(salon==null){
+        if (salonId == null) {
+            return ApiResponse.error("Salon id is required");
+        }
+
+        Optional<Salon> optionalSalon = salonRepo.findByIdForUpdate(salonId);
+        if(optionalSalon.isEmpty()){
             return ApiResponse.error("Salon not found");
         }
+        Salon salon = optionalSalon.get();
         if(salon.getStatus()!=SalonStatus.Requested){
             return ApiResponse.error("Salon not requested");
         }
         salon.setStatus(SalonStatus.Accepted);
+        salon.setRejectionReason(null);
         salonRepo.save(salon);
-        own.get().setRole(UserRole.OWNER);
-        userRepo.save(own.get());
+        User owner = salon.getOwner();
+        owner.setRole(UserRole.OWNER);
+        userRepo.save(owner);
 
-        return ApiResponse.success("Salon Creation Request Accepted",new CreateSalonResponse(
-                salon.getId(),
-                salon.getName(),
-                salon.getSalonPhoneNumber(),
-                salon.getEmail(),
-                salon.getLocation(),
-                salon.getOwnerPhoneNumber(),
-                salon.getOwner().getUserName(),
-                salon.getOpeningTime(),
-                salon.getClosingTime(),
-                salon.getProfilePictureUrl(),
-                salon.getCurrentEmployeesNumber(),
-                salon.getMaxEmployeesNumber()
-        ));
+        ApiResponse<SalonResponse> salonResponse =
+                salonService.getSalonByOwnerEmail(owner.getEmail());
+        return ApiResponse.success("Salon Creation Request Accepted", salonResponse.getData());
     }
 
     @Override
-    public ApiResponse<CreateSalonResponse> RejectSalonRequest(CreateSalonRequest createSalonRequest,String adminEmail, String rejectionReason) {
-        User user=validateAdmin(adminEmail).getData();
-        Optional<User> own=userRepo.findById(createSalonRequest.getOwnerId());
-        if(own.isEmpty()){
-            return ApiResponse.error("Owner not found");
+    @Transactional
+    public ApiResponse<SalonResponse> rejectSalonRequest(
+            Long salonId,
+            String adminEmail,
+            String rejectionReason) {
+        ApiResponse<User> adminResponse = validateAdmin(adminEmail);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
         }
 
-        Salon salon=salonRepo.findByOwnerEmail(own.get().getEmail());
-        if(salon==null){
+        if (salonId == null) {
+            return ApiResponse.error("Salon id is required");
+        }
+        if (rejectionReason == null || rejectionReason.isBlank()) {
+            return ApiResponse.error("Rejection reason is required");
+        }
+        if (rejectionReason.trim().length() > 1000) {
+            return ApiResponse.error("Rejection reason cannot exceed 1000 characters");
+        }
+
+        Optional<Salon> optionalSalon = salonRepo.findByIdForUpdate(salonId);
+        if(optionalSalon.isEmpty()){
             return ApiResponse.error("Salon not found");
         }
+        Salon salon = optionalSalon.get();
         if(salon.getStatus()!=SalonStatus.Requested){
             return ApiResponse.error("Salon not requested");
         }
         salon.setStatus(SalonStatus.Rejected);
+        salon.setRejectionReason(rejectionReason.trim());
         salonRepo.save(salon);
 
-
-        return ApiResponse.success("Salon Creation Request Rejected , "+rejectionReason,new CreateSalonResponse(
-                salon.getId(),
-                salon.getName(),
-                salon.getSalonPhoneNumber(),
-                salon.getEmail(),
-                salon.getLocation(),
-                salon.getOwnerPhoneNumber(),
-                salon.getOwner().getUserName(),
-                salon.getOpeningTime(),
-                salon.getClosingTime(),
-                salon.getProfilePictureUrl(),
-                salon.getCurrentEmployeesNumber(),
-                salon.getMaxEmployeesNumber()
-        ));
-
-
+        ApiResponse<SalonResponse> salonResponse =
+                salonService.getSalonByOwnerEmail(salon.getOwner().getEmail());
+        return ApiResponse.success("Salon Creation Request Rejected", salonResponse.getData());
     }
     @Override
     public ApiResponse<String> blockUser(Long userId) {
