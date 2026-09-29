@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Auth.Security;
 
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Entities.users.UserStatus;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,16 +15,19 @@ public final class AuthenticatedUser implements UserDetails {
     private final String email;
     private final String password;
     private final List<GrantedAuthority> authorities;
+    private final boolean enabled;
 
     private AuthenticatedUser(
             Long id,
             String email,
             String password,
-            List<GrantedAuthority> authorities) {
+            List<GrantedAuthority> authorities,
+            boolean enabled) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
+        this.enabled = enabled;
     }
 
     public static AuthenticatedUser from(User user) {
@@ -31,7 +35,8 @@ public final class AuthenticatedUser implements UserDetails {
                 user.getId(),
                 user.getEmail(),
                 user.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())),
+                user.getStatus() == UserStatus.Active
         );
     }
 
@@ -56,5 +61,10 @@ public final class AuthenticatedUser implements UserDetails {
     @Override
     public String getUsername() {
         return email;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
     }
 }

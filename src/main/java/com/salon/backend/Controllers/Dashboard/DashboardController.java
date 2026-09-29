@@ -52,7 +52,21 @@ public class DashboardController {
     @PostMapping("/users/{userId}/block")
     public ApiResponse<String> blockUser(@PathVariable Long userId){
         return dashboardService.blockUser(userId);
+    }
 
+    @PostMapping("/users/{userId}/unblock")
+    public ApiResponse<String> unblockUser(@PathVariable Long userId){
+        return dashboardService.unblockUser(userId);
+    }
+
+    @PostMapping("/salons/{salonId}/block")
+    public ApiResponse<String> blockSalon(@PathVariable Long salonId){
+        return dashboardService.blockSalon(salonId);
+    }
+
+    @PostMapping("/salons/{salonId}/unblock")
+    public ApiResponse<String> unblockSalon(@PathVariable Long salonId){
+        return dashboardService.unblockSalon(salonId);
     }
 
 }

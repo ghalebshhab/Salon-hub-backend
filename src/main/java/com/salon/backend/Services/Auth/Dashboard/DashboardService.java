@@ -11,4 +11,7 @@ public interface DashboardService {
     ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, String adminEmail);
     ApiResponse<SalonResponse> rejectSalonRequest(Long salonId, String adminEmail, String rejectionReason);
     ApiResponse<String> blockUser(Long userId);
+    ApiResponse<String> unblockUser(Long userId);
+    ApiResponse<String> blockSalon(Long salonId);
+    ApiResponse<String> unblockSalon(Long salonId);
 }

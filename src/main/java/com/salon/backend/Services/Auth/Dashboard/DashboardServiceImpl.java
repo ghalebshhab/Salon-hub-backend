@@ -136,28 +136,172 @@ public class DashboardServiceImpl implements DashboardService {
         return ApiResponse.success("Salon Creation Request Rejected", salonResponse.getData());
     }
     @Override
+    @Transactional
     public ApiResponse<String> blockUser(Long userId) {
-    Optional<User> userOptional=userRepo.findById(userId);
-    if(userOptional.isEmpty()){
-        return ApiResponse.error("User not found");
+        if (userId == null) {
+            return ApiResponse.error("User id is required");
+        }
+
+        Optional<User> userOptional = userRepo.findByIdForUpdate(userId);
+        if (userOptional.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+
+        User user = userOptional.get();
+        if (user.getStatus() == UserStatus.Deleted) {
+            return ApiResponse.error("Deleted user cannot be blocked");
+        }
+        if (user.getRole() == UserRole.ADMIN) {
+            return ApiResponse.error("Admin users cannot be blocked");
+        }
+        if (user.getStatus() == UserStatus.Blocked) {
+            return ApiResponse.error("User already blocked");
+        }
+
+        Salon ownedSalon = salonRepo.findByOwnerEmail(user.getEmail());
+        if (ownedSalon != null && ownedSalon.getStatus() != SalonStatus.DELETED) {
+            Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(ownedSalon.getId());
+            if (salonOptional.isPresent()) {
+                Salon salon = salonOptional.get();
+                blockSalonState(salon, false);
+                salonRepo.save(salon);
+            }
+        }
+
+        user.setStatus(UserStatus.Blocked);
+        userRepo.save(user);
+        return ApiResponse.success("User Blocked", null);
     }
-    User user=userOptional.get();
-    if(user.getStatus()!= UserStatus.Active){
-        return ApiResponse.error("User not active");
+
+    @Override
+    @Transactional
+    public ApiResponse<String> unblockUser(Long userId) {
+        if (userId == null) {
+            return ApiResponse.error("User id is required");
+        }
+
+        Optional<User> userOptional = userRepo.findByIdForUpdate(userId);
+        if (userOptional.isEmpty()) {
+            return ApiResponse.error("User not found");
+        }
+
+        User user = userOptional.get();
+        if (user.getStatus() == UserStatus.Deleted) {
+            return ApiResponse.error("Deleted user cannot be unblocked");
+        }
+        if (user.getStatus() != UserStatus.Blocked) {
+            return ApiResponse.error("User is not blocked");
+        }
+
+        Salon ownedSalon = salonRepo.findByOwnerEmail(user.getEmail());
+        if (ownedSalon != null && ownedSalon.getStatus() != SalonStatus.DELETED) {
+            Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(ownedSalon.getId());
+            if (salonOptional.isPresent()) {
+                Salon salon = salonOptional.get();
+                salon.setBlockedByOwner(false);
+                restoreSalonWhenFullyUnblocked(salon);
+                salonRepo.save(salon);
+            }
+        }
+
+        user.setStatus(UserStatus.Active);
+        userRepo.save(user);
+        return ApiResponse.success("User Unblocked", null);
     }
-    if(user.getRole()==UserRole.OWNER){
-        Optional<Salon> opsalon=salonRepo.findById(user.getId());
-        if(opsalon.isEmpty()){
+
+    @Override
+    @Transactional
+    public ApiResponse<String> blockSalon(Long salonId) {
+        if (salonId == null) {
+            return ApiResponse.error("Salon id is required");
+        }
+
+        Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(salonId);
+        if (salonOptional.isEmpty()) {
             return ApiResponse.error("Salon not found");
         }
-        Salon salon=opsalon.get();
-        salon.setStatus(SalonStatus.Inactive);
-        salonRepo.save(salon);
-    }
-    user.setStatus(UserStatus.Blocked);
-    userRepo.save(user);
 
-        return ApiResponse.success("User Blocked",null);
+        Salon salon = salonOptional.get();
+        if (salon.getStatus() == SalonStatus.DELETED) {
+            return ApiResponse.error("Deleted salon cannot be blocked");
+        }
+        if (salon.isBlockedByAdmin()) {
+            return ApiResponse.error("Salon already blocked");
+        }
+
+        blockSalonState(salon, true);
+        User owner = salon.getOwner();
+        if (owner != null) {
+            Optional<User> ownerOptional = userRepo.findByIdForUpdate(owner.getId());
+            if (ownerOptional.isPresent()) {
+                User lockedOwner = ownerOptional.get();
+                salon.setOwnerRoleBeforeAdminBlock(lockedOwner.getRole());
+                lockedOwner.setRole(UserRole.USER);
+                userRepo.save(lockedOwner);
+            }
+        }
+        salonRepo.save(salon);
+        return ApiResponse.success("Salon Blocked", null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<String> unblockSalon(Long salonId) {
+        if (salonId == null) {
+            return ApiResponse.error("Salon id is required");
+        }
+
+        Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(salonId);
+        if (salonOptional.isEmpty()) {
+            return ApiResponse.error("Salon not found");
+        }
+
+        Salon salon = salonOptional.get();
+        if (salon.getStatus() == SalonStatus.DELETED) {
+            return ApiResponse.error("Deleted salon cannot be unblocked");
+        }
+        if (!salon.isBlockedByAdmin()) {
+            return ApiResponse.error("Salon is not blocked by admin");
+        }
+
+        salon.setBlockedByAdmin(false);
+        User owner = salon.getOwner();
+        if (owner != null && salon.getOwnerRoleBeforeAdminBlock() != null) {
+            Optional<User> ownerOptional = userRepo.findByIdForUpdate(owner.getId());
+            if (ownerOptional.isPresent()) {
+                User lockedOwner = ownerOptional.get();
+                lockedOwner.setRole(salon.getOwnerRoleBeforeAdminBlock());
+                userRepo.save(lockedOwner);
+            }
+            salon.setOwnerRoleBeforeAdminBlock(null);
+        }
+        restoreSalonWhenFullyUnblocked(salon);
+        salonRepo.save(salon);
+        return ApiResponse.success("Salon Unblocked", null);
+    }
+
+    private void blockSalonState(Salon salon, boolean blockedByAdmin) {
+        if (!salon.isBlockedByAdmin() && !salon.isBlockedByOwner()) {
+            salon.setStatusBeforeBlock(salon.getStatus());
+        }
+        if (blockedByAdmin) {
+            salon.setBlockedByAdmin(true);
+        } else {
+            salon.setBlockedByOwner(true);
+        }
+        salon.setStatus(SalonStatus.Inactive);
+    }
+
+    private void restoreSalonWhenFullyUnblocked(Salon salon) {
+        if (salon.isBlockedByAdmin() || salon.isBlockedByOwner()) {
+            salon.setStatus(SalonStatus.Inactive);
+            return;
+        }
+
+        if (salon.getStatusBeforeBlock() != null) {
+            salon.setStatus(salon.getStatusBeforeBlock());
+            salon.setStatusBeforeBlock(null);
+        }
     }
 
     private ApiResponse<User> validateAdmin(String email){
@@ -169,6 +313,10 @@ public class DashboardServiceImpl implements DashboardService {
 
         if(admin.getRole() != UserRole.ADMIN){
           return ApiResponse.error("You are not Admin , Access Denied");
+        }
+
+        if (admin.getStatus() != UserStatus.Active) {
+            return ApiResponse.error("Admin account is not active");
         }
 
         return ApiResponse.success("Admin Founded",admin);

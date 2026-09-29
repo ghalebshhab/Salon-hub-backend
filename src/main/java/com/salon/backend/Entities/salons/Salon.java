@@ -1,6 +1,7 @@
 package com.salon.backend.Entities.salons;
 
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Entities.users.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -57,6 +58,18 @@ public class Salon {
     private String profilePictureUrl;
 
     private SalonStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private SalonStatus statusBeforeBlock;
+
+    @Column(nullable = false)
+    private boolean blockedByAdmin;
+
+    @Column(nullable = false)
+    private boolean blockedByOwner;
+
+    @Enumerated(EnumType.STRING)
+    private UserRole ownerRoleBeforeAdminBlock;
 
     private SalonOpenningStatus openningStatus;
 

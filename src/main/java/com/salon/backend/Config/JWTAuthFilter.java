@@ -63,7 +63,8 @@ public class JWTAuthFilter extends OncePerRequestFilter {
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 var userDetails = userDetailsService.loadById(userId);
 
-                if (jwtService.isTokenValid(jwt, userDetails.getId())) {
+                if (userDetails.isEnabled()
+                        && jwtService.isTokenValid(jwt, userDetails.getId())) {
 
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
