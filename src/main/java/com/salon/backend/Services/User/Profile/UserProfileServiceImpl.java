@@ -26,8 +26,8 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     @Transactional(readOnly = true)
-    public ApiResponse<UserProfileResponse> getProfile(String email) {
-        User user = userRepo.findByemail(email);
+    public ApiResponse<UserProfileResponse> getProfile(Long userId) {
+        User user = userRepo.findById(userId).orElse(null);
 
         if (user == null) {
             return ApiResponse.error("User profile not found");
@@ -40,9 +40,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public ApiResponse<UserProfileResponse> enableOrUpdateCareerProfile(
             CareerProfileRequest request,
-            String email) {
+            Long userId) {
 
-        User user = userRepo.findByemail(email);
+        User user = userRepo.findById(userId).orElse(null);
 
         if (user == null) {
             return ApiResponse.error("User profile not found");

@@ -4,8 +4,9 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.User.Profile.CareerProfileRequest;
 import com.salon.backend.DTOs.User.Profile.UserProfileResponse;
 import com.salon.backend.Services.User.Profile.UserProfileService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,18 +21,19 @@ public class UserProfileController {
     private final UserProfileService userProfileService;
 
     @GetMapping
-    public ApiResponse<UserProfileResponse> getProfile(Authentication authentication) {
-        return userProfileService.getProfile(authentication.getName());
+    public ApiResponse<UserProfileResponse> getProfile(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userProfileService.getProfile(currentUser.getId());
     }
 
     @PutMapping("/career")
     public ApiResponse<UserProfileResponse> enableOrUpdateCareerProfile(
             @RequestBody CareerProfileRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return userProfileService.enableOrUpdateCareerProfile(
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 }
