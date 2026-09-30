@@ -19,69 +19,69 @@ public interface HiringPostService {
 
     ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
             HiringPostSearchRequest request,
-            String userEmail
+            Long userId
     );
 
     ApiResponse<HiringPostResponse> createHiringPost(
             CreateHiringPostRequest request,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<List<OwnerHiringPostResponse>> getOwnerHiringPosts(
             HiringPostStatus status,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<OwnerHiringPostResponse> getOwnerHiringPost(
             Long hiringPostId,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringPostResponse> updateHiringPost(
             Long hiringPostId,
             UpdateHiringPostRequest request,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringPostResponse> closeHiringPost(
             Long hiringPostId,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringPostResponse> reopenHiringPost(
             Long hiringPostId,
             ReopenHiringPostRequest request,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringApplicationResponse> applyToHiringPost(
             Long hiringPostId,
             ApplyToHiringPostRequest request,
-            String applicantEmail
+            Long applicantId
     );
 
     ApiResponse<List<HiringApplicationResponse>> getHiringPostApplications(
             Long hiringPostId,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringApplicationResponse> acceptHiringApplication(
             Long applicationId,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<HiringApplicationResponse> rejectHiringApplication(
             Long applicationId,
             RejectHiringApplicationRequest request,
-            String ownerEmail
+            Long ownerId
     );
 
     ApiResponse<List<HiringApplicationResponse>> getMyHiringApplications(
-            String applicantEmail
+            Long applicantId
     );
 
     ApiResponse<HiringApplicationResponse> cancelLinkedJoinRequest(
             Long applicationId,
-            String applicantEmail
+            Long applicantId
     );
 }

@@ -13,8 +13,9 @@ import com.salon.backend.DTOs.Salon.HiringPost.ReopenHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.OwnerHiringPostResponse;
 import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
 import com.salon.backend.Services.Salon.HiringPost.HiringPostService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,41 +30,41 @@ public class HiringPostController {
     @GetMapping
     public ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
             @ModelAttribute HiringPostSearchRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.searchOpenHiringPosts(
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @PostMapping
     public ApiResponse<HiringPostResponse> createHiringPost(
             @RequestBody CreateHiringPostRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.createHiringPost(
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @GetMapping("/owner")
     public ApiResponse<List<OwnerHiringPostResponse>> getOwnerHiringPosts(
             @RequestParam(required = false) HiringPostStatus status,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
-        return hiringPostService.getOwnerHiringPosts(status, authentication.getName());
+        return hiringPostService.getOwnerHiringPosts(status, currentUser.getId());
     }
 
     @GetMapping("/owner/{hiringPostId}")
     public ApiResponse<OwnerHiringPostResponse> getOwnerHiringPost(
             @PathVariable Long hiringPostId,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.getOwnerHiringPost(
                 hiringPostId,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
@@ -71,23 +72,23 @@ public class HiringPostController {
     public ApiResponse<HiringPostResponse> updateHiringPost(
             @PathVariable Long hiringPostId,
             @RequestBody UpdateHiringPostRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.updateHiringPost(
                 hiringPostId,
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @PostMapping("/owner/{hiringPostId}/close")
     public ApiResponse<HiringPostResponse> closeHiringPost(
             @PathVariable Long hiringPostId,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.closeHiringPost(
                 hiringPostId,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
@@ -95,12 +96,12 @@ public class HiringPostController {
     public ApiResponse<HiringPostResponse> reopenHiringPost(
             @PathVariable Long hiringPostId,
             @RequestBody ReopenHiringPostRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.reopenHiringPost(
                 hiringPostId,
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
@@ -108,34 +109,34 @@ public class HiringPostController {
     public ApiResponse<HiringApplicationResponse> applyToHiringPost(
             @PathVariable Long hiringPostId,
             @RequestBody ApplyToHiringPostRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.applyToHiringPost(
                 hiringPostId,
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @GetMapping("/{hiringPostId}/applications")
     public ApiResponse<List<HiringApplicationResponse>> getHiringPostApplications(
             @PathVariable Long hiringPostId,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.getHiringPostApplications(
                 hiringPostId,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @PostMapping("/applications/{applicationId}/accept")
     public ApiResponse<HiringApplicationResponse> acceptHiringApplication(
             @PathVariable Long applicationId,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.acceptHiringApplication(
                 applicationId,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
@@ -143,30 +144,30 @@ public class HiringPostController {
     public ApiResponse<HiringApplicationResponse> rejectHiringApplication(
             @PathVariable Long applicationId,
             @RequestBody RejectHiringApplicationRequest request,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.rejectHiringApplication(
                 applicationId,
                 request,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 
     @GetMapping("/applications/me")
     public ApiResponse<List<HiringApplicationResponse>> getMyHiringApplications(
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
-        return hiringPostService.getMyHiringApplications(authentication.getName());
+        return hiringPostService.getMyHiringApplications(currentUser.getId());
     }
 
     @PostMapping("/applications/{applicationId}/cancel-join")
     public ApiResponse<HiringApplicationResponse> cancelLinkedJoinRequest(
             @PathVariable Long applicationId,
-            Authentication authentication) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
 
         return hiringPostService.cancelLinkedJoinRequest(
                 applicationId,
-                authentication.getName()
+                currentUser.getId()
         );
     }
 }

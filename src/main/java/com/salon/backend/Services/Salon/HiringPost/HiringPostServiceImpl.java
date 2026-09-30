@@ -64,7 +64,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional(readOnly = true)
     public ApiResponse<HiringPostPageResponse> searchOpenHiringPosts(
             HiringPostSearchRequest request,
-            String userEmail) {
+            Long userId) {
 
         ApiResponse<Void> validationResponse = validateSearchRequest(request);
 
@@ -77,7 +77,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         Sort sort = resolveSearchSort(request.getSortBy());
         Specification<HiringPost> specification = buildOpenPostSpecification(request);
 
-        User user = userRepo.findByemail(userEmail);
+        User user = userRepo.findById(userId).orElse(null);
         if (user == null) {
             return ApiResponse.error("User not found");
         }
@@ -120,9 +120,9 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Override
     public ApiResponse<HiringPostResponse> createHiringPost(
             CreateHiringPostRequest request,
-            String ownerEmail) {
+            Long ownerId) {
 
-        User owner = userRepo.findByemail(ownerEmail);
+        User owner = userRepo.findById(ownerId).orElse(null);
 
         if (owner == null) {
             return ApiResponse.error("Owner not found");
@@ -132,7 +132,7 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error("Only salon owners can create hiring posts");
         }
 
-        Salon salon = salonRepo.findByOwnerEmail(ownerEmail);
+        Salon salon = salonRepo.findByOwnerId(ownerId);
 
         if (salon == null) {
             return ApiResponse.error("Salon not found for this owner");
@@ -185,9 +185,9 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional
     public ApiResponse<List<OwnerHiringPostResponse>> getOwnerHiringPosts(
             HiringPostStatus status,
-            String ownerEmail) {
+            Long ownerId) {
 
-        Salon salon = findOwnedSalon(ownerEmail);
+        Salon salon = findOwnedSalon(ownerId);
         if (salon == null) {
             return ApiResponse.error("Salon not found for this owner");
         }
@@ -222,7 +222,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional
     public ApiResponse<OwnerHiringPostResponse> getOwnerHiringPost(
             Long hiringPostId,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringPost> optionalPost = hiringPostRepo.findById(hiringPostId);
         if (optionalPost.isEmpty()) {
@@ -230,7 +230,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
 
         HiringPost post = optionalPost.get();
-        if (!isOwnedBy(post, ownerEmail)) {
+        if (!isOwnedBy(post, ownerId)) {
             return ApiResponse.error("Only the salon owner can inspect this hiring post");
         }
 
@@ -245,7 +245,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     public ApiResponse<HiringPostResponse> updateHiringPost(
             Long hiringPostId,
             UpdateHiringPostRequest request,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
         if (optionalPost.isEmpty()) {
@@ -253,7 +253,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
 
         HiringPost post = refreshExpiration(optionalPost.get());
-        if (!isOwnedBy(post, ownerEmail)) {
+        if (!isOwnedBy(post, ownerId)) {
             return ApiResponse.error("Only the salon owner can update this hiring post");
         }
 
@@ -298,7 +298,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional
     public ApiResponse<HiringPostResponse> closeHiringPost(
             Long hiringPostId,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
         if (optionalPost.isEmpty()) {
@@ -306,7 +306,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
 
         HiringPost post = refreshExpiration(optionalPost.get());
-        if (!isOwnedBy(post, ownerEmail)) {
+        if (!isOwnedBy(post, ownerId)) {
             return ApiResponse.error("Only the salon owner can close this hiring post");
         }
         if (post.getStatus() != HiringPostStatus.Open) {
@@ -324,7 +324,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     public ApiResponse<HiringPostResponse> reopenHiringPost(
             Long hiringPostId,
             ReopenHiringPostRequest request,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringPost> optionalPost = hiringPostRepo.findByIdForUpdate(hiringPostId);
         if (optionalPost.isEmpty()) {
@@ -332,7 +332,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
 
         HiringPost post = refreshExpiration(optionalPost.get());
-        if (!isOwnedBy(post, ownerEmail)) {
+        if (!isOwnedBy(post, ownerId)) {
             return ApiResponse.error("Only the salon owner can reopen this hiring post");
         }
         if (post.getStatus() == HiringPostStatus.Open) {
@@ -373,7 +373,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     public ApiResponse<HiringApplicationResponse> applyToHiringPost(
             Long hiringPostId,
             ApplyToHiringPostRequest request,
-            String applicantEmail) {
+            Long applicantId) {
 
         Optional<HiringPost> optionalHiringPost = hiringPostRepo.findById(hiringPostId);
 
@@ -381,7 +381,7 @@ public class HiringPostServiceImpl implements HiringPostService {
             return ApiResponse.error("Hiring post not found");
         }
 
-        User applicant = userRepo.findByemail(applicantEmail);
+        User applicant = userRepo.findById(applicantId).orElse(null);
 
         if (applicant == null) {
             return ApiResponse.error("Applicant not found");
@@ -471,7 +471,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional(readOnly = true)
     public ApiResponse<List<HiringApplicationResponse>> getHiringPostApplications(
             Long hiringPostId,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringPost> optionalHiringPost = hiringPostRepo.findById(hiringPostId);
 
@@ -481,7 +481,7 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         HiringPost hiringPost = optionalHiringPost.get();
 
-        if (!hiringPost.getSalon().getOwner().getEmail().equalsIgnoreCase(ownerEmail)) {
+        if (hiringPost.getSalon().getOwner().getId() != ownerId) {
             return ApiResponse.error("Only the salon owner can view these applications");
         }
 
@@ -512,7 +512,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional
     public ApiResponse<HiringApplicationResponse> acceptHiringApplication(
             Long applicationId,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringApplication> optionalApplication =
                 hiringApplicationRepo.findByIdForUpdate(applicationId);
@@ -527,7 +527,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         ).orElse(application.getHiringPost());
         Salon salon = salonRepo.findByIdForUpdate(hiringPost.getSalon().getId())
                 .orElse(hiringPost.getSalon());
-        User owner = userRepo.findByemail(ownerEmail);
+        User owner = userRepo.findById(ownerId).orElse(null);
 
         if (owner == null || salon.getOwner().getId() != owner.getId()) {
             return ApiResponse.error("Only the salon owner can accept this application");
@@ -585,7 +585,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     public ApiResponse<HiringApplicationResponse> rejectHiringApplication(
             Long applicationId,
             RejectHiringApplicationRequest request,
-            String ownerEmail) {
+            Long ownerId) {
 
         Optional<HiringApplication> optionalApplication =
                 hiringApplicationRepo.findByIdForUpdate(applicationId);
@@ -596,7 +596,7 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         HiringApplication application = optionalApplication.get();
         Salon salon = application.getHiringPost().getSalon();
-        User owner = userRepo.findByemail(ownerEmail);
+        User owner = userRepo.findById(ownerId).orElse(null);
 
         if (owner == null || salon.getOwner().getId() != owner.getId()) {
             return ApiResponse.error("Only the salon owner can reject this application");
@@ -634,9 +634,9 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Override
     @Transactional(readOnly = true)
     public ApiResponse<List<HiringApplicationResponse>> getMyHiringApplications(
-            String applicantEmail) {
+            Long applicantId) {
 
-        User applicant = userRepo.findByemail(applicantEmail);
+        User applicant = userRepo.findById(applicantId).orElse(null);
         if (applicant == null) {
             return ApiResponse.error("Applicant not found");
         }
@@ -657,7 +657,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Transactional
     public ApiResponse<HiringApplicationResponse> cancelLinkedJoinRequest(
             Long applicationId,
-            String applicantEmail) {
+            Long applicantId) {
 
         Optional<HiringApplication> optionalApplication =
                 hiringApplicationRepo.findByIdForUpdate(applicationId);
@@ -666,7 +666,7 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
 
         HiringApplication application = optionalApplication.get();
-        if (!application.getApplicant().getEmail().equalsIgnoreCase(applicantEmail)) {
+        if (application.getApplicant().getId() != applicantId) {
             return ApiResponse.error(
                     "Only the applicant can cancel the linked join request"
             );
@@ -717,19 +717,18 @@ public class HiringPostServiceImpl implements HiringPostService {
         );
     }
 
-    private Salon findOwnedSalon(String ownerEmail) {
-        User owner = userRepo.findByemail(ownerEmail);
+    private Salon findOwnedSalon(Long ownerId) {
+        User owner = userRepo.findById(ownerId).orElse(null);
         if (owner == null || owner.getRole() != UserRole.OWNER) {
             return null;
         }
-        return salonRepo.findByOwnerEmail(ownerEmail);
+        return salonRepo.findByOwnerId(ownerId);
     }
 
-    private boolean isOwnedBy(HiringPost hiringPost, String ownerEmail) {
+    private boolean isOwnedBy(HiringPost hiringPost, Long ownerId) {
         return hiringPost.getSalon() != null
                 && hiringPost.getSalon().getOwner() != null
-                && hiringPost.getSalon().getOwner().getEmail()
-                .equalsIgnoreCase(ownerEmail);
+                && hiringPost.getSalon().getOwner().getId() == ownerId;
     }
 
     private HiringPost refreshExpiration(HiringPost hiringPost) {

@@ -100,7 +100,7 @@ class HiringPostServiceImplTest {
                 salon
         );
 
-        when(userRepo.findByemail("applicant@example.com")).thenReturn(applicant);
+        when(userRepo.findById(applicant.getId())).thenReturn(Optional.of(applicant));
         when(hiringPostRepo.findAll(
                 any(Specification.class),
                 any(Sort.class)
@@ -109,7 +109,7 @@ class HiringPostServiceImplTest {
         ApiResponse<HiringPostPageResponse> response =
                 hiringPostService.searchOpenHiringPosts(
                         new HiringPostSearchRequest(),
-                        "applicant@example.com"
+                        applicant.getId()
                 );
 
         assertThat(response.isSuccess()).isTrue();
@@ -154,7 +154,7 @@ class HiringPostServiceImplTest {
         ApiResponse<?> response = hiringPostService.reopenHiringPost(
                 22L,
                 new ReopenHiringPostRequest(LocalDateTime.now().plusDays(20), 0),
-                "owner@example.com"
+                owner.getId()
         );
 
         assertThat(response.isSuccess()).isTrue();
@@ -218,7 +218,7 @@ class HiringPostServiceImplTest {
         ApiResponse<HiringApplicationResponse> response =
                 hiringPostService.cancelLinkedJoinRequest(
                         40L,
-                        "applicant@example.com"
+                        applicant.getId()
                 );
 
         assertThat(response.isSuccess()).isTrue();
