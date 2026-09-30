@@ -64,11 +64,11 @@ class SalonServiceImplTest {
         salon.setRejectionReason("Fix the salon details");
         salon.setResubmissionCount(2);
 
-        when(userRepo.findByemail(owner.getEmail())).thenReturn(owner);
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
         ApiResponse<SalonResponse> response =
-                service.resubmitRejectedSalon(salon.getId(), owner.getEmail());
+                service.resubmitRejectedSalon(salon.getId(), owner.getId());
 
         assertTrue(response.isSuccess());
         assertEquals(SalonStatus.Requested, salon.getStatus());
@@ -90,11 +90,11 @@ class SalonServiceImplTest {
         salon.setStatus(SalonStatus.Rejected);
         salon.setResubmissionCount(3);
 
-        when(userRepo.findByemail(owner.getEmail())).thenReturn(owner);
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
         ApiResponse<SalonResponse> response =
-                service.resubmitRejectedSalon(salon.getId(), owner.getEmail());
+                service.resubmitRejectedSalon(salon.getId(), owner.getId());
 
         assertFalse(response.isSuccess());
         assertEquals(SalonStatus.Rejected, salon.getStatus());

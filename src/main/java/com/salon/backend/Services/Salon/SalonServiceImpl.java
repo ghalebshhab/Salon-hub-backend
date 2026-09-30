@@ -39,7 +39,7 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("User not found");
         }
         User newUser=user.get();
-        Salon salo = salonRepo.findByOwnerEmail(newUser.getEmail());
+        Salon salo = salonRepo.findByOwnerId(newUser.getId());
 
         if (salo != null && salo.getStatus() == SalonStatus.Requested) {
             return ApiResponse.error("You already have a salon request under review");
@@ -134,9 +134,9 @@ public class SalonServiceImpl implements SalonService {
     @Override
     public ApiResponse<CreateSalonResponse> updateSalon(UpdateSalonRequest updateSalonRequest,
                                                         Long id,
-                                                        String  ownerEmail)
+                                                        Long ownerId)
     {
-        User user=userRepo.findByemail(ownerEmail);
+        User user=userRepo.findById(ownerId).orElse(null);
         if(user==null){
             return ApiResponse.error("User not found");
         }
@@ -269,8 +269,8 @@ public class SalonServiceImpl implements SalonService {
     }
 
     @Override
-    public ApiResponse<SalonResponse> getSalonByOwnerEmail(String email) {
-        Salon salon=salonRepo.findByOwnerEmail(email);
+    public ApiResponse<SalonResponse> getSalonByOwnerId(Long ownerId) {
+        Salon salon=salonRepo.findByOwnerId(ownerId);
         if(salon==null){
             return ApiResponse.error("Salon Not Found");
         }
@@ -303,12 +303,12 @@ public class SalonServiceImpl implements SalonService {
 
     @Override
     @Transactional
-    public ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, String ownerEmail) {
+    public ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, Long ownerId) {
         if (salonId == null) {
             return ApiResponse.error("Salon id is required");
         }
 
-        User owner = userRepo.findByemail(ownerEmail);
+        User owner = userRepo.findById(ownerId).orElse(null);
         if (owner == null) {
             return ApiResponse.error("User not found");
         }

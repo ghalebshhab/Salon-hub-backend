@@ -11,13 +11,13 @@ import java.util.List;
 
 public interface SalonService {
     ApiResponse<CreateSalonResponse> createSalon(CreateSalonRequest createSalonRequest,Long id);
-    ApiResponse<CreateSalonResponse> updateSalon(UpdateSalonRequest updateSalonRequest,Long id,String ownerEmail);
+    ApiResponse<CreateSalonResponse> updateSalon(UpdateSalonRequest updateSalonRequest,Long id,Long ownerId);
     ApiResponse<Void> deleteSalon(long id);
     ApiResponse<CreateSalonResponse> getSalonById(long id);
-    ApiResponse<SalonResponse> getSalonByOwnerEmail(String email);
+    ApiResponse<SalonResponse> getSalonByOwnerId(Long ownerId);
     ApiResponse<List<SalonResponse>> getAllSalons();
     ApiResponse<List<SalonResponse>> getActiveSalons();
     ApiResponse<List<SalonResponse>> getRequestedSalons();
-    ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, String ownerEmail);
+    ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, Long ownerId);
 
 }

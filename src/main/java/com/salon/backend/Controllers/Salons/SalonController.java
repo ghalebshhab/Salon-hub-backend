@@ -9,7 +9,6 @@ import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.SalonService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +28,9 @@ public class SalonController {
         return salonService.getActiveSalons();
     }
     @GetMapping("/mine")
-    public ApiResponse<SalonResponse> getMySalon(Authentication authentication) {
-        return salonService.getSalonByOwnerEmail(authentication.getName());
+    public ApiResponse<SalonResponse> getMySalon(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.getSalonByOwnerId(currentUser.getId());
     }
     @PostMapping("/create")
     public ApiResponse<CreateSalonResponse> createSalon(
@@ -39,15 +39,18 @@ public class SalonController {
         return salonService.createSalon(createSalonRequest, currentUser.getId());
     }
     @PutMapping("/{salonId}/edit")
-    public ApiResponse<CreateSalonResponse> updateSalon(@RequestBody UpdateSalonRequest updateSalonRequest,@PathVariable Long salonId,Authentication authentication) {
-        return salonService.updateSalon(updateSalonRequest,salonId,authentication.getName());
+    public ApiResponse<CreateSalonResponse> updateSalon(
+            @RequestBody UpdateSalonRequest updateSalonRequest,
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.updateSalon(updateSalonRequest, salonId, currentUser.getId());
     }
 
     @PostMapping("/{salonId}/resubmit")
     public ApiResponse<SalonResponse> resubmitSalon(
             @PathVariable Long salonId,
-            Authentication authentication) {
-        return salonService.resubmitRejectedSalon(salonId, authentication.getName());
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.resubmitRejectedSalon(salonId, currentUser.getId());
     }
 
 

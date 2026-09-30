@@ -18,7 +18,9 @@ public interface SalonRepo extends JpaRepository<Salon, Long> {
 
     Salon findByOwnerPhoneNumber(String ownerPhoneNumber);
 
-    Salon findByOwnerEmail(String email);
+    Salon findByOwnerId(Long ownerId);
+
+    Salon findByOwnerEmail(String ownerEmail);
 
     Salon findByEmail(String email);
 
