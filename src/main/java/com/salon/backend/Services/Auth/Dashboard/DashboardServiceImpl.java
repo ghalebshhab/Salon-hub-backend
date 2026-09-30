@@ -68,8 +68,8 @@ public class DashboardServiceImpl implements DashboardService {
     }
     @Override
     @Transactional
-    public ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, String adminEmail) {
-        ApiResponse<User> adminResponse = validateAdmin(adminEmail);
+    public ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, Long adminId) {
+        ApiResponse<User> adminResponse = validateAdmin(adminId);
         if (!adminResponse.isSuccess()) {
             return ApiResponse.error(adminResponse.getMessage());
         }
@@ -94,7 +94,7 @@ public class DashboardServiceImpl implements DashboardService {
         userRepo.save(owner);
 
         ApiResponse<SalonResponse> salonResponse =
-                salonService.getSalonByOwnerEmail(owner.getEmail());
+                salonService.getSalonByOwnerId(owner.getId());
         return ApiResponse.success("Salon Creation Request Accepted", salonResponse.getData());
     }
 
@@ -102,9 +102,9 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional
     public ApiResponse<SalonResponse> rejectSalonRequest(
             Long salonId,
-            String adminEmail,
+            Long adminId,
             String rejectionReason) {
-        ApiResponse<User> adminResponse = validateAdmin(adminEmail);
+        ApiResponse<User> adminResponse = validateAdmin(adminId);
         if (!adminResponse.isSuccess()) {
             return ApiResponse.error(adminResponse.getMessage());
         }
@@ -132,7 +132,7 @@ public class DashboardServiceImpl implements DashboardService {
         salonRepo.save(salon);
 
         ApiResponse<SalonResponse> salonResponse =
-                salonService.getSalonByOwnerEmail(salon.getOwner().getEmail());
+                salonService.getSalonByOwnerId(salon.getOwner().getId());
         return ApiResponse.success("Salon Creation Request Rejected", salonResponse.getData());
     }
     @Override
@@ -158,7 +158,7 @@ public class DashboardServiceImpl implements DashboardService {
             return ApiResponse.error("User already blocked");
         }
 
-        Salon ownedSalon = salonRepo.findByOwnerEmail(user.getEmail());
+        Salon ownedSalon = salonRepo.findByOwnerId(user.getId());
         if (ownedSalon != null && ownedSalon.getStatus() != SalonStatus.DELETED) {
             Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(ownedSalon.getId());
             if (salonOptional.isPresent()) {
@@ -193,7 +193,7 @@ public class DashboardServiceImpl implements DashboardService {
             return ApiResponse.error("User is not blocked");
         }
 
-        Salon ownedSalon = salonRepo.findByOwnerEmail(user.getEmail());
+        Salon ownedSalon = salonRepo.findByOwnerId(user.getId());
         if (ownedSalon != null && ownedSalon.getStatus() != SalonStatus.DELETED) {
             Optional<Salon> salonOptional = salonRepo.findByIdForUpdate(ownedSalon.getId());
             if (salonOptional.isPresent()) {
@@ -304,8 +304,17 @@ public class DashboardServiceImpl implements DashboardService {
         }
     }
 
+    private ApiResponse<User> validateAdmin(Long adminId){
+        User admin = userRepo.findById(adminId).orElse(null);
+        return validateAdminUser(admin);
+    }
+
     private ApiResponse<User> validateAdmin(String email){
         User admin = userRepo.findByemail(email);
+        return validateAdminUser(admin);
+    }
+
+    private ApiResponse<User> validateAdminUser(User admin){
 
         if(admin == null){
             return ApiResponse.error("Admin not found");

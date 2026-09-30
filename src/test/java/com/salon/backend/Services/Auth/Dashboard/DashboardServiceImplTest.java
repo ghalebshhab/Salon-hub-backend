@@ -37,6 +37,7 @@ class DashboardServiceImplTest {
     @Test
     void rejectionStoresTrimmedReasonForTheOwner() {
         User admin = new User();
+        admin.setId(3L);
         admin.setEmail("admin@example.com");
         admin.setRole(UserRole.ADMIN);
         admin.setStatus(UserStatus.Active);
@@ -56,14 +57,14 @@ class DashboardServiceImplTest {
                 "Missing license", 0, 3
         );
 
-        when(userRepo.findByemail(admin.getEmail())).thenReturn(admin);
+        when(userRepo.findById(admin.getId())).thenReturn(Optional.of(admin));
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
-        when(salonService.getSalonByOwnerEmail(owner.getEmail()))
+        when(salonService.getSalonByOwnerId(owner.getId()))
                 .thenReturn(ApiResponse.success("Salon Fetched Successfully", mappedResponse));
 
         ApiResponse<SalonResponse> response = service.rejectSalonRequest(
                 salon.getId(),
-                admin.getEmail(),
+                admin.getId(),
                 "  Missing license  "
         );
 
@@ -87,7 +88,7 @@ class DashboardServiceImplTest {
         salon.setStatus(SalonStatus.Accepted);
 
         when(userRepo.findByIdForUpdate(owner.getId())).thenReturn(Optional.of(owner));
-        when(salonRepo.findByOwnerEmail(owner.getEmail())).thenReturn(salon);
+        when(salonRepo.findByOwnerId(owner.getId())).thenReturn(salon);
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
         ApiResponse<String> response = service.blockUser(owner.getId());
@@ -117,7 +118,7 @@ class DashboardServiceImplTest {
         salon.setBlockedByAdmin(true);
 
         when(userRepo.findByIdForUpdate(owner.getId())).thenReturn(Optional.of(owner));
-        when(salonRepo.findByOwnerEmail(owner.getEmail())).thenReturn(salon);
+        when(salonRepo.findByOwnerId(owner.getId())).thenReturn(salon);
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
         ApiResponse<String> response = service.unblockUser(owner.getId());

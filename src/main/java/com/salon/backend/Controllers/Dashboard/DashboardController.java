@@ -7,12 +7,13 @@ import com.salon.backend.DTOs.Salon.SalonApprovalRequest;
 import com.salon.backend.DTOs.Salon.SalonRejectionRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Services.Auth.Dashboard.DashboardService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.SalonService;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 
@@ -34,18 +35,16 @@ public class DashboardController {
     @PostMapping("/salons/requested/accept")
     public ApiResponse<SalonResponse> acceptRequestedSalons(
             @RequestBody SalonApprovalRequest request,
-            Authentication authentication){
-     String adminEmail=authentication.getName();
-        return dashboardService.acceptSalonRequest(request.salonId(), adminEmail);
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return dashboardService.acceptSalonRequest(request.salonId(), currentUser.getId());
     }
     @PostMapping("/salons/requested/reject")
     public ApiResponse<SalonResponse> rejectRequestedSalons(
             @RequestBody SalonRejectionRequest request,
-            Authentication authentication){
-        String adminEmail= authentication.getName();
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
         return dashboardService.rejectSalonRequest(
                 request.salonId(),
-                adminEmail,
+                currentUser.getId(),
                 request.rejectionReason()
         );
     }

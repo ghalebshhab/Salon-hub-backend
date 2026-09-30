@@ -20,8 +20,6 @@ public interface SalonRepo extends JpaRepository<Salon, Long> {
 
     Salon findByOwnerId(Long ownerId);
 
-    Salon findByOwnerEmail(String ownerEmail);
-
     Salon findByEmail(String email);
 
     List<Salon> findByStatus(SalonStatus status);
