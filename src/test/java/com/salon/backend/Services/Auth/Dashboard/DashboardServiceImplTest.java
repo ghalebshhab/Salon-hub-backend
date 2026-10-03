@@ -11,6 +11,8 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
+import org.junit.jupiter.api.BeforeEach;
 import com.salon.backend.Services.Salon.SalonService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,12 +29,25 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceImplTest {
 
+    private static final Long ADMIN_ID = 99L;
+
     @Mock private UserRepo userRepo;
     @Mock private BCryptPasswordEncoder passwordEncoder;
     @Mock private JwtService jwtService;
     @Mock private SalonRepo salonRepo;
     @Mock private SalonService salonService;
+    @Mock private AdminAuthorizationService adminAuthorizationService;
     @InjectMocks private DashboardServiceImpl service;
+
+    @BeforeEach
+    void authorizeAdmin() {
+        User admin = new User();
+        admin.setId(ADMIN_ID);
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.Active);
+        lenient().when(adminAuthorizationService.authorize(anyLong()))
+                .thenReturn(ApiResponse.success("Admin authorized", admin));
+    }
 
     @Test
     void rejectionStoresTrimmedReasonForTheOwner() {
@@ -57,7 +72,6 @@ class DashboardServiceImplTest {
                 "Missing license", 0, 3
         );
 
-        when(userRepo.findById(admin.getId())).thenReturn(Optional.of(admin));
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
         when(salonService.getSalonByOwnerId(owner.getId()))
                 .thenReturn(ApiResponse.success("Salon Fetched Successfully", mappedResponse));
@@ -91,7 +105,7 @@ class DashboardServiceImplTest {
         when(salonRepo.findByOwnerId(owner.getId())).thenReturn(salon);
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
-        ApiResponse<String> response = service.blockUser(owner.getId());
+        ApiResponse<String> response = service.blockUser(owner.getId(), ADMIN_ID);
 
         assertTrue(response.isSuccess());
         assertEquals(UserStatus.Blocked, owner.getStatus());
@@ -121,7 +135,7 @@ class DashboardServiceImplTest {
         when(salonRepo.findByOwnerId(owner.getId())).thenReturn(salon);
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
 
-        ApiResponse<String> response = service.unblockUser(owner.getId());
+        ApiResponse<String> response = service.unblockUser(owner.getId(), ADMIN_ID);
 
         assertTrue(response.isSuccess());
         assertEquals(UserStatus.Active, owner.getStatus());
@@ -145,12 +159,12 @@ class DashboardServiceImplTest {
         when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
         when(userRepo.findByIdForUpdate(owner.getId())).thenReturn(Optional.of(owner));
 
-        ApiResponse<String> blockResponse = service.blockSalon(salon.getId());
+        ApiResponse<String> blockResponse = service.blockSalon(salon.getId(), ADMIN_ID);
 
         assertEquals(UserRole.USER, owner.getRole());
         assertEquals(UserRole.OWNER, salon.getOwnerRoleBeforeAdminBlock());
 
-        ApiResponse<String> unblockResponse = service.unblockSalon(salon.getId());
+        ApiResponse<String> unblockResponse = service.unblockSalon(salon.getId(), ADMIN_ID);
 
         assertTrue(blockResponse.isSuccess());
         assertTrue(unblockResponse.isSuccess());
@@ -172,7 +186,7 @@ class DashboardServiceImplTest {
 
         when(userRepo.findByIdForUpdate(admin.getId())).thenReturn(Optional.of(admin));
 
-        ApiResponse<String> response = service.blockUser(admin.getId());
+        ApiResponse<String> response = service.blockUser(admin.getId(), ADMIN_ID);
 
         assertFalse(response.isSuccess());
         assertEquals("Admin users cannot be blocked", response.getMessage());
@@ -199,5 +213,18 @@ class DashboardServiceImplTest {
         assertFalse(response.isSuccess());
         assertEquals("Admin account is not active", response.getMessage());
         verifyNoInteractions(passwordEncoder, jwtService);
+    }
+
+    @Test
+    void unauthorizedCallerCannotBlockAUser() {
+        when(adminAuthorizationService.authorize(5L))
+                .thenReturn(ApiResponse.error("You are not Admin , Access Denied"));
+
+        ApiResponse<String> response = service.blockUser(15L, 5L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("You are not Admin , Access Denied", response.getMessage());
+        verifyNoInteractions(salonRepo);
+        verify(userRepo, never()).findByIdForUpdate(anyLong());
     }
 }

@@ -15,9 +15,9 @@ public interface SalonService {
     ApiResponse<Void> deleteSalon(long id);
     ApiResponse<CreateSalonResponse> getSalonById(long id);
     ApiResponse<SalonResponse> getSalonByOwnerId(Long ownerId);
-    ApiResponse<List<SalonResponse>> getAllSalons();
+    ApiResponse<List<SalonResponse>> getAllSalons(Long adminId);
     ApiResponse<List<SalonResponse>> getActiveSalons();
-    ApiResponse<List<SalonResponse>> getRequestedSalons();
+    ApiResponse<List<SalonResponse>> getRequestedSalons(Long adminId);
     ApiResponse<SalonResponse> resubmitRejectedSalon(Long salonId, Long ownerId);
 
 }

@@ -6,6 +6,7 @@ import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,14 +17,23 @@ import java.util.List;
 public class UserDirectoryServiceImpl implements UserDirectoryService {
 
     private final UserRepo userRepo;
+    private final AdminAuthorizationService adminAuthorizationService;
 
     @Override
-    public ApiResponse<List<UserSummaryResponse>> getUsers() {
+    public ApiResponse<List<UserSummaryResponse>> getUsers(Long adminId) {
+        ApiResponse<User> authorization = adminAuthorizationService.authorize(adminId);
+        if (!authorization.isSuccess()) {
+            return ApiResponse.error(authorization.getMessage());
+        }
         return ApiResponse.success("Users Fetched Successfully.", mapUsers(userRepo.findAll()));
     }
 
     @Override
-    public ApiResponse<List<UserSummaryResponse>> getActiveUsers() {
+    public ApiResponse<List<UserSummaryResponse>> getActiveUsers(Long adminId) {
+        ApiResponse<User> authorization = adminAuthorizationService.authorize(adminId);
+        if (!authorization.isSuccess()) {
+            return ApiResponse.error(authorization.getMessage());
+        }
         return ApiResponse.success(
                 "Active Users Fetched Successfully.",
                 mapUsers(userRepo.findByStatus(UserStatus.Active))
@@ -31,7 +41,11 @@ public class UserDirectoryServiceImpl implements UserDirectoryService {
     }
 
     @Override
-    public ApiResponse<List<UserSummaryResponse>> getBlockedUsers() {
+    public ApiResponse<List<UserSummaryResponse>> getBlockedUsers(Long adminId) {
+        ApiResponse<User> authorization = adminAuthorizationService.authorize(adminId);
+        if (!authorization.isSuccess()) {
+            return ApiResponse.error(authorization.getMessage());
+        }
         return ApiResponse.success(
                 "Blocked Users Fetched Successfully.",
                 mapUsers(userRepo.findByStatus(UserStatus.Blocked))

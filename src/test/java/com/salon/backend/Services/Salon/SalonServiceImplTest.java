@@ -7,6 +7,7 @@ import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +25,7 @@ class SalonServiceImplTest {
 
     @Mock private SalonRepo salonRepo;
     @Mock private UserRepo userRepo;
+    @Mock private AdminAuthorizationService adminAuthorizationService;
     @InjectMocks private SalonServiceImpl service;
 
     @Test
@@ -99,5 +101,17 @@ class SalonServiceImplTest {
         assertFalse(response.isSuccess());
         assertEquals(SalonStatus.Rejected, salon.getStatus());
         verify(salonRepo, never()).save(any());
+    }
+
+    @Test
+    void allSalonsAreNotQueriedWhenAdminAuthorizationFails() {
+        when(adminAuthorizationService.authorize(6L))
+                .thenReturn(ApiResponse.error("You are not Admin , Access Denied"));
+
+        ApiResponse<List<SalonResponse>> response = service.getAllSalons(6L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("You are not Admin , Access Denied", response.getMessage());
+        verifyNoInteractions(salonRepo);
     }
 }

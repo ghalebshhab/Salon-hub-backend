@@ -4,7 +4,9 @@ package com.salon.backend.Controllers.Users;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.User.UserSummaryResponse;
 import com.salon.backend.Services.User.UserDirectoryService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,16 +23,19 @@ public class UsersController {
 
 
     @GetMapping
-    public ApiResponse<List<UserSummaryResponse>> getUsers() {
-        return userDirectoryService.getUsers();
+    public ApiResponse<List<UserSummaryResponse>> getUsers(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userDirectoryService.getUsers(currentUser.getId());
     }
     @GetMapping("/active")
-    public ApiResponse<List<UserSummaryResponse>> getActiveUsers() {
-        return userDirectoryService.getActiveUsers();
+    public ApiResponse<List<UserSummaryResponse>> getActiveUsers(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userDirectoryService.getActiveUsers(currentUser.getId());
     }
     @GetMapping("/blocked")
-    public ApiResponse<List<UserSummaryResponse>> getBlockedUsers() {
-        return userDirectoryService.getBlockedUsers();
+    public ApiResponse<List<UserSummaryResponse>> getBlockedUsers(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userDirectoryService.getBlockedUsers(currentUser.getId());
     }
 
 }

@@ -29,8 +29,9 @@ public class DashboardController {
     }
 
     @GetMapping("/salons/requested")
-    public ApiResponse<List<SalonResponse>> requestedSalons(){
-        return salonService.getRequestedSalons();
+    public ApiResponse<List<SalonResponse>> requestedSalons(
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return salonService.getRequestedSalons(currentUser.getId());
     }
     @PostMapping("/salons/requested/accept")
     public ApiResponse<SalonResponse> acceptRequestedSalons(
@@ -49,23 +50,31 @@ public class DashboardController {
         );
     }
     @PostMapping("/users/{userId}/block")
-    public ApiResponse<String> blockUser(@PathVariable Long userId){
-        return dashboardService.blockUser(userId);
+    public ApiResponse<String> blockUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return dashboardService.blockUser(userId, currentUser.getId());
     }
 
     @PostMapping("/users/{userId}/unblock")
-    public ApiResponse<String> unblockUser(@PathVariable Long userId){
-        return dashboardService.unblockUser(userId);
+    public ApiResponse<String> unblockUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return dashboardService.unblockUser(userId, currentUser.getId());
     }
 
     @PostMapping("/salons/{salonId}/block")
-    public ApiResponse<String> blockSalon(@PathVariable Long salonId){
-        return dashboardService.blockSalon(salonId);
+    public ApiResponse<String> blockSalon(
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return dashboardService.blockSalon(salonId, currentUser.getId());
     }
 
     @PostMapping("/salons/{salonId}/unblock")
-    public ApiResponse<String> unblockSalon(@PathVariable Long salonId){
-        return dashboardService.unblockSalon(salonId);
+    public ApiResponse<String> unblockSalon(
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser){
+        return dashboardService.unblockSalon(salonId, currentUser.getId());
     }
 
 }

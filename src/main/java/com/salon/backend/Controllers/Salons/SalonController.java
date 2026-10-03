@@ -20,8 +20,9 @@ import java.util.List;
 public class SalonController {
     private final SalonService salonService;
     @GetMapping
-    public ApiResponse<List<SalonResponse>> getAllSalons() {
-        return salonService.getAllSalons();
+    public ApiResponse<List<SalonResponse>> getAllSalons(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.getAllSalons(currentUser.getId());
     }
     @GetMapping("/active")
     public ApiResponse<List<SalonResponse>> getActiveSalons() {

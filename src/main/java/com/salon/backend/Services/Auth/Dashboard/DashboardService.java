@@ -10,8 +10,8 @@ public interface DashboardService {
     ApiResponse<DashboardLoginResponse>  DashboardLogin(DashboardLoginRequest dashboardLoginRequest);
     ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, Long adminId);
     ApiResponse<SalonResponse> rejectSalonRequest(Long salonId, Long adminId, String rejectionReason);
-    ApiResponse<String> blockUser(Long userId);
-    ApiResponse<String> unblockUser(Long userId);
-    ApiResponse<String> blockSalon(Long salonId);
-    ApiResponse<String> unblockSalon(Long salonId);
+    ApiResponse<String> blockUser(Long userId, Long adminId);
+    ApiResponse<String> unblockUser(Long userId, Long adminId);
+    ApiResponse<String> blockSalon(Long salonId, Long adminId);
+    ApiResponse<String> unblockSalon(Long salonId, Long adminId);
 }

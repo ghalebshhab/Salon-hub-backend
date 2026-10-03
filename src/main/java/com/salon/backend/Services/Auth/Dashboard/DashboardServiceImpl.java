@@ -11,6 +11,7 @@ import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Salon.SalonService;
 import lombok.AllArgsConstructor;
@@ -30,6 +31,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final JwtService jwtService;
     private final SalonRepo salonRepo;
     private final SalonService salonService;
+    private final AdminAuthorizationService adminAuthorizationService;
     @Override
     public ApiResponse<DashboardLoginResponse> DashboardLogin(
             DashboardLoginRequest dashboardLoginRequest) {
@@ -69,7 +71,7 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     @Transactional
     public ApiResponse<SalonResponse> acceptSalonRequest(Long salonId, Long adminId) {
-        ApiResponse<User> adminResponse = validateAdmin(adminId);
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
         if (!adminResponse.isSuccess()) {
             return ApiResponse.error(adminResponse.getMessage());
         }
@@ -104,7 +106,7 @@ public class DashboardServiceImpl implements DashboardService {
             Long salonId,
             Long adminId,
             String rejectionReason) {
-        ApiResponse<User> adminResponse = validateAdmin(adminId);
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
         if (!adminResponse.isSuccess()) {
             return ApiResponse.error(adminResponse.getMessage());
         }
@@ -137,7 +139,12 @@ public class DashboardServiceImpl implements DashboardService {
     }
     @Override
     @Transactional
-    public ApiResponse<String> blockUser(Long userId) {
+    public ApiResponse<String> blockUser(Long userId, Long adminId) {
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
+        }
+
         if (userId == null) {
             return ApiResponse.error("User id is required");
         }
@@ -175,7 +182,12 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional
-    public ApiResponse<String> unblockUser(Long userId) {
+    public ApiResponse<String> unblockUser(Long userId, Long adminId) {
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
+        }
+
         if (userId == null) {
             return ApiResponse.error("User id is required");
         }
@@ -211,7 +223,12 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional
-    public ApiResponse<String> blockSalon(Long salonId) {
+    public ApiResponse<String> blockSalon(Long salonId, Long adminId) {
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
+        }
+
         if (salonId == null) {
             return ApiResponse.error("Salon id is required");
         }
@@ -246,7 +263,12 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional
-    public ApiResponse<String> unblockSalon(Long salonId) {
+    public ApiResponse<String> unblockSalon(Long salonId, Long adminId) {
+        ApiResponse<User> adminResponse = adminAuthorizationService.authorize(adminId);
+        if (!adminResponse.isSuccess()) {
+            return ApiResponse.error(adminResponse.getMessage());
+        }
+
         if (salonId == null) {
             return ApiResponse.error("Salon id is required");
         }
@@ -302,11 +324,6 @@ public class DashboardServiceImpl implements DashboardService {
             salon.setStatus(salon.getStatusBeforeBlock());
             salon.setStatusBeforeBlock(null);
         }
-    }
-
-    private ApiResponse<User> validateAdmin(Long adminId){
-        User admin = userRepo.findById(adminId).orElse(null);
-        return validateAdminUser(admin);
     }
 
     private ApiResponse<User> validateAdmin(String email){

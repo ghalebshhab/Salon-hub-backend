@@ -11,6 +11,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class SalonServiceImpl implements SalonService {
 
     private final SalonRepo salonRepo;
     private  final UserRepo userRepo;
+    private final AdminAuthorizationService adminAuthorizationService;
     private final List<String> JordanCities = List.of(
             "Amman", "Zarqa", "Irbid", "Aqaba", "Jerash",
             "Madaba", "Ajloun", "As-Salt", "Al-Karak",
@@ -278,7 +280,11 @@ public class SalonServiceImpl implements SalonService {
     }
 
     @Override
-    public ApiResponse<List<SalonResponse>> getAllSalons() {
+    public ApiResponse<List<SalonResponse>> getAllSalons(Long adminId) {
+        ApiResponse<User> authorization = adminAuthorizationService.authorize(adminId);
+        if (!authorization.isSuccess()) {
+            return ApiResponse.error(authorization.getMessage());
+        }
         List<SalonResponse> salons = salonRepo.findAll().stream()
                 .map(this::mapSalonResponse)
                 .toList();
@@ -294,7 +300,11 @@ public class SalonServiceImpl implements SalonService {
     }
 
     @Override
-    public ApiResponse<List<SalonResponse>> getRequestedSalons() {
+    public ApiResponse<List<SalonResponse>> getRequestedSalons(Long adminId) {
+        ApiResponse<User> authorization = adminAuthorizationService.authorize(adminId);
+        if (!authorization.isSuccess()) {
+            return ApiResponse.error(authorization.getMessage());
+        }
         List<SalonResponse> salons = salonRepo.findByStatus(SalonStatus.Requested).stream()
                 .map(this::mapSalonResponse)
                 .toList();
