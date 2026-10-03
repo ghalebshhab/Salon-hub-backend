@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -40,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     // =========================================================
 
     @Override
+    @Transactional
     public ApiResponse<RigesterResponse> Rigester(
             RigesterRequest request) {
 
@@ -220,6 +223,7 @@ public class AuthServiceImpl implements AuthService {
 
         newUser.setRole(UserRole.USER);
         newUser.setStatus(UserStatus.Active);
+        initializeDefaultProfile(newUser);
 
 
         // -----------------------------------------------------
@@ -247,6 +251,12 @@ public class AuthServiceImpl implements AuthService {
                 "Registered successfully. Go to login.",
                 response
         );
+    }
+
+    private void initializeDefaultProfile(User user) {
+        user.setCareerProfileEnabled(false);
+        user.setCareerSkills(new ArrayList<>());
+        user.setPreferredWorkLocations(new ArrayList<>());
     }
 
 
