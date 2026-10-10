@@ -14,13 +14,14 @@ from reportlab.platypus import (
     Paragraph, Spacer, Table, TableStyle,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
+from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, String
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.0.0"
-UPDATED = "29 September 2026"
+VERSION = "1.1.0"
+UPDATED = "10 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
 MIDNIGHT = colors.HexColor("#0B132B")
@@ -251,6 +252,212 @@ def make_toc():
     return toc
 
 
+def add_box(drawing, x, y, width, height, title, lines=(), fill=WHITE, stroke=LINE, title_color=NAVY):
+    drawing.add(Rect(x, y, width, height, rx=7, ry=7, fillColor=fill, strokeColor=stroke, strokeWidth=1))
+    drawing.add(String(x + width / 2, y + height - 15, title, fontName=FONTS["DocBold"], fontSize=8.2,
+                       fillColor=title_color, textAnchor="middle"))
+    line_y = y + height - 29
+    line_color = colors.HexColor("#C8D4E8") if fill == MIDNIGHT else MUTED
+    for line in lines:
+        drawing.add(String(x + width / 2, line_y, line, fontName=FONTS["DocRegular"], fontSize=6.7,
+                           fillColor=line_color, textAnchor="middle"))
+        line_y -= 10
+
+
+def add_arrow(drawing, x1, y1, x2, y2, label=None, color=BLUE):
+    drawing.add(Line(x1, y1, x2, y2, strokeColor=color, strokeWidth=1.4))
+    direction = 1 if x2 >= x1 else -1
+    drawing.add(Polygon([
+        x2, y2,
+        x2 - direction * 7, y2 + 3.5,
+        x2 - direction * 7, y2 - 3.5,
+    ], fillColor=color, strokeColor=color))
+    if label:
+        drawing.add(String((x1 + x2) / 2, y1 + 6, label, fontName=FONTS["DocRegular"], fontSize=6.2,
+                           fillColor=MUTED, textAnchor="middle"))
+
+
+def add_actor(drawing, x, y, label):
+    drawing.add(Circle(x, y + 29, 7, fillColor=BLUE_TINT, strokeColor=BLUE, strokeWidth=1.2))
+    drawing.add(Line(x, y + 22, x, y + 3, strokeColor=NAVY, strokeWidth=1.2))
+    drawing.add(Line(x - 10, y + 15, x + 10, y + 15, strokeColor=NAVY, strokeWidth=1.2))
+    drawing.add(Line(x, y + 3, x - 8, y - 9, strokeColor=NAVY, strokeWidth=1.2))
+    drawing.add(Line(x, y + 3, x + 8, y - 9, strokeColor=NAVY, strokeWidth=1.2))
+    drawing.add(String(x, y - 22, label, fontName=FONTS["DocBold"], fontSize=6.7,
+                       fillColor=NAVY, textAnchor="middle"))
+
+
+def system_context_diagram(width):
+    height = 245
+    d = Drawing(width, height)
+    actor_x = 36
+    for y, label in [(175, "Customer"), (100, "Salon team"), (25, "Administrator")]:
+        add_actor(d, actor_x, y, label)
+    add_box(d, 88, 82, 105, 88, "React web client", ["Discovery and profiles", "Owner workspace", "Hiring journeys"], BLUE_TINT, BLUE)
+    add_box(d, 225, 82, 118, 88, "Salon Hup API", ["JWT authorization", "Business workflows", "ApiResponse DTOs"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, 382, 142, 95, 58, "Database", ["MySQL target", "H2 local and test"], SURFACE, NAVY)
+    add_box(d, 382, 52, 95, 58, "SMTP provider", ["Account email", "Recovery delivery"], SURFACE, NAVY)
+    add_arrow(d, 193, 126, 225, 126, "HTTPS JSON")
+    add_arrow(d, 343, 145, 382, 166, "JPA")
+    add_arrow(d, 343, 105, 382, 81, "SMTP")
+    for y in (204, 129, 54):
+        add_arrow(d, 57, y, 88, 135 if y == 129 else (151 if y > 129 else 101), None, CYAN)
+    return d
+
+
+def use_case_diagram(width):
+    height = 285
+    d = Drawing(width, height)
+    d.add(Rect(88, 15, width - 110, height - 30, rx=10, ry=10, fillColor=colors.HexColor("#FAFCFF"),
+               strokeColor=BLUE, strokeWidth=1.2))
+    d.add(String(104, height - 34, "SALON HUP USE CASES", fontName=FONTS["DocBold"], fontSize=8,
+                 fillColor=BLUE))
+    actors = [(30, 220, "Customer"), (30, 135, "Career user"), (30, 50, "Employee"),
+              (width - 27, 205, "Owner"), (width - 27, 75, "Admin")]
+    for x, y, label in actors:
+        add_actor(d, x, y, label)
+    cases = [
+        (110, 205, 120, 38, "Discover salons", ["View active services"]),
+        (110, 145, 120, 38, "Manage profile", ["Enable career mode"]),
+        (110, 85, 120, 38, "Employment", ["Join, leave, transfer"]),
+        (254, 205, 120, 38, "Manage salon", ["Profile and services"]),
+        (254, 145, 120, 38, "Recruit team", ["Post, rank, decide"]),
+        (254, 85, 120, 38, "Platform control", ["Approve, block, restore"]),
+        (182, 30, 120, 38, "Book appointment", ["Planned workflow"]),
+    ]
+    for x, y, w, h, title, lines in cases:
+        fill = SURFACE if "Planned" in lines[0] else WHITE
+        add_box(d, x, y, w, h, title, lines, fill, LINE)
+    add_arrow(d, 51, 248, 110, 224, None, CYAN)
+    add_arrow(d, 51, 163, 110, 164, None, CYAN)
+    add_arrow(d, 51, 78, 110, 104, None, CYAN)
+    add_arrow(d, width - 48, 233, 374, 224, None, EMERALD)
+    add_arrow(d, width - 48, 207, 374, 164, None, EMERALD)
+    add_arrow(d, width - 48, 103, 374, 104, None, EMERALD)
+    return d
+
+
+def component_diagram(width):
+    height = 245
+    d = Drawing(width, height)
+    boxes = [
+        (8, 172, 88, 48, "React features", ["Hooks and API adapters"]),
+        (112, 172, 88, 48, "HTTP boundary", ["CORS and JWT filter"]),
+        (216, 172, 88, 48, "Controllers", ["Binding and principal"]),
+        (320, 172, 88, 48, "DTO contract", ["ApiResponse envelope"]),
+        (112, 86, 120, 52, "Domain services", ["Validation", "Authorization and state"]),
+        (264, 86, 120, 52, "Repositories", ["Queries and locking", "JPA persistence"]),
+        (188, 12, 120, 46, "Relational database", ["MySQL / compatible H2"]),
+    ]
+    for x, y, w, h, title, lines in boxes:
+        fill = BLUE_TINT if y > 150 else colors.HexColor("#ECFDF3") if y > 60 else SURFACE
+        add_box(d, x, y, w, h, title, lines, fill, BLUE if y > 150 else EMERALD)
+    add_arrow(d, 96, 196, 112, 196)
+    add_arrow(d, 200, 196, 216, 196)
+    add_arrow(d, 304, 196, 320, 196)
+    add_arrow(d, 276, 172, 188, 138, "delegates")
+    add_arrow(d, 232, 112, 264, 112)
+    add_arrow(d, 324, 86, 270, 58, "entities")
+    return d
+
+
+def sequence_diagram(width, participants, messages):
+    height = 42 + len(messages) * 24 + 38
+    d = Drawing(width, height)
+    margin = 24
+    step = (width - 2 * margin) / (len(participants) - 1)
+    xs = [margin + index * step for index in range(len(participants))]
+    top = height - 25
+    for x, participant in zip(xs, participants):
+        d.add(Rect(x - 38, top - 13, 76, 26, rx=5, ry=5, fillColor=BLUE_TINT, strokeColor=BLUE))
+        d.add(String(x, top - 3, participant, fontName=FONTS["DocBold"], fontSize=6.7,
+                     fillColor=NAVY, textAnchor="middle"))
+        life = Line(x, top - 13, x, 20, strokeColor=LINE, strokeWidth=0.8)
+        life.strokeDashArray = [3, 3]
+        d.add(life)
+    y = top - 36
+    for source, target, label, success in messages:
+        color = EMERALD if success else BLUE
+        if source == target:
+            x = xs[source]
+            d.add(Line(x, y, x + 26, y, strokeColor=color, strokeWidth=1.4))
+            d.add(Line(x + 26, y, x + 26, y - 10, strokeColor=color, strokeWidth=1.4))
+            add_arrow(d, x + 26, y - 10, x, y - 10, None, color)
+            label_x = x + 32
+        else:
+            add_arrow(d, xs[source], y, xs[target], y, None, color)
+            label_x = (xs[source] + xs[target]) / 2
+        d.add(String(label_x, y + 6, label, fontName=FONTS["DocRegular"],
+                     fontSize=6.1, fillColor=NAVY, textAnchor="middle"))
+        y -= 24
+    return d
+
+
+def hiring_sequence_diagram(width):
+    return sequence_diagram(width, ["Applicant", "Hiring API", "Profile", "Hiring service", "Employment"], [
+        (0, 1, "Submit optional note", False),
+        (1, 2, "Load career profile", False),
+        (2, 3, "Return trusted profile data", True),
+        (3, 3, "Validate, snapshot, rank", False),
+        (3, 0, "Application and match result", True),
+        (0, 1, "Owner accepts application", False),
+        (1, 4, "Execute join or transfer", False),
+        (4, 0, "Accepted or pending leave", True),
+    ])
+
+
+def service_sequence_diagram(width):
+    return sequence_diagram(width, ["Owner", "Service API", "Domain service", "Repository", "Public client"], [
+        (0, 1, "Create or update DTO", False),
+        (1, 2, "Authenticated owner ID", False),
+        (2, 2, "Validate salon and fields", False),
+        (2, 3, "Save active service", False),
+        (3, 0, "Return response DTO", True),
+        (4, 1, "List salon services", False),
+        (1, 2, "Verify accepted salon", False),
+        (2, 3, "Query active only", False),
+        (3, 4, "Ordered public DTOs", True),
+        (0, 1, "Disable service", False),
+        (2, 3, "Persist active=false", True),
+    ])
+
+
+def benefits_diagram(width):
+    height = 245
+    d = Drawing(width, height)
+    center_x = width / 2
+    add_box(d, center_x - 62, 94, 124, 58, "SALON HUP", ["One trusted platform", "One consistent identity"], MIDNIGHT, MIDNIGHT, WHITE)
+    benefits = [
+        (8, 170, 145, 55, "Customers", ["Compare trusted salons", "See price and duration"]),
+        (width - 153, 170, 145, 55, "Salon owners", ["Control services and staff", "Rank applicants clearly"]),
+        (8, 18, 145, 55, "Career users", ["Reusable career profile", "Fair visible matching"]),
+        (width - 153, 18, 145, 55, "Platform operations", ["Approval and moderation", "Restorable restrictions"]),
+    ]
+    for x, y, w, h, title, lines in benefits:
+        add_box(d, x, y, w, h, title, lines, BLUE_TINT, BLUE)
+        target_x = x + w if x < center_x else x
+        source_x = center_x - 62 if x < center_x else center_x + 62
+        target_y = y + h / 2
+        source_y = 123
+        add_arrow(d, source_x, source_y, target_x, target_y, None, CYAN)
+    return d
+
+
+def diagram_for(name, width):
+    diagrams = {
+        "system-context": system_context_diagram,
+        "use-cases": use_case_diagram,
+        "components": component_diagram,
+        "hiring-sequence": hiring_sequence_diagram,
+        "service-sequence": service_sequence_diagram,
+        "benefits": benefits_diagram,
+    }
+    builder = diagrams.get(name)
+    if builder is None:
+        raise ValueError(f"Unknown diagram: {name}")
+    return KeepTogether([builder(width), Spacer(1, 10)])
+
+
 def parse_markdown(text, width):
     lines = text.splitlines()
     story = [
@@ -292,6 +499,10 @@ def parse_markdown(text, width):
             story.append(Paragraph(inline(stripped[5:]), styles["DocH3"]))
         elif stripped.startswith("> "):
             story.append(Paragraph(inline(stripped[2:]), styles["Callout"]))
+        elif re.fullmatch(r"\[\[DIAGRAM:[a-z-]+\]\]", stripped):
+            story.append(diagram_for(stripped[10:-2], width))
+        elif stripped == "[[PAGEBREAK]]":
+            story.append(PageBreak())
         elif stripped.startswith("| "):
             table_lines = []
             while index < len(lines) and lines[index].strip().startswith("|"):

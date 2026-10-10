@@ -3,8 +3,8 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.0.0
-**Last updated:** 29 September 2026
+**Document version:** 1.1.0
+**Last updated:** 10 October 2026
 **Status:** Active development
 
 ## Document purpose
@@ -17,11 +17,11 @@ The document distinguishes between implemented behavior and planned behavior. A 
 
 ## Executive overview
 
-Salon Hup is a platform for managing salons, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, and workforce-management foundation needed before appointment scheduling and production deployment can be completed.
+Salon Hup is a platform for salon discovery, service catalogs, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, workforce management, and service-catalog foundation needed before appointment scheduling and production deployment can be completed.
 
-The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, and owner acceptance and rejection.
+The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, and an owner-managed public service catalog.
 
-Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, and protected transfer cancellation are implemented. Customer-facing booking, salon services, staff availability, appointment scheduling, notifications, reviews, and payments are not yet implemented.
+Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, protected transfer cancellation, and salon-service management are implemented. Appointment availability, booking state transitions, notifications, reviews, and payments are not yet implemented.
 
 ### Product status snapshot
 
@@ -31,7 +31,8 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 | Career and hiring | Implemented | Unified career profiles, discovery ranking, applications, owner decisions, and hiring lifecycle exist |
 | Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
 | Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
-| Customer booking | Planned | Services, availability, appointments, customer history, and calendar APIs do not yet exist |
+| Salon service catalog | Implemented | Approved owners manage priced, timed services and public salon pages receive active offerings |
+| Customer booking | Partial | Service discovery exists; availability, appointments, customer history, and calendar APIs remain planned |
 | Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
 
 ## Product scope
@@ -47,7 +48,7 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 
 ### Current release boundary
 
-The current backend release is a workforce and salon-management foundation. It can support authentication, salon approval, career profiles, hiring, employment, and administrative moderation. It is not yet a complete customer booking product because services, schedules, slot calculation, appointments, payments, notifications, reviews, and production infrastructure remain planned.
+The current backend release is a workforce, salon-management, and service-catalog foundation. It can support authentication, salon approval, career profiles, hiring, employment, administrative moderation, and public service discovery. It is not yet a complete customer booking product because staff capabilities, schedules, slot calculation, appointments, payments, notifications, reviews, and production infrastructure remain planned.
 
 ### Explicitly outside the current implementation
 
@@ -108,9 +109,10 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 | FR-04 | Owners and users can create and decide employment relationships through controlled workflows | Implemented |
 | FR-05 | Owners can publish vacancies and receive every application ranked by transparent fit rules | Implemented |
 | FR-06 | Administrators can reversibly restrict non-admin users and salons | Implemented |
-| FR-07 | Customers can discover services and reserve valid appointment slots | Planned |
-| FR-08 | The platform can notify participants about time-sensitive workflow changes | Planned |
-| FR-09 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
+| FR-07 | Customers can discover active salon services | Implemented |
+| FR-08 | Customers can reserve valid appointment slots | Planned |
+| FR-09 | The platform can notify participants about time-sensitive workflow changes | Planned |
+| FR-10 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
 
 ## Technology stack
 
@@ -121,8 +123,9 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 | HTTP API | Spring Web MVC |
 | Security | Spring Security, JWT, BCrypt |
 | Persistence | Spring Data JPA and Hibernate |
-| Database | MySQL |
-| Test database | H2 in-memory database with MySQL compatibility mode |
+| Production database target | MySQL |
+| Local database | Persistent H2 with MySQL compatibility mode |
+| Test database | Isolated H2 in-memory database with MySQL compatibility mode |
 | Validation | Spring Validation plus service-level business validation |
 | Email foundation | Spring Mail with SMTP configuration |
 | Build | Maven |
@@ -146,11 +149,11 @@ Controllers define HTTP routes and receive authenticated identity information. D
 The main Java package is `com.salon.backend` and contains:
 
 - `Config` for Spring Security, password hashing, and JWT filtering.
-- `Controllers` for authentication, dashboard, salons, employment, hiring posts, and users.
+- `Controllers` for authentication, dashboard, salons, salon services, employment, hiring posts, and users.
 - `DTOs` for request and response contracts.
-- `Entities` for users, salons, employment, leave requests, and hiring posts.
+- `Entities` for users, salons, salon services, employment, leave requests, and hiring posts.
 - `Repositories` for JPA database access.
-- `Services` for authentication, administration, salon management, employment, and hiring-post rules.
+- `Services` for authentication, administration, salon management, salon-service management, employment, and hiring-post rules.
 
 All service responses use the generic `ApiResponse<T>` envelope containing `success`, `message`, and `data`.
 
@@ -173,6 +176,52 @@ All service responses use the generic `ApiResponse<T>` envelope containing `succ
 - H2 in MySQL compatibility mode isolates automated tests from developer and production databases.
 - Secrets enter through environment variables and never through committed production values.
 
+## System diagrams
+
+The following diagrams present the same product from business, runtime, interaction, and value perspectives. Solid flows represent implemented behavior. Labels that include `planned` identify capabilities that remain outside the current release.
+
+### System context
+
+This view shows the people and external systems that exchange data with Salon Hup. The browser application uses the backend API as the single business gateway; the API owns authorization and persistence decisions.
+
+[[DIAGRAM:system-context]]
+
+[[PAGEBREAK]]
+
+### Use case view
+
+The use case view separates customer, career user, salon owner, employee, and administrator responsibilities. A person may move between roles through approved salon and employment workflows.
+
+[[DIAGRAM:use-cases]]
+
+### Software component architecture
+
+Requests cross explicit boundaries from the React feature adapter to Spring Security, thin controllers, domain services, repositories, and the database. DTOs and the `ApiResponse<T>` envelope protect the API boundary.
+
+[[DIAGRAM:components]]
+
+[[PAGEBREAK]]
+
+### Hiring application sequence
+
+The hiring sequence shows how authenticated profile data replaces repeated applicant entry and how acceptance delegates to the existing employment workflow.
+
+[[DIAGRAM:hiring-sequence]]
+
+[[PAGEBREAK]]
+
+### Salon service sequence
+
+The service sequence shows owner authorization, validation, persistence, public filtering, and reversible disable behavior.
+
+[[DIAGRAM:service-sequence]]
+
+### Stakeholder benefits
+
+The platform creates value by connecting discovery, operational control, career mobility, and platform governance through one consistent domain model.
+
+[[DIAGRAM:benefits]]
+
 ## Core domain model
 
 ### User
@@ -188,6 +237,12 @@ User status values are `Active`, `Blocked`, and `Deleted`.
 A salon stores its name, salon phone, owner phone, email, location, description, owner, employees, current and maximum employee counts, creation date, opening and closing times, profile picture URL, approval status, and opening status. Reversible administration also stores the status that existed before a block, independent owner-block and direct admin-block flags, and the owner's role before a direct salon block.
 
 Salon approval status values are `Inactive`, `Requested`, `Accepted`, `Rejected`, and `DELETED`.
+
+### Salon service
+
+A salon service belongs to one salon and stores a customer-facing name, optional description, decimal price in Jordanian dinars, duration in minutes, active state, and creation and update timestamps. The public catalog returns only active services from an accepted, unblocked salon. The owner catalog includes both active and inactive records.
+
+Disabling a service is a soft state change. The row remains available for later reactivation and for the booking history that will reference it. Only the authenticated owner of an accepted, unblocked salon may create, edit, activate, or disable its services.
 
 ### Employment request
 
@@ -235,6 +290,7 @@ Known identity fields including name, username, email, phone number, role, and u
 | Salon | Requested | Administrator accepts request | Accepted | No automatic rollback |
 | Salon | Requested | Administrator rejects with reason | Rejected | Yes, through correction and resubmission |
 | Salon | Accepted, Requested, or Rejected | Direct administrator salon block | Inactive | Yes, to exact prior state |
+| Salon service | Active | Owner disables service | Inactive | Yes, through owner edit |
 | Hiring post | Open | Positions filled or owner closes post | Closed | Conditional reopen |
 | Hiring post | Open | Expiration time passes | Expired | Yes, with future date and valid positions |
 | Employment request | Requested | Receiver accepts available applicant | Accepted | Employment ends through leave workflow |
@@ -246,6 +302,9 @@ Known identity fields including name, username, email, phone number, role, and u
 - A user may apply to a specific hiring post only once.
 - A hiring application never changes its career-data snapshot after submission.
 - A salon must be `Accepted` for active employment and hiring operations.
+- A public salon service must be active and belong to an accepted, unblocked salon.
+- Only the authenticated salon owner may mutate that salon's service catalog.
+- Disabling a salon service preserves its database identity for reactivation and future booking history.
 - A hiring post must be open, unexpired, and have a remaining position before application or acceptance.
 - Employee counts and reserved positions change in the same transaction as the related employment decision.
 - A direct salon block and an owner-derived block are independent; both must be removed before restoration.
@@ -303,6 +362,14 @@ Blocking a normal user or employee changes the account status from `Active` to `
 Blocking a salon directly is different from blocking its owner. The owner account remains active, but the owner's current role is saved and temporarily changed to `USER`. The salon's current approval status is saved and changed to `Inactive`. Hiring posts, applications, employment links, and other related records remain persisted but become unavailable through the accepted-salon business checks. Unblocking restores the exact previous salon status and owner role, making records that were valid before the block usable again.
 
 Blocking a salon owner blocks the owner account and makes the owned salon inactive while preserving the owner's role. Direct salon blocks and owner-derived blocks are tracked independently. If both restrictions apply, removing only one keeps the salon inactive; the salon is restored only after both restrictions are removed. Transactional pessimistic locks protect these state transitions.
+
+### Salon service catalog
+
+An authenticated owner whose salon is accepted and unblocked can create a service with a required name, positive price, and positive duration. Description is optional. Names are trimmed to 100 characters, descriptions to 1000 characters, and prices use at most two decimal places within the persisted precision.
+
+The owner management endpoint returns active and inactive services so disabled entries remain editable and may be reactivated. Update requests can change the name, description, price, duration, and active state. The delete route performs a soft disable and returns the updated DTO rather than deleting the row.
+
+Public clients can list the active services of a salon without authentication. The service layer first verifies that the salon is accepted and unaffected by either administrator or owner-derived blocking, then queries only active services ordered by name. Response DTOs expose the service contract without serializing the salon entity graph.
 
 ### Direct employment request
 
@@ -454,8 +521,9 @@ The current product decision is to represent business outcomes through `ApiRespo
 | --- | --- | --- | --- | --- | --- |
 | Registration and login | Yes | Yes | Yes | Yes | Dashboard login only |
 | Unified profile | No | Own profile | Own profile | Own profile | Own profile |
-| Active salon discovery | No | Yes | Yes | Yes | Yes |
+| Active salon and service discovery | Yes | Yes | Yes | Yes | Yes |
 | Salon ownership actions | No | Request only | Owned salon | No | Approval and moderation |
+| Salon service management | No | No | Accepted owned salon | No | No special access |
 | Employment and leave | No | Applicable requests | Owned salon decisions | Applicable requests | No special access |
 | Hiring discovery and application | No | Yes | Owner cannot apply as owner | Yes | No special access |
 | Hiring-post management | No | No | Owned salon only | No | No special access |
@@ -465,7 +533,8 @@ The current product decision is to represent business outcomes through `ApiRespo
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| POST | `/api/auth/rigester` | Create a user account; spelling currently follows the source route |
+| POST | `/api/auth/register` | Create a user account |
+| POST | `/api/auth/rigester` | Backward-compatible alias for the original registration route |
 | POST | `/api/auth/login` | Authenticate and receive a JWT |
 | POST | `/api/auth/logout` | Blacklist the current JWT |
 
@@ -482,10 +551,22 @@ The current product decision is to represent business outcomes through `ApiRespo
 | --- | --- | --- |
 | GET | `/api/salons` | Return all salons to an administrator |
 | GET | `/api/salons/active` | Return accepted salons |
+| GET | `/api/salons/{salonId}` | Return one salon profile |
 | GET | `/api/salons/mine` | Return the authenticated owner's salon, rejection reason, and resubmission counters |
 | POST | `/api/salons/create` | Request creation of a salon |
 | PUT | `/api/salons/{salonId}/edit` | Update an owned salon |
 | POST | `/api/salons/{salonId}/resubmit` | Resubmit a rejected owned salon, up to three times |
+| DELETE | `/api/salons/{salonId}` | Soft-delete the authenticated owner's salon |
+
+### Salon services
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| POST | `/api/salon-services` | Create an active service for the authenticated owner's salon | Accepted salon owner |
+| GET | `/api/salon-services/salon/{salonId}` | List active services for an accepted, unblocked salon | Public |
+| GET | `/api/salon-services/my-salon` | List active and inactive services for management | Accepted salon owner |
+| PUT | `/api/salon-services/{serviceId}` | Update and optionally reactivate an owned service | Accepted salon owner |
+| DELETE | `/api/salon-services/{serviceId}` | Disable an owned service without deleting history | Accepted salon owner |
 
 ### Employment and leave
 
@@ -549,7 +630,7 @@ Database, SMTP, and JWT secrets are supplied through environment variables and a
 
 The JWT signing secret must be Base64 encoded and contain at least 32 random bytes before encoding. JWT lifetime is configurable through `JWT_EXPIRATION_MS` and defaults to 24 hours.
 
-Automated tests use an isolated H2 in-memory database with test-only mail and JWT values. Tests do not require developer MySQL or SMTP credentials and do not write to the production database.
+Local development can load an ignored `.env` file and use a persistent H2 database in MySQL compatibility mode. Deployment environment variables override local values and may point the same application to MySQL. Automated tests use a separate H2 in-memory database with test-only mail and JWT values, so tests do not require developer MySQL or SMTP credentials and do not write to local or production data.
 
 ## Data protection and governance
 
@@ -630,7 +711,7 @@ The application is currently packaged as a Spring Boot service. A production con
 
 ### Current automated evidence
 
-The current suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, and URL validation. The suite runs against an isolated H2 test database. At document version 1.0.0, the latest approved suite contains 22 passing tests.
+The current suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, and URL validation. The suite runs against an isolated H2 test database. At document version 1.1.0, the latest verified suite contains 38 passing tests.
 
 ### Required test layers
 
@@ -693,8 +774,9 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 | Hiring-post discovery | Implemented | Pagination, filters, controlled sorting, personalized labels, and ranked results available |
 | Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
 | Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
-| Customer booking | Planned | Domain and APIs not yet created |
-| Automated tests | Initial | 22 tests cover application startup and selected JWT, moderation, employment, hiring, salon, directory, and URL-validation behavior against isolated H2; broader authorization, integration, concurrency, and performance coverage remains required |
+| Salon service catalog | Implemented | Owner create/list/update/disable/reactivate and public active-service discovery are available through DTO-based APIs |
+| Customer booking | Partial | Service foundation exists; availability, appointments, assignment, history, and calendar APIs remain planned |
+| Automated tests | Initial | 38 tests cover application startup and selected JWT, moderation, employment, hiring, salon, salon-service, directory, and URL-validation behavior against isolated H2; broader authorization, integration, concurrency, and performance coverage remains required |
 | Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
 | Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
@@ -711,7 +793,7 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 | R-05 | Employee capacity changes need wider concurrency verification | High | Medium | Add database-backed contention tests and constraints |
 | R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
 | R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
-| R-08 | Booking domain is not implemented | High | Certain | Complete booking foundation before customer launch |
+| R-08 | Appointment and availability domains are not implemented | High | Certain | Complete booking scheduling after the service-catalog foundation |
 
 ### Entity exposure
 
@@ -763,7 +845,8 @@ Hibernate currently uses automatic schema update. Production environments should
 
 ### Priority 4 Booking foundation
 
-- Define salon services, prices, durations, and staff capabilities.
+- Define salon services, prices, and durations. Completed with owner management, public active-service discovery, validation, DTOs, ownership checks, and reversible disable.
+- Define which employees can perform each service.
 - Define weekly working hours, breaks, holidays, and time off.
 - Calculate available appointment slots.
 - Create booking, confirmation, cancellation, and rescheduling workflows.
@@ -792,6 +875,8 @@ Hibernate currently uses automatic schema update. Production environments should
 | Missing requirements | A visible candidate with one or more unmet post conditions |
 | Pending leave | A transfer stage in which a new opportunity is accepted but the current salon must release the employee |
 | Reserved position | A hiring-post position consumed while an accepted transfer is waiting for leave completion |
+| Salon service | A priced and timed offering owned by one salon and shown publicly only while active |
+| Soft disable | A reversible state change that hides a service without deleting its identity or future booking references |
 | DTO | A request or response object that defines an external API contract without exposing persistence entities |
 
 ## Quality and review policy
@@ -825,6 +910,7 @@ Document versions use three numeric positions: `major.minor.patch`.
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.1.0 | 10 October 2026 | Added the salon-service domain and API contract, local persistent development database model, current test evidence, and professional system context, use case, component, sequence, and stakeholder-benefit diagrams |
 | 1.0.0 | 29 September 2026 | Rebuilt the complete document as a production product and engineering specification with document control, linked contents, product scope and principles, functional requirements, domain transitions, API conventions, governance, non-functional requirements, environment and deployment models, testing strategy, operations, release gates, risk register, and glossary |
 | 0.7.0 | 29 September 2026 | Added reversible non-admin user and salon blocking, independent overlapping block state, exact salon-status and owner-role restoration, administrator-only user directories, and immediate blocked-token enforcement |
 | 0.6.0 | 29 September 2026 | Added safe user and salon listing DTOs, administrator-only full salon listing, persisted salon rejection reasons, owner correction, and a three-resubmission limit |
