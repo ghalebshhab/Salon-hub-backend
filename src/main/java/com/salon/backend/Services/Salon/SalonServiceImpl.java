@@ -234,40 +234,28 @@ public class SalonServiceImpl implements SalonService {
     }
 
     @Override
-    public ApiResponse<Void> deleteSalon(long id) {
-        Optional<Salon> opSalon=salonRepo.findById(id);
+    public ApiResponse<Void> deleteSalon(long salonId, Long ownerId) {
+        Optional<Salon> opSalon=salonRepo.findById(salonId);
         if(opSalon.isEmpty()){
             return ApiResponse.error("Salon Not Found");
         }
         Salon salon=opSalon.get();
+        if (salon.getOwner() == null || salon.getOwner().getId() != ownerId) {
+            return ApiResponse.error("You can only delete your own salon");
+        }
         salon.setStatus(SalonStatus.DELETED);
         salonRepo.save(salon);
         return ApiResponse.success("Salon Deleted Successfully",null);
     }
 
     @Override
-    public ApiResponse<CreateSalonResponse> getSalonById(long id) {
+    public ApiResponse<SalonResponse> getSalonById(long id) {
         Optional<Salon> opSalon=salonRepo.findById(id);
         if(opSalon.isEmpty()){
             return ApiResponse.error("Salon Not Found");
         }
         Salon salon=opSalon.get();
-        CreateSalonResponse createSalonResponse=new CreateSalonResponse(
-                id,
-                salon.getName(),
-                salon.getSalonPhoneNumber(),
-                salon.getEmail(),
-                salon.getLocation(),
-                salon.getOwnerPhoneNumber(),
-                salon.getOwner().getUserName(),
-                salon.getOpeningTime(),
-                salon.getClosingTime(),
-                salon.getProfilePictureUrl(),
-                salon.getCurrentEmployeesNumber(),
-                salon.getMaxEmployeesNumber()
-
-        );
-        return ApiResponse.success("Salon Fetched Successfully", createSalonResponse);
+        return ApiResponse.success("Salon Fetched Successfully", mapSalonResponse(salon));
     }
 
     @Override

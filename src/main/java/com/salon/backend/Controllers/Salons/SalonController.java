@@ -28,6 +28,10 @@ public class SalonController {
     public ApiResponse<List<SalonResponse>> getActiveSalons() {
         return salonService.getActiveSalons();
     }
+    @GetMapping("/{salonId}")
+    public ApiResponse<SalonResponse> getSalon(@PathVariable Long salonId) {
+        return salonService.getSalonById(salonId);
+    }
     @GetMapping("/mine")
     public ApiResponse<SalonResponse> getMySalon(
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
@@ -52,6 +56,13 @@ public class SalonController {
             @PathVariable Long salonId,
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return salonService.resubmitRejectedSalon(salonId, currentUser.getId());
+    }
+
+    @DeleteMapping("/{salonId}")
+    public ApiResponse<Void> deleteSalon(
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.deleteSalon(salonId, currentUser.getId());
     }
 
 

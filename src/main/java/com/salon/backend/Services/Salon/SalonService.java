@@ -12,8 +12,8 @@ import java.util.List;
 public interface SalonService {
     ApiResponse<CreateSalonResponse> createSalon(CreateSalonRequest createSalonRequest,Long id);
     ApiResponse<CreateSalonResponse> updateSalon(UpdateSalonRequest updateSalonRequest,Long id,Long ownerId);
-    ApiResponse<Void> deleteSalon(long id);
-    ApiResponse<CreateSalonResponse> getSalonById(long id);
+    ApiResponse<Void> deleteSalon(long salonId, Long ownerId);
+    ApiResponse<SalonResponse> getSalonById(long id);
     ApiResponse<SalonResponse> getSalonByOwnerId(Long ownerId);
     ApiResponse<List<SalonResponse>> getAllSalons(Long adminId);
     ApiResponse<List<SalonResponse>> getActiveSalons();

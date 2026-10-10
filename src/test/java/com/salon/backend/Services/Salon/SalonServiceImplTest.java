@@ -114,4 +114,36 @@ class SalonServiceImplTest {
         assertEquals("You are not Admin , Access Denied", response.getMessage());
         verifyNoInteractions(salonRepo);
     }
+
+    @Test
+    void ownerCanDeleteTheirSalon() {
+        User owner = new User();
+        owner.setId(4L);
+        Salon salon = new Salon();
+        salon.setId(12L);
+        salon.setOwner(owner);
+        salon.setStatus(SalonStatus.Accepted);
+        when(salonRepo.findById(salon.getId())).thenReturn(Optional.of(salon));
+
+        ApiResponse<Void> response = service.deleteSalon(salon.getId(), owner.getId());
+
+        assertTrue(response.isSuccess());
+        assertEquals(SalonStatus.DELETED, salon.getStatus());
+        verify(salonRepo).save(salon);
+    }
+
+    @Test
+    void userCannotDeleteAnotherOwnersSalon() {
+        User owner = new User();
+        owner.setId(4L);
+        Salon salon = new Salon();
+        salon.setId(12L);
+        salon.setOwner(owner);
+        when(salonRepo.findById(salon.getId())).thenReturn(Optional.of(salon));
+
+        ApiResponse<Void> response = service.deleteSalon(salon.getId(), 99L);
+
+        assertFalse(response.isSuccess());
+        verify(salonRepo, never()).save(any());
+    }
 }
