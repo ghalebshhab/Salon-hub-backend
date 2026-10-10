@@ -1,10 +1,10 @@
 package com.salon.backend.Config;
 
 import com.salon.backend.Services.Auth.Security.CustomUserDetailsService;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,13 +18,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Configuration
 // This annotation tell the spring to open this file when the server is start running , becuase it contains a important things .
 public class SecurityConfig {
 
-    private JWTAuthFilter jwtAuthFilter;
-    private CustomUserDetailsService userDetailsService;
+    private final JWTAuthFilter jwtAuthFilter;
+    private final CustomUserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://localhost:3000}")
+    private List<String> allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,6 +41,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/register").permitAll()
                         .requestMatchers("/api/auth/rigester").permitAll()
                         .requestMatchers("/api/auth/google").permitAll()
                         .requestMatchers("/api/auth/facebook").permitAll()
@@ -48,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/dashboard/salons/**","/api/dashboard/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/salons").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/salons/active", "/api/salons/{salonId}").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -67,10 +72,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://localhost:3000"
-        ));
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

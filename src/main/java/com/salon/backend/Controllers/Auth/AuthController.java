@@ -16,7 +16,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "http://localhost:3000"})
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -26,7 +25,7 @@ public class AuthController {
     private final UserRepo userRepository;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtService jwtService;
-    @PostMapping("/rigester")
+    @PostMapping({"/register", "/rigester"})
     public ApiResponse<RigesterResponse> rigester(@RequestBody RigesterRequest request) {
 
         return authService.Rigester(request);
