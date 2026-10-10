@@ -15,4 +15,6 @@ public interface SalonServiceRepo extends JpaRepository<SalonService, Long> {
     List<SalonService> findBySalonIdOrderByCreatedAtDesc(Long salonId);
 
     Optional<SalonService> findByIdAndSalonOwnerId(Long serviceId, Long ownerId);
+
+    List<SalonService> findByIdInAndSalonIdAndActiveTrue(List<Long> ids, Long salonId);
 }

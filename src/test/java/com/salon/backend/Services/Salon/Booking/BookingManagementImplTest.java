@@ -1,0 +1,295 @@
+package com.salon.backend.Services.Salon.Booking;
+
+import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
+import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
+import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
+import com.salon.backend.Entities.salons.Salon;
+import com.salon.backend.Entities.salons.SalonStatus;
+import com.salon.backend.Entities.salons.bookings.Booking;
+import com.salon.backend.Entities.salons.bookings.BookingServiceItem;
+import com.salon.backend.Entities.salons.bookings.BookingStatus;
+import com.salon.backend.Entities.salons.services.SalonService;
+import com.salon.backend.Entities.users.User;
+import com.salon.backend.Entities.users.UserRole;
+import com.salon.backend.Entities.users.UserStatus;
+import com.salon.backend.Repositories.Salon.BookingRepo;
+import com.salon.backend.Repositories.Salon.SalonRepo;
+import com.salon.backend.Repositories.Salon.SalonServiceRepo;
+import com.salon.backend.Repositories.User.UserRepo;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class BookingManagementImplTest {
+
+    @Mock private BookingRepo bookingRepo;
+    @Mock private SalonRepo salonRepo;
+    @Mock private SalonServiceRepo salonServiceRepo;
+    @Mock private UserRepo userRepo;
+    @InjectMocks private BookingManagementImpl bookingManagement;
+
+    @Test
+    void createsPendingBookingWithImmutableServiceSnapshotAndProfilePhoneFallback() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        customer.setPhoneNumber("0790000000");
+        Salon salon = activeSalon(10L, 2L);
+        SalonService haircut = salonService(20L, salon, "Haircut", "7.50", 30);
+        SalonService color = salonService(21L, salon, "Color", "12.00", 45);
+        CreateBookingRequest request = new CreateBookingRequest(
+                salon.getId(),
+                List.of(20L, 21L),
+                null,
+                null,
+                "Amman",
+                LocalDateTime.now().plusDays(1).toLocalDate(),
+                LocalDateTime.now().plusDays(1).toLocalTime(),
+                "  Please call first  "
+        );
+
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+        when(salonServiceRepo.findByIdInAndSalonIdAndActiveTrue(List.of(20L, 21L), 10L))
+                .thenReturn(List.of(haircut, color));
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(request, 1L);
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.PENDING, response.getData().status());
+        assertEquals(new BigDecimal("19.50"), response.getData().totalPrice());
+        assertEquals(75, response.getData().totalDurationMinutes());
+        assertEquals("0790000000", response.getData().customerPhoneNumber());
+        assertEquals("Please call first", response.getData().note());
+        assertEquals(List.of("Haircut", "Color"), response.getData().services().stream()
+                .map(item -> item.name()).toList());
+        verify(bookingRepo).save(any(Booking.class));
+    }
+
+    @Test
+    void rejectsBookingWhenAnySelectedServiceIsInactiveOrFromAnotherSalon() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        Salon salon = activeSalon(10L, 2L);
+        CreateBookingRequest request = validCreateRequest(10L, List.of(20L, 21L));
+
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+        when(salonServiceRepo.findByIdInAndSalonIdAndActiveTrue(List.of(20L, 21L), 10L))
+                .thenReturn(List.of(salonService(20L, salon, "Haircut", "7.50", 30)));
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(request, 1L);
+
+        assertFalse(response.isSuccess());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void rejectsDuplicateServicesBeforeCreatingBooking() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        Salon salon = activeSalon(10L, 2L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(
+                validCreateRequest(10L, List.of(20L, 20L)),
+                1L
+        );
+
+        assertFalse(response.isSuccess());
+        verify(salonServiceRepo, never()).findByIdInAndSalonIdAndActiveTrue(any(), any());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void onlyOwningSalonCanAcceptBooking() {
+        Salon ownerSalon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, ownerSalon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(3L)).thenReturn(activeSalon(11L, 3L));
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(30L, null, 3L);
+
+        assertFalse(response.isSuccess());
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void ownerCanAcceptAndAssignAnEmployeeFromTheSameSalon() {
+        Salon salon = activeSalon(10L, 2L);
+        User employee = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+        when(userRepo.findById(4L)).thenReturn(Optional.of(employee));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
+                30L,
+                new BookingActionRequest("Confirmed", null, 4L),
+                2L
+        );
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.ACCEPTED, response.getData().status());
+        assertEquals(4L, response.getData().assignedEmployeeId());
+        verify(bookingRepo).save(booking);
+    }
+
+    @Test
+    void rejectionRequiresReasonAndLeavesBookingPendingWhenMissing() {
+        Salon salon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.rejectBooking(
+                30L,
+                new BookingActionRequest("  ", null, null),
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void customerCanCancelAnAcceptedBookingButCannotCancelAgain() {
+        Salon salon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> first = bookingManagement.cancelBooking(30L, 1L);
+        ApiResponse<BookingResponse> second = bookingManagement.cancelBooking(30L, 1L);
+
+        assertTrue(first.isSuccess());
+        assertEquals(BookingStatus.CANCELLED, first.getData().status());
+        assertFalse(second.isSuccess());
+        verify(bookingRepo).save(booking);
+    }
+
+    @Test
+    void completingAcceptedBookingPreservesTheAssignedEmployeeAndSnapshots() {
+        Salon salon = activeSalon(10L, 2L);
+        User employee = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(employee);
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.completeBooking(30L, 2L);
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.COMPLETED, response.getData().status());
+        assertEquals(4L, response.getData().assignedEmployeeId());
+        assertEquals("Haircut", response.getData().services().get(0).name());
+        assertNull(response.getData().ownerSuggestedTime());
+    }
+
+    private CreateBookingRequest validCreateRequest(Long salonId, List<Long> serviceIds) {
+        LocalDateTime appointment = LocalDateTime.now().plusDays(1);
+        return new CreateBookingRequest(
+                salonId,
+                serviceIds,
+                null,
+                "0790000000",
+                "Amman",
+                appointment.toLocalDate(),
+                appointment.toLocalTime(),
+                null
+        );
+    }
+
+    private User activeUser(Long id, UserRole role, Salon salon) {
+        User user = new User();
+        user.setId(id);
+        user.setFirstName("Test");
+        user.setLastName("User");
+        user.setUserName("test" + id);
+        user.setEmail("test" + id + "@example.com");
+        user.setStatus(UserStatus.Active);
+        user.setRole(role);
+        user.setSalon(salon);
+        user.setCareerSkills(new ArrayList<>());
+        return user;
+    }
+
+    private Salon activeSalon(Long id, Long ownerId) {
+        User owner = activeUser(ownerId, UserRole.OWNER, null);
+        Salon salon = new Salon();
+        salon.setId(id);
+        salon.setName("Salon " + id);
+        salon.setLocation("Amman");
+        salon.setOwner(owner);
+        salon.setStatus(SalonStatus.Accepted);
+        salon.setBlockedByAdmin(false);
+        salon.setBlockedByOwner(false);
+        owner.setSalon(salon);
+        return salon;
+    }
+
+    private SalonService salonService(
+            Long id,
+            Salon salon,
+            String name,
+            String price,
+            int duration) {
+        LocalDateTime now = LocalDateTime.now();
+        return new SalonService(
+                id,
+                salon,
+                name,
+                null,
+                new BigDecimal(price),
+                duration,
+                true,
+                now,
+                now
+        );
+    }
+
+    private Booking booking(Long id, Salon salon, User customer) {
+        LocalDateTime now = LocalDateTime.now();
+        Booking booking = new Booking();
+        booking.setId(id);
+        booking.setCustomer(customer);
+        booking.setSalon(salon);
+        booking.setCustomerPhoneNumber("0790000000");
+        booking.setCustomerLocation("Amman");
+        booking.setBookingDate(now.plusDays(1).toLocalDate());
+        booking.setBookingTime(now.plusDays(1).toLocalTime());
+        booking.setStatus(BookingStatus.PENDING);
+        booking.setTotalPrice(new BigDecimal("7.50"));
+        booking.setTotalDurationMinutes(30);
+        booking.setCreatedAt(now);
+        booking.setUpdatedAt(now);
+
+        BookingServiceItem item = new BookingServiceItem();
+        item.setId(40L);
+        item.setSourceServiceId(20L);
+        item.setServiceName("Haircut");
+        item.setPrice(new BigDecimal("7.50"));
+        item.setDurationMinutes(30);
+        booking.addServiceItem(item);
+        return booking;
+    }
+}
