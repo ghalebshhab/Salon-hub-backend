@@ -18,6 +18,11 @@ boolean existsByphoneNumber(String phoneNumber);
 User findByuserName(String username);
 User findByemail(String email);
 List<User> findByStatus(UserStatus status);
+List<User> findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
+        Long salonId,
+        com.salon.backend.Entities.users.UserRole role,
+        UserStatus status
+);
 
 @Lock(LockModeType.PESSIMISTIC_WRITE)
 @Query("SELECT user FROM User user WHERE user.id = :id")
