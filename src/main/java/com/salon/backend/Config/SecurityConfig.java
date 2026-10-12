@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/salons/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/salons/active", "/api/salons/{salonId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/salon-services/salon/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/salon/**").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
