@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
+import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
@@ -45,6 +46,7 @@ class BookingManagementImplTest {
     @Mock private SalonRepo salonRepo;
     @Mock private SalonServiceRepo salonServiceRepo;
     @Mock private UserRepo userRepo;
+    @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @Test
@@ -139,6 +141,8 @@ class BookingManagementImplTest {
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
         when(userRepo.findById(4L)).thenReturn(Optional.of(employee));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
@@ -150,6 +154,24 @@ class BookingManagementImplTest {
         assertEquals(BookingStatus.ACCEPTED, response.getData().status());
         assertEquals(4L, response.getData().assignedEmployeeId());
         verify(bookingRepo).save(booking);
+    }
+
+    @Test
+    void ownerCannotAssignEmployeeMissingARequestedServiceCapability() {
+        Salon salon = activeSalon(10L, 2L);
+        User employee = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+        when(userRepo.findById(4L)).thenReturn(Optional.of(employee));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(0L);
+
+        ApiResponse<BookingResponse> response = bookingManagement.assignEmployee(30L, 4L, 2L);
+
+        assertFalse(response.isSuccess());
+        assertNull(booking.getAssignedEmployee());
+        verify(bookingRepo, never()).save(any());
     }
 
     @Test

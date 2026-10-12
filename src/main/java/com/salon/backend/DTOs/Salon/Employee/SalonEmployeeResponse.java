@@ -1,6 +1,7 @@
 package com.salon.backend.DTOs.Salon.Employee;
 
 import java.time.LocalTime;
+import java.util.List;
 
 public record SalonEmployeeResponse(
         Long id,
@@ -11,6 +12,8 @@ public record SalonEmployeeResponse(
         String imageUrl,
         String status,
         LocalTime startTime,
-        LocalTime endTime
+        LocalTime endTime,
+        List<Long> serviceIds,
+        List<String> serviceNames
 ) {
 }

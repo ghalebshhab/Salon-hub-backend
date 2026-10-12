@@ -2,7 +2,10 @@ package com.salon.backend.Controllers.Salons;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
+import com.salon.backend.DTOs.Salon.Employee.EmployeeCapabilitiesResponse;
+import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeServicesRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
+import com.salon.backend.Services.Salon.Employee.EmployeeCapabilityManagement;
 import com.salon.backend.Services.Salon.Employee.SalonEmployeeDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -19,6 +24,7 @@ import java.util.List;
 public class SalonEmployeeController {
 
     private final SalonEmployeeDirectory salonEmployeeDirectory;
+    private final EmployeeCapabilityManagement employeeCapabilityManagement;
 
     @GetMapping("/salon/{salonId}")
     public ApiResponse<List<SalonEmployeeResponse>> getSalonEmployees(
@@ -30,5 +36,24 @@ public class SalonEmployeeController {
     public ApiResponse<List<SalonEmployeeResponse>> getMySalonEmployees(
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return salonEmployeeDirectory.getMySalonEmployees(currentUser.getId());
+    }
+
+    @GetMapping("/{employeeId}/services")
+    public ApiResponse<EmployeeCapabilitiesResponse> getEmployeeServices(
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeCapabilityManagement.getEmployeeServices(employeeId, currentUser.getId());
+    }
+
+    @PutMapping("/{employeeId}/services")
+    public ApiResponse<EmployeeCapabilitiesResponse> updateEmployeeServices(
+            @PathVariable Long employeeId,
+            @RequestBody UpdateEmployeeServicesRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeCapabilityManagement.updateEmployeeServices(
+                employeeId,
+                request,
+                currentUser.getId()
+        );
     }
 }

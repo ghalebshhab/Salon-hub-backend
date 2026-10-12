@@ -15,6 +15,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
+import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
@@ -41,6 +42,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final SalonRepo salonRepo;
     private final SalonServiceRepo salonServiceRepo;
     private final UserRepo userRepo;
+    private final EmployeeServiceCapabilityRepo capabilityRepo;
 
     @Override
     @Transactional
@@ -87,6 +89,9 @@ public class BookingManagementImpl implements BookingManagement {
             assignedEmployee = findAvailableSalonEmployee(request.assignedEmployeeId(), salon.getId());
             if (assignedEmployee == null) {
                 return ApiResponse.error("Selected employee is not active in this salon");
+            }
+            if (!canPerformAllServices(assignedEmployee.getId(), uniqueServiceIds)) {
+                return ApiResponse.error("Selected employee cannot perform every requested service");
             }
         }
 
@@ -223,6 +228,9 @@ public class BookingManagementImpl implements BookingManagement {
             if (employee == null) {
                 return ApiResponse.error("Selected employee is not active in this salon");
             }
+            if (!canPerformAllBookingServices(employee.getId(), booking)) {
+                return ApiResponse.error("Selected employee cannot perform every requested service");
+            }
             booking.setAssignedEmployee(employee);
         }
 
@@ -329,6 +337,9 @@ public class BookingManagementImpl implements BookingManagement {
         if (employee == null) {
             return ApiResponse.error("Selected employee is not active in this salon");
         }
+        if (!canPerformAllBookingServices(employee.getId(), booking)) {
+            return ApiResponse.error("Selected employee cannot perform every requested service");
+        }
 
         booking.setAssignedEmployee(employee);
         booking.setUpdatedAt(LocalDateTime.now());
@@ -425,6 +436,21 @@ public class BookingManagementImpl implements BookingManagement {
                 && salon.getStatus() == SalonStatus.Accepted
                 && !salon.isBlockedByAdmin()
                 && !salon.isBlockedByOwner();
+    }
+
+    private boolean canPerformAllBookingServices(Long employeeId, Booking booking) {
+        Set<Long> serviceIds = booking.getServiceItems().stream()
+                .map(BookingServiceItem::getSourceServiceId)
+                .collect(java.util.stream.Collectors.toSet());
+        return canPerformAllServices(employeeId, serviceIds);
+    }
+
+    private boolean canPerformAllServices(Long employeeId, Set<Long> serviceIds) {
+        if (employeeId == null || serviceIds == null || serviceIds.isEmpty()) {
+            return false;
+        }
+        return capabilityRepo.countByEmployeeIdAndServiceIdIn(employeeId, serviceIds)
+                == serviceIds.size();
     }
 
     private List<BookingResponse> mapBookings(List<Booking> bookings) {

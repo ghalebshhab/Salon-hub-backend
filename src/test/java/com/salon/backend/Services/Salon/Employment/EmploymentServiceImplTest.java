@@ -8,10 +8,13 @@ import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.employment.EmploymentRequest;
 import com.salon.backend.Entities.salons.employment.EmploymentRequestStatus;
+import com.salon.backend.Entities.salons.employment.LeaveRequest;
+import com.salon.backend.Entities.salons.employment.LeaveRequestStatus;
 import com.salon.backend.Entities.salons.employment.RequestType;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
+import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.HiringPostRepo;
 import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
@@ -24,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -36,6 +40,7 @@ class EmploymentServiceImplTest {
     @Mock private EmploymentRepo employmentRepo;
     @Mock private LeaveRequestRepo leaveRequestRepo;
     @Mock private HiringPostRepo hiringPostRepo;
+    @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
 
     private EmploymentServiceImpl service;
 
@@ -46,7 +51,8 @@ class EmploymentServiceImplTest {
                 userRepo,
                 employmentRepo,
                 leaveRequestRepo,
-                hiringPostRepo
+                hiringPostRepo,
+                capabilityRepo
         );
     }
 
@@ -107,6 +113,33 @@ class EmploymentServiceImplTest {
         assertEquals("Only the salon owner can reject this request", response.getMessage());
         assertEquals(EmploymentRequestStatus.Requested, employmentRequest.getStatus());
         verify(employmentRepo, never()).save(any());
+    }
+
+    @Test
+    void acceptedLeaveClearsCapabilitiesFromThePreviousSalon() {
+        User owner = user(1L, "owner@example.com", "owner", UserRole.OWNER);
+        User employee = user(2L, "employee@example.com", "employee", UserRole.Employee);
+        Salon salon = salon(10L, owner);
+        salon.setCurrentEmployeesNumber(1L);
+        employee.setSalon(salon);
+
+        LeaveRequest leaveRequest = new LeaveRequest();
+        leaveRequest.setId(30L);
+        leaveRequest.setEmployee(employee);
+        leaveRequest.setCurrentSalon(salon);
+        leaveRequest.setStatus(LeaveRequestStatus.Requested);
+        leaveRequest.setReason("Leaving");
+        leaveRequest.setCreatedAt(LocalDateTime.now());
+
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
+        when(leaveRequestRepo.findById(30L)).thenReturn(Optional.of(leaveRequest));
+
+        var response = service.acceptLeaveRequest(30L, owner.getId());
+
+        assertTrue(response.isSuccess());
+        assertNull(employee.getSalon());
+        assertEquals(UserRole.USER, employee.getRole());
+        verify(capabilityRepo).deleteByEmployeeId(employee.getId());
     }
 
     private User user(long id, String email, String username, UserRole role) {
