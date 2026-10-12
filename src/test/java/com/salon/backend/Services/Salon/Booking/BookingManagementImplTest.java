@@ -18,6 +18,8 @@ import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,7 +51,16 @@ class BookingManagementImplTest {
     @Mock private SalonServiceRepo salonServiceRepo;
     @Mock private UserRepo userRepo;
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
+    @Mock private EmployeeScheduleAvailability scheduleAvailability;
     @InjectMocks private BookingManagementImpl bookingManagement;
+
+    @BeforeEach
+    void allowWorkingHoursUnlessATestOverridesThem() {
+        lenient().when(scheduleAvailability.isSalonOpenFor(any(), any(), anyInt()))
+                .thenReturn(true);
+        lenient().when(scheduleAvailability.isEmployeeAvailable(any(), any(), any(), any(), anyInt()))
+                .thenReturn(true);
+    }
 
     @Test
     void createsPendingBookingWithImmutableServiceSnapshotAndProfilePhoneFallback() {
@@ -171,6 +184,25 @@ class BookingManagementImplTest {
 
         assertFalse(response.isSuccess());
         assertNull(booking.getAssignedEmployee());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void bookingOutsideSalonHoursIsRejectedBeforePersistence() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        Salon salon = activeSalon(10L, 2L);
+        SalonService haircut = salonService(20L, salon, "Haircut", "7.50", 30);
+        CreateBookingRequest request = validCreateRequest(10L, List.of(20L));
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+        when(salonServiceRepo.findByIdInAndSalonIdAndActiveTrue(List.of(20L), 10L))
+                .thenReturn(List.of(haircut));
+        when(scheduleAvailability.isSalonOpenFor(salon, request.bookingTime(), 30))
+                .thenReturn(false);
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(request, 1L);
+
+        assertFalse(response.isSuccess());
         verify(bookingRepo, never()).save(any());
     }
 

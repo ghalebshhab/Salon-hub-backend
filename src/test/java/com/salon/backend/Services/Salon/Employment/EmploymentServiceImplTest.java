@@ -15,6 +15,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
+import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
 import com.salon.backend.Repositories.Salon.HiringPostRepo;
 import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
@@ -41,6 +42,7 @@ class EmploymentServiceImplTest {
     @Mock private LeaveRequestRepo leaveRequestRepo;
     @Mock private HiringPostRepo hiringPostRepo;
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
+    @Mock private EmployeeScheduleRepo scheduleRepo;
 
     private EmploymentServiceImpl service;
 
@@ -52,7 +54,8 @@ class EmploymentServiceImplTest {
                 employmentRepo,
                 leaveRequestRepo,
                 hiringPostRepo,
-                capabilityRepo
+                capabilityRepo,
+                scheduleRepo
         );
     }
 
@@ -140,6 +143,7 @@ class EmploymentServiceImplTest {
         assertNull(employee.getSalon());
         assertEquals(UserRole.USER, employee.getRole());
         verify(capabilityRepo).deleteByEmployeeId(employee.getId());
+        verify(scheduleRepo).deleteByEmployeeId(employee.getId());
     }
 
     private User user(long id, String email, String username, UserRole role) {

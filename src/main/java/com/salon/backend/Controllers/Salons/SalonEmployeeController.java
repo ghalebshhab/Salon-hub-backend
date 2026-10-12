@@ -4,9 +4,12 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeCapabilitiesResponse;
 import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeServicesRequest;
+import com.salon.backend.DTOs.Salon.Employee.EmployeeScheduleResponse;
+import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeScheduleRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Employee.EmployeeCapabilityManagement;
 import com.salon.backend.Services.Salon.Employee.SalonEmployeeDirectory;
+import com.salon.backend.Services.Salon.Employee.EmployeeScheduleManagement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +28,7 @@ public class SalonEmployeeController {
 
     private final SalonEmployeeDirectory salonEmployeeDirectory;
     private final EmployeeCapabilityManagement employeeCapabilityManagement;
+    private final EmployeeScheduleManagement employeeScheduleManagement;
 
     @GetMapping("/salon/{salonId}")
     public ApiResponse<List<SalonEmployeeResponse>> getSalonEmployees(
@@ -51,6 +55,25 @@ public class SalonEmployeeController {
             @RequestBody UpdateEmployeeServicesRequest request,
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return employeeCapabilityManagement.updateEmployeeServices(
+                employeeId,
+                request,
+                currentUser.getId()
+        );
+    }
+
+    @GetMapping("/{employeeId}/schedule")
+    public ApiResponse<EmployeeScheduleResponse> getEmployeeSchedule(
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeScheduleManagement.getEmployeeSchedule(employeeId, currentUser.getId());
+    }
+
+    @PutMapping("/{employeeId}/schedule")
+    public ApiResponse<EmployeeScheduleResponse> updateEmployeeSchedule(
+            @PathVariable Long employeeId,
+            @RequestBody UpdateEmployeeScheduleRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeScheduleManagement.updateEmployeeSchedule(
                 employeeId,
                 request,
                 currentUser.getId()

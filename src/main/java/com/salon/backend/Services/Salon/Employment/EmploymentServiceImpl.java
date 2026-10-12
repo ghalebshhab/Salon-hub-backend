@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
+import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
 import com.salon.backend.Repositories.Salon.LeaveRequestRepo;
 import com.salon.backend.Repositories.Salon.HiringPostRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
@@ -35,6 +36,7 @@ public class EmploymentServiceImpl implements EmploymentService {
     private final LeaveRequestRepo  leaveRequestRepo;
     private final HiringPostRepo hiringPostRepo;
     private final EmployeeServiceCapabilityRepo capabilityRepo;
+    private final EmployeeScheduleRepo scheduleRepo;
     @Override
     public ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId) {
         Optional<Salon> optionalsalon=salonRepo.findById(request.getSalonId());
@@ -678,6 +680,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
         if (targetSalon == null) {
 
             capabilityRepo.deleteByEmployeeId(employee.getId());
+            scheduleRepo.deleteByEmployeeId(employee.getId());
             employee.setSalon(null);
             employee.setRole(UserRole.USER);
 
@@ -724,6 +727,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
 
         // Remove from old salon
         capabilityRepo.deleteByEmployeeId(employee.getId());
+        scheduleRepo.deleteByEmployeeId(employee.getId());
         employee.setSalon(null);
 
         if (currentSalon.getCurrentEmployeesNumber() > 0) {

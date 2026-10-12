@@ -19,6 +19,7 @@ import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final SalonServiceRepo salonServiceRepo;
     private final UserRepo userRepo;
     private final EmployeeServiceCapabilityRepo capabilityRepo;
+    private final EmployeeScheduleAvailability scheduleAvailability;
 
     @Override
     @Transactional
@@ -138,6 +140,24 @@ public class BookingManagementImpl implements BookingManagement {
 
         booking.setTotalPrice(totalPrice);
         booking.setTotalDurationMinutes(totalDuration);
+
+        if (!scheduleAvailability.isSalonOpenFor(
+                salon,
+                request.bookingTime(),
+                totalDuration
+        )) {
+            return ApiResponse.error("The requested appointment must fit inside the salon opening hours");
+        }
+        if (assignedEmployee != null && !scheduleAvailability.isEmployeeAvailable(
+                assignedEmployee.getId(),
+                salon,
+                request.bookingDate(),
+                request.bookingTime(),
+                totalDuration
+        )) {
+            return ApiResponse.error("Selected employee is not working for the full requested appointment");
+        }
+
         bookingRepo.save(booking);
 
         return ApiResponse.success("Booking request created successfully", mapToResponse(booking));
@@ -228,10 +248,29 @@ public class BookingManagementImpl implements BookingManagement {
             if (employee == null) {
                 return ApiResponse.error("Selected employee is not active in this salon");
             }
-            if (!canPerformAllBookingServices(employee.getId(), booking)) {
+            booking.setAssignedEmployee(employee);
+        }
+
+        User assignedEmployee = booking.getAssignedEmployee();
+        if (assignedEmployee != null) {
+            if (!canPerformAllBookingServices(assignedEmployee.getId(), booking)) {
                 return ApiResponse.error("Selected employee cannot perform every requested service");
             }
-            booking.setAssignedEmployee(employee);
+            if (!scheduleAvailability.isEmployeeAvailable(
+                    assignedEmployee.getId(),
+                    booking.getSalon(),
+                    booking.getBookingDate(),
+                    booking.getBookingTime(),
+                    booking.getTotalDurationMinutes()
+            )) {
+                return ApiResponse.error("Selected employee is not working for the full requested appointment");
+            }
+        } else if (!scheduleAvailability.isSalonOpenFor(
+                booking.getSalon(),
+                booking.getBookingTime(),
+                booking.getTotalDurationMinutes()
+        )) {
+            return ApiResponse.error("The requested appointment must fit inside the salon opening hours");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -339,6 +378,15 @@ public class BookingManagementImpl implements BookingManagement {
         }
         if (!canPerformAllBookingServices(employee.getId(), booking)) {
             return ApiResponse.error("Selected employee cannot perform every requested service");
+        }
+        if (!scheduleAvailability.isEmployeeAvailable(
+                employee.getId(),
+                booking.getSalon(),
+                booking.getBookingDate(),
+                booking.getBookingTime(),
+                booking.getTotalDurationMinutes()
+        )) {
+            return ApiResponse.error("Selected employee is not working for the full requested appointment");
         }
 
         booking.setAssignedEmployee(employee);
