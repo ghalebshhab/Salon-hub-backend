@@ -3,13 +3,13 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.1.0
-**Last updated:** 10 October 2026
+**Document version:** 1.2.0
+**Last updated:** 12 October 2026
 **Status:** Active development
 
 ## Document purpose
 
-This document is the maintained source of truth for the Salon Hup backend. It explains the product vision, implemented business rules, application structure, data model, API surface, security model, current delivery status, known risks, and planned development. It is intended for developers, reviewers, future contributors, and stakeholders preparing the product for deployment.
+This document is the maintained source of truth for the Salon Hup product. It covers the React frontend, Spring Boot backend, browser-to-API integration, product vision, implemented business rules, data model, complete API surface, security model, current delivery status, known risks, and planned development. It is intended for developers, reviewers, future contributors, quality assurance, operations, and stakeholders preparing the product for deployment.
 
 The document distinguishes between implemented behavior and planned behavior. A capability is only marked as implemented when corresponding source code exists in the repository. Future changes should update this source after the implementation has been reviewed and approved.
 
@@ -17,11 +17,11 @@ The document distinguishes between implemented behavior and planned behavior. A 
 
 ## Executive overview
 
-Salon Hup is a platform for salon discovery, service catalogs, salon ownership, employment, hiring, and eventually customer booking. The current backend establishes the identity, salon onboarding, administration, workforce management, and service-catalog foundation needed before appointment scheduling and production deployment can be completed.
+Salon Hup is a responsive web platform for salon discovery, service catalogs, salon ownership, employment, hiring, appointment booking, and verified customer reviews. The React client presents the customer, career, owner, and employee journeys; the Spring Boot API connects them through authenticated identity, explicit ownership rules, transactional state changes, and DTO-based contracts.
 
-The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, and an owner-managed public service catalog.
+The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, an owner-managed public service catalog, employee service capabilities and schedules, appointment requests and decisions, employee assignment and reassignment explanations, customer and employee booking views, 30-second booking-decision polling, completion, and booking-verified salon reviews.
 
-Owner-side hiring-post management, scheduled expiration, applicant history, secure employment identity, protected transfer cancellation, and salon-service management are implemented. Appointment availability, booking state transitions, notifications, reviews, and payments are not yet implemented.
+The booking workflow validates salon hours, employee working periods, selected-service capability, future appointment time, salon state, and ownership before accepting a transition. Salon reviews require a completed booking owned by the customer and remain linked to that booking. Automatic slot generation, schedule exceptions, payment processing, external notifications, employee ratings, and service ratings remain planned.
 
 ### Product status snapshot
 
@@ -32,7 +32,11 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 | Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
 | Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
 | Salon service catalog | Implemented | Approved owners manage priced, timed services and public salon pages receive active offerings |
-| Customer booking | Partial | Service discovery exists; availability, appointments, customer history, and calendar APIs remain planned |
+| Customer booking | Implemented | Customers create future appointment requests; owners decide, assign, and complete them; employees and customers receive scoped booking views |
+| Employee availability | Implemented | Owners configure weekly working periods and breaks; booking logic checks salon hours, capabilities, and full-interval employee availability |
+| Verified salon reviews | Implemented | A customer can review a completed owned booking once; public lists and aggregate summaries exclude blocked customers |
+| Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, and reviews |
+| Frontend/API integration | Partial | Core journeys use shared Axios and `ApiResponse`; media calls lack backend routes and Swagger UI lacks its runtime dependency |
 | Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
 
 ## Product scope
@@ -43,18 +47,18 @@ Owner-side hiring-post management, scheduled expiration, applicant history, secu
 - Salon onboarding and administrative governance.
 - Career profiles, recruitment discovery, applications, and hiring decisions.
 - Direct employment invitations, requests, leave, and salon transfer workflows.
-- Public salon discovery and the future customer booking journey.
+- Public salon discovery, customer booking, employee assignment, and verified salon reviews.
 - Operational controls required to deploy and support the backend safely.
 
 ### Current release boundary
 
-The current backend release is a workforce, salon-management, and service-catalog foundation. It can support authentication, salon approval, career profiles, hiring, employment, administrative moderation, and public service discovery. It is not yet a complete customer booking product because staff capabilities, schedules, slot calculation, appointments, payments, notifications, reviews, and production infrastructure remain planned.
+The current backend release supports authentication, salon approval, career profiles, hiring, employment, administrative moderation, public service discovery, employee qualification and weekly availability, appointment lifecycle management, and verified salon reviews. It is not yet ready for production because automatic slot generation, schedule exceptions, payments, external notifications, database migrations, durable token revocation, observability, and deployment infrastructure remain planned.
 
 ### Explicitly outside the current implementation
 
-- Payment collection, refunds, invoices, and financial reconciliation.
-- Customer appointment creation, rescheduling, cancellation, and reminders.
-- Real-time chat, social feeds, reviews, and content moderation.
+- Online payment processing, refunds, invoices, and financial reconciliation.
+- Automatic appointment-slot generation, rescheduling, holidays, employee time off, and reminders.
+- Real-time chat, social feeds, employee and service ratings, and content moderation.
 - Native mobile push notifications and production email templates.
 - Multi-tenant billing, subscription plans, and salon analytics.
 
@@ -65,6 +69,8 @@ The current backend release is a workforce, salon-management, and service-catalo
 - **One user profile:** career information extends the registered profile instead of creating a second identity.
 - **Transparent ranking:** hiring labels and scores come from documented, reproducible rules.
 - **Permanent application history:** a user applies once to a hiring post and historical decisions remain traceable.
+- **Qualified assignment:** an assigned employee must be active in the salon, qualified for every selected service, and available for the complete appointment interval.
+- **Verified feedback:** salon ratings originate only from completed bookings owned by the reviewing customer.
 - **Safe evolution:** implemented behavior, planned behavior, and known production gaps remain visibly separated.
 
 ## Product goals
@@ -76,15 +82,18 @@ The current backend release is a workforce, salon-management, and service-catalo
 - Allow users to request employment or respond to salon invitations.
 - Preserve employment state when an employee transfers between salons.
 - Publish structured hiring posts and route applications to the correct salon owner.
-- Build a reliable foundation for customer booking and deployment.
+- Let customers request appointments and track owner decisions.
+- Help owners assign qualified available employees and complete appointments.
+- Publish trustworthy salon feedback based on completed visits.
+- Build a reliable foundation for payments, notifications, and deployment.
 
 ## Roles and responsibilities
 
 | Role | Purpose | Current permissions |
 | --- | --- | --- |
-| USER | Default registered account and potential employee | Sign in, view the unified profile, enable career mode, receive personalized hiring suggestions, request employment, and apply to hiring posts |
-| OWNER | User approved as the owner of a salon | Manage the owned salon, invite users, review employment requests, accept leave requests, and create hiring posts |
-| Employee | User currently assigned to a salon | Participate in employment and leave workflows and transfer to another salon after the required workflow |
+| USER | Default registered account and potential employee | Manage one profile, discover salons and services, request appointments, track or cancel owned bookings, review completed visits, enable career mode, and apply to hiring posts |
+| OWNER | User approved as the owner of a salon | Manage the owned salon, services, employee capabilities and schedules, booking decisions and assignments, invitations, employment requests, leave requests, and hiring posts |
+| Employee | User currently assigned to a salon | View assigned bookings, participate in employment and leave workflows, and transfer after the required workflow |
 | ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, manage user directories, and reversibly block or unblock non-admin users and salons |
 
 Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, and `Employee`. A future normalization may standardize the casing, but that change requires migration planning.
@@ -110,14 +119,20 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 | FR-05 | Owners can publish vacancies and receive every application ranked by transparent fit rules | Implemented |
 | FR-06 | Administrators can reversibly restrict non-admin users and salons | Implemented |
 | FR-07 | Customers can discover active salon services | Implemented |
-| FR-08 | Customers can reserve valid appointment slots | Planned |
-| FR-09 | The platform can notify participants about time-sensitive workflow changes | Planned |
-| FR-10 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
+| FR-08 | Customers can request future appointments for active services within salon and employee availability | Implemented |
+| FR-09 | Owners can decide bookings, assign qualified employees, and complete accepted appointments | Implemented |
+| FR-10 | Customers can publish a verified salon review after a completed owned booking | Implemented |
+| FR-11 | The platform can notify participants about time-sensitive workflow changes | Planned |
+| FR-12 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
 
 ## Technology stack
 
 | Layer | Technology |
 | --- | --- |
+| Web client | React 19, React Router 7, Vite 8 |
+| Client HTTP and feedback | Axios, React Toastify |
+| Client styling and icons | Tailwind CSS 4 foundation, project CSS, Lucide React |
+| Client tests and quality | Vitest, Testing Library, ESLint, Prettier |
 | Language | Java 17 |
 | Framework | Spring Boot 4.1.0 |
 | HTTP API | Spring Web MVC |
@@ -133,11 +148,15 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 
 ## Application architecture
 
-The backend uses a layered Spring architecture.
+The product uses a feature-oriented React client connected to a layered Spring API.
 
 ```text
-Client
-  -> Controller
+React route
+  -> feature page
+      -> feature hook
+          -> API adapter
+              -> shared Axios client
+                  -> Controller
       -> Service interface
           -> Service implementation
               -> Repository
@@ -149,13 +168,13 @@ Controllers define HTTP routes and receive authenticated identity information. D
 The main Java package is `com.salon.backend` and contains:
 
 - `Config` for Spring Security, password hashing, and JWT filtering.
-- `Controllers` for authentication, dashboard, salons, salon services, employment, hiring posts, and users.
+- `Controllers` for authentication, dashboard, salons, salon services, employees, bookings, reviews, employment, hiring posts, and users.
 - `DTOs` for request and response contracts.
-- `Entities` for users, salons, salon services, employment, leave requests, and hiring posts.
+- `Entities` for users, salons, services, employee capabilities and schedules, bookings, reviews, employment, leave requests, and hiring posts.
 - `Repositories` for JPA database access.
-- `Services` for authentication, administration, salon management, salon-service management, employment, and hiring-post rules.
+- `Services` for authentication, administration, salon management, salon-service management, employee directories and availability, bookings, reviews, employment, and hiring-post rules.
 
-All service responses use the generic `ApiResponse<T>` envelope containing `success`, `message`, and `data`.
+All service responses use the generic `ApiResponse<T>` envelope containing `success`, `message`, and `data`. The frontend API adapters return the response body, `requireData` accepts successful envelopes and throws the server message for unsuccessful envelopes, and feature hooks convert those outcomes into page state and consistent toast feedback.
 
 ### Architectural responsibilities
 
@@ -172,13 +191,103 @@ All service responses use the generic `ApiResponse<T>` envelope containing `succ
 - JWT subjects use immutable database user IDs; email remains available through the authenticated principal for compatible routes.
 - DTOs are required at external boundaries to prevent password and persistence-graph exposure.
 - Business outcomes continue through `ApiResponse.success(...)` and `ApiResponse.error(...)` under the approved API convention.
-- Pessimistic write locks and entity versioning protect sensitive hiring, transfer, and moderation transitions.
+- Pessimistic write locks and entity versioning protect sensitive hiring, booking, transfer, moderation, and one-review-per-booking transitions.
 - H2 in MySQL compatibility mode isolates automated tests from developer and production databases.
 - Secrets enter through environment variables and never through committed production values.
 
+## Frontend application
+
+The frontend is a React 19 single-page application built by Vite. It is organized by feature so pages, hooks, models, API adapters, and feature-specific components remain close to the workflow they implement. App-level routing and layout compose those features, while `shared` owns the HTTP client, authentication storage, reusable query behavior, notifications, and common components.
+
+### Frontend structure
+
+| Area | Responsibility | Implemented examples |
+| --- | --- | --- |
+| `app` | Route composition, layout, loading, not-found, and render-error boundaries | Lazy routes, `ProtectedRoute`, navbar, toast container |
+| `features/auth` | Registration, login, logout, and session entry | Forms, auth hooks, `/auth/*` adapters |
+| `features/salons` | Public discovery, details, salon request, and owner profile | Home cards, salon details, create salon, my salon |
+| `features/services` | Public catalog and owner service management | List, create, edit, deactivate |
+| `features/profile` | Unified profile and career-mode upgrade | Career form with resume and portfolio validation |
+| `features/hiring` and `applications` | Vacancy discovery, application, owner decision, and applicant history | Ranked posts, apply flow, decision screens |
+| `features/employees` | Owner workforce directory and employee setup | Service capabilities and weekly schedules |
+| `features/bookings` | Customer request, owner queue, employee view, and status monitoring | Qualified employee filtering, lifecycle actions, 30-second polling |
+| `features/reviews` | Verified salon ratings and comments | Review modal, public list, summary, own deletion |
+| `features/media` | Salon media forms and API adapters | Frontend foundation only; backend contract is pending |
+| `shared` | Cross-feature transport, auth storage, feedback, and UI primitives | Axios interceptors, `requireData`, toast helpers |
+
+Dependencies flow from `app` to `features` to `shared`. Pages use hooks rather than importing transport code directly. Pure model functions remain independent of React and HTTP; for example, booking employee filtering checks that one employee supports every selected service.
+
+### Frontend routes and user journeys
+
+| Browser route | Access | Page purpose | Primary API integration |
+| --- | --- | --- | --- |
+| `/` | Public | Active salon discovery | `GET /api/salons/active` |
+| `/salons/:salonId` | Public | Salon profile, services, ratings, and reviews | Salon, service, and review public endpoints |
+| `/login`, `/register` | Public | Account access | Auth login and registration |
+| `/salons/:salonId/book` | Authenticated | Select services, qualified employee, future date, and contact details | Salon, services, employees, `POST /api/bookings` |
+| `/my-bookings` | Authenticated customer | Track, cancel, and review appointments; poll decisions every 30 seconds while open | Customer booking and review endpoints |
+| `/hiring-posts` | Authenticated | Browse filtered and personalized vacancies | `GET /api/hiring-posts` |
+| `/hiring-posts/:postId/apply` | Authenticated career user | Submit the optional application note | Hiring application endpoint |
+| `/profile/career` | Authenticated | Enable or update the career section on the unified profile | Profile GET and career PUT |
+| `/my-applications` | Authenticated applicant | View permanent application history and decisions | Applicant-history endpoint |
+| `/owner/dashboard` | Authenticated | Owner workspace navigation and operational summary | Owner salon and feature APIs |
+| `/owner/create-salon`, `/owner/my-salon` | Authenticated owner candidate/owner | Request and manage an owned salon | Salon create, mine, edit, delete |
+| `/owner/create-hiring-post`, `/owner/applications` | Authenticated owner | Publish vacancies and rank or decide applicants | Hiring owner endpoints |
+| `/owner/employees`, `/owner/employees/:employeeId/setup` | Authenticated owner | Manage active staff, capabilities, working periods, and breaks | Salon employee endpoints |
+| `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit` | Authenticated owner | Manage the salon catalog | Salon service endpoints |
+| `/owner/bookings` | Authenticated owner | Decide, assign, reassign with explanation, and complete bookings | Owner booking endpoints |
+| `/employee/bookings` | Authenticated employee | View appointments assigned to the signed-in employee | Employee booking endpoint |
+
+`ProtectedRoute` checks for a stored session and redirects unauthenticated visitors to login while preserving the attempted location. It improves navigation, while Spring Security and service authorization remain the authoritative access controls.
+
+### Frontend and backend connection
+
+[[DIAGRAM:frontend-integration]]
+
+The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local development, Vite proxies `/api` to `VITE_API_PROXY_TARGET`, defaulting to `http://localhost:8080`. In production, the built client can use the same-origin `/api` reverse proxy or an explicitly configured HTTPS API origin.
+
+| Concern | Frontend behavior | Backend behavior |
+| --- | --- | --- |
+| Authentication | Stores the current JWT contract, adds `Authorization: Bearer <token>` outside auth routes | Validates JWT, resolves immutable user ID, checks active state, applies roles |
+| Request lifecycle | Uses a 15-second timeout and abort signals for stale page requests | Binds DTOs, derives caller identity from the security principal |
+| Success handling | Reads `ApiResponse.data`; feature hooks update UI and show success feedback | Returns `ApiResponse.success(message, data)` |
+| Business failure | `requireData` throws `message`; hooks show the message in an error toast or page state | Returns `ApiResponse.error(message)` with `data: null` |
+| Unauthorized session | Clears matching current credentials on HTTP 401; HTTP 403 does not sign the user out | Security may reject unauthenticated or unauthorized calls before the controller |
+| Booking decisions | Polls customer bookings every 30 seconds only while the page is visible and reports accepted or rejected transitions | Persists booking state and owner note; returns scoped booking DTOs |
+| Mapping differences | Salon and hiring adapters normalize backend field names for views | Keeps stable DTO names and pagination metadata |
+
+### Runtime links and environment
+
+- [Live API Test](http://localhost:8080/swagger-ui/index.html) - local Swagger UI address. It becomes usable when the backend is running and the Springdoc/OpenAPI dependency is enabled. The route is allowed by security, but the current Maven dependencies do not yet provide Swagger UI.
+- Frontend local URL: `http://localhost:5173` when started with Vite's default development server.
+- Backend local base URL: `http://localhost:8080/api`.
+
+| Variable | Default | Use |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api` | Browser API prefix; safe public configuration, never a secret |
+| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | Local Vite proxy target |
+| Backend environment variables | Defined in backend `.env.example` | Database, JWT, SMTP, and runtime configuration |
+
+### Integration coverage and gaps
+
+| Capability | Frontend | Backend | Connection state |
+| --- | --- | --- | --- |
+| Auth and unified career profile | Implemented | Implemented | Connected |
+| Public salons and service catalogs | Implemented | Implemented | Connected |
+| Salon request and owner management | Implemented | Implemented | Connected |
+| Hiring discovery, application, and decisions | Implemented | Implemented | Connected for current UI actions; edit, reopen, and cancel-join APIs have no current page control |
+| Employee directory, capabilities, and schedules | Implemented | Implemented | Connected |
+| Booking creation and customer, owner, employee views | Implemented | Implemented | Connected |
+| Booking assignment explanation | Implemented | Implemented | Connected; explanation is required when replacing an assigned employee |
+| Verified salon reviews | Implemented | Implemented | Connected |
+| Direct employment, leave, transfer | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
+| Administration dashboard | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
+| Salon media | API adapter and create page foundation | Not implemented | Blocked until backend persistence and routes exist |
+| Swagger interactive testing | Link and allowed security path | Dependency absent | Enable Springdoc/OpenAPI before using Live API Test |
+
 ## System diagrams
 
-The following diagrams present the same product from business, runtime, interaction, and value perspectives. Solid flows represent implemented behavior. Labels that include `planned` identify capabilities that remain outside the current release.
+The following diagrams present the product from business, runtime, interaction, and value perspectives. Solid flows represent implemented behavior. Labels that include `planned` identify capabilities outside the current release.
 
 ### System context
 
@@ -216,6 +325,38 @@ The service sequence shows owner authorization, validation, persistence, public 
 
 [[DIAGRAM:service-sequence]]
 
+[[PAGEBREAK]]
+
+### Employee qualification and availability decision
+
+This decision flow shows the server-side checks that determine whether an employee can be selected or assigned for the complete requested appointment.
+
+[[DIAGRAM:availability-flow]]
+
+[[PAGEBREAK]]
+
+### Appointment booking sequence
+
+The booking sequence shows trusted profile data, active-service validation, employee qualification and schedule checks, owner decisions, assignment, and completion.
+
+[[DIAGRAM:booking-sequence]]
+
+[[PAGEBREAK]]
+
+### Booking lifecycle
+
+The booking lifecycle shows the permitted owner and customer transitions and the terminal states that cannot return to an earlier stage.
+
+[[DIAGRAM:booking-lifecycle]]
+
+[[PAGEBREAK]]
+
+### Verified salon review sequence
+
+The review sequence shows how a completed owned booking authorizes one customer review and how public summaries include reviews from currently active customers.
+
+[[DIAGRAM:review-sequence]]
+
 ### Stakeholder benefits
 
 The platform creates value by connecting discovery, operational control, career mobility, and platform governance through one consistent domain model.
@@ -243,6 +384,30 @@ Salon approval status values are `Inactive`, `Requested`, `Accepted`, `Rejected`
 A salon service belongs to one salon and stores a customer-facing name, optional description, decimal price in Jordanian dinars, duration in minutes, active state, and creation and update timestamps. The public catalog returns only active services from an accepted, unblocked salon. The owner catalog includes both active and inactive records.
 
 Disabling a service is a soft state change. The row remains available for later reactivation and for the booking history that will reference it. Only the authenticated owner of an accepted, unblocked salon may create, edit, activate, or disable its services.
+
+### Employee service capability
+
+An employee service capability links one active salon employee to one active service in the same salon. The authenticated owner replaces the employee's capability set through one request. The service validates ownership, employee membership, service membership, active states, and duplicate IDs before replacing the persisted links.
+
+Capabilities determine which employees appear as suitable for a customer's selected services and which employees an owner may assign to a booking. One assigned employee must support every service item in that booking. Capability links are removed when an accepted leave or transfer removes the employee from the salon.
+
+### Employee schedule and working period
+
+An employee schedule belongs to one employee and contains zero or more weekly working periods. Each period stores a day of week, start time, and end time. Multiple non-overlapping periods on one day represent a break between working intervals.
+
+The owner may configure up to 28 periods per employee. Every period must have a valid day and time range, remain inside the salon's opening hours, and avoid overlap with another period on the same day. Adjacent periods are valid. An employee without a saved schedule inherits the salon opening hours for backward compatibility; an explicitly saved empty schedule makes that employee unavailable for the entire week. Schedule records are removed when an accepted leave or transfer removes the employee from the salon.
+
+### Booking and service snapshot
+
+A booking links the authenticated customer to one accepted, unblocked salon, an optional assigned employee, and one or more service-item snapshots. It stores the requested date and time, customer contact and location, customer note, owner note and optional suggested time, total price, total duration, status, decision time, completion time, cancellation time, and audit timestamps.
+
+Each booking service item copies the source service ID, name, price, and duration at booking creation. Later salon-service edits therefore do not rewrite historical booking totals or labels. Booking status values are `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, and `COMPLETED`.
+
+### Salon review
+
+A salon review links exactly one completed booking to its salon and customer. It stores an integer rating from one through five, an optional comment of up to 2000 characters, and its creation time. A database uniqueness constraint on the booking relationship enforces one review per booking in addition to service validation.
+
+Public review lists and aggregate summaries are available only for accepted, unblocked salons and include reviews whose customer is currently active. Blocking a customer hides that customer's reviews without deleting them; unblocking restores their visibility. A customer may list and delete only their own reviews.
 
 ### Employment request
 
@@ -291,6 +456,10 @@ Known identity fields including name, username, email, phone number, role, and u
 | Salon | Requested | Administrator rejects with reason | Rejected | Yes, through correction and resubmission |
 | Salon | Accepted, Requested, or Rejected | Direct administrator salon block | Inactive | Yes, to exact prior state |
 | Salon service | Active | Owner disables service | Inactive | Yes, through owner edit |
+| Booking | PENDING | Owner accepts valid request | ACCEPTED | No; customer may cancel |
+| Booking | PENDING | Owner rejects with required note | REJECTED | No |
+| Booking | PENDING or ACCEPTED | Customer cancels owned booking | CANCELLED | No |
+| Booking | ACCEPTED | Owner completes appointment | COMPLETED | No |
 | Hiring post | Open | Positions filled or owner closes post | Closed | Conditional reopen |
 | Hiring post | Open | Expiration time passes | Expired | Yes, with future date and valid positions |
 | Employment request | Requested | Receiver accepts available applicant | Accepted | Employment ends through leave workflow |
@@ -305,6 +474,15 @@ Known identity fields including name, username, email, phone number, role, and u
 - A public salon service must be active and belong to an accepted, unblocked salon.
 - Only the authenticated salon owner may mutate that salon's service catalog.
 - Disabling a salon service preserves its database identity for reactivation and future booking history.
+- A booking contains at least one and at most ten unique active services from its salon.
+- A requested appointment must be in the future and its complete duration must fit inside salon opening hours.
+- An assigned employee must be active in the booking salon, support every selected service, and work for the complete appointment interval.
+- Replacing an already assigned employee requires a nonblank owner explanation of at most 1000 characters.
+- A missing employee schedule inherits salon hours; a saved empty schedule represents no availability.
+- Only a pending booking can be accepted or rejected, only a pending or accepted owned booking can be cancelled, and only an accepted booking can be completed.
+- Booking service names, prices, and durations are immutable snapshots of the selected services at request time.
+- Only the customer who owns a completed booking may create its single salon review.
+- Review ratings are integers from one through five; comments are optional and limited to 2000 characters.
 - A hiring post must be open, unexpired, and have a remaining position before application or acceptance.
 - Employee counts and reserved positions change in the same transaction as the related employment decision.
 - A direct salon block and an owner-derived block are independent; both must be removed before restoration.
@@ -331,6 +509,19 @@ Login verifies account status and password, then returns a bearer JWT valid for 
 8. A career user applies with only an optional application note. The backend obtains identity and career data from the database and stores an application snapshot.
 9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
 10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
+
+### End-to-end appointment journey
+
+1. A customer opens an accepted salon and receives its active services and active employees with their service capabilities.
+2. The customer selects one to ten unique services, a future date and time, and optionally an employee qualified for every selected service.
+3. The backend calculates immutable price and duration totals, checks salon hours, and checks the selected employee's complete working interval.
+4. The booking is stored as `PENDING`, and the customer sees it in personal booking history.
+5. The salon owner receives the request in the pending queue, may assign a qualified available employee, and accepts or rejects the request.
+6. Acceptance repeats capability and schedule validation. Rejection stores a required owner note and may include a suggested time.
+7. The assigned employee sees the booking in the employee-scoped list. The customer may cancel while it remains pending or accepted.
+8. After the appointment, the owner marks an accepted booking `COMPLETED`.
+9. The customer may create one verified salon review linked to that completed booking.
+10. Public salon pages may display visible reviews and the aggregate average while preserving administrative block and restore behavior.
 
 ### Unified profile and career mode
 
@@ -370,6 +561,32 @@ An authenticated owner whose salon is accepted and unblocked can create a servic
 The owner management endpoint returns active and inactive services so disabled entries remain editable and may be reactivated. Update requests can change the name, description, price, duration, and active state. The delete route performs a soft disable and returns the updated DTO rather than deleting the row.
 
 Public clients can list the active services of a salon without authentication. The service layer first verifies that the salon is accepted and unaffected by either administrator or owner-derived blocking, then queries only active services ordered by name. Response DTOs expose the service contract without serializing the salon entity graph.
+
+### Employee directory and capabilities
+
+Authenticated clients can list active employees for an accepted, unblocked salon. The salon owner can list the same scoped team through an owner route. Employee responses include identity details appropriate for discovery plus the service IDs and names the employee can perform.
+
+The salon owner replaces an employee's service capabilities using service IDs. All selected services must be active and belong to the owner's salon. These capabilities are enforced again by booking creation, acceptance, and assignment, so a manipulated client cannot select or assign an unqualified employee.
+
+### Weekly employee schedules and breaks
+
+The owner can read or replace a current employee's weekly schedule. A schedule accepts multiple working periods per day, allowing a break to be represented by the gap between two periods. Validation rejects missing values, reversed ranges, periods outside salon opening hours, overlaps, and more than 28 periods.
+
+When no employee schedule has ever been configured, booking validation treats the salon's opening and closing times as the employee's working period. Once an empty schedule is explicitly saved, the employee is unavailable all week. This distinction preserves existing employee behavior while allowing owners to disable appointment availability intentionally.
+
+### Appointment request and decision
+
+An authenticated customer creates a booking using a salon ID, one to ten unique service IDs, a future date and time, location, optional phone override, optional note, and optional employee ID. The backend loads the customer and salon, verifies every service is active and belongs to that salon, defaults the phone number from the profile when omitted, calculates price and duration, and saves service snapshots.
+
+If the customer selects an employee, that employee must be active in the salon, support every selected service, and work for the complete appointment interval. The complete interval must also fit within salon opening hours. The owner may accept a pending request, reject it with a required note, or assign a qualified available employee to a pending or accepted booking. Replacing an employee who is already assigned requires an owner explanation, which is stored as the customer-visible owner note. Acceptance and assignment repeat capability and schedule validation because availability may have changed since creation.
+
+Customers receive their own booking history and can cancel an owned pending or accepted booking. Salon owners receive all owned-salon bookings or a pending-only queue. Employees receive only bookings assigned to them. The owner completes an accepted booking after the visit. Business outcomes continue through the shared `ApiResponse` envelope.
+
+### Verified salon reviews
+
+After a booking reaches `COMPLETED`, its customer may submit one salon rating from one through five and an optional comment. The service locks and reloads the booking, verifies active customer identity, booking ownership, completed status, active salon state, and absence of an existing review before saving it.
+
+Anyone may read the review list and aggregate average for an active salon. Authenticated customers may list their own reviews and delete only a review they own. Public queries filter by the review customer's current active status, so administration blocking temporarily removes that content and unblocking restores it without data loss.
 
 ### Direct employment request
 
@@ -497,6 +714,71 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | missingRequirements | Human-readable explanation of every unmet condition |
 | resumeUploaded | Shows whether the optional résumé bonus applies |
 
+[[PAGEBREAK]]
+
+## Employee availability contract
+
+### Service capability update
+
+| Field | Rule |
+| --- | --- |
+| employeeId | Path value; employee must be active and assigned to the authenticated owner's salon |
+| serviceIds | Required collection of unique IDs; an empty list clears capabilities |
+| each service | Must be active and belong to the same salon as the employee |
+
+### Weekly schedule update
+
+| Field | Rule |
+| --- | --- |
+| workingPeriods | Required collection; empty means unavailable all week; maximum 28 periods |
+| dayOfWeek | Required Java day-of-week value |
+| startTime | Required and earlier than end time |
+| endTime | Required and no later than salon closing time |
+| same-day periods | Must not overlap; adjacent periods are accepted and gaps represent breaks |
+
+## Booking contract
+
+### Customer-provided booking fields
+
+| Field | Rule |
+| --- | --- |
+| salonId | Required; salon must be accepted and unblocked |
+| serviceIds | One to ten unique active services belonging to the selected salon |
+| assignedEmployeeId | Optional; employee must support every selected service and be available for the full interval |
+| bookingDate and bookingTime | Required future appointment start |
+| customerPhoneNumber | Optional override; otherwise loaded from the authenticated profile; maximum 30 characters |
+| customerLocation | Required; maximum 255 characters |
+| note | Optional; maximum 1000 characters |
+
+### Backend-generated booking fields
+
+| Field | Source |
+| --- | --- |
+| customer | Authenticated user ID from the JWT principal |
+| service snapshots | Active service records loaded from the selected salon |
+| totalPrice | Sum of selected service prices |
+| totalDurationMinutes | Sum of selected service durations |
+| status | Set to `PENDING` at creation |
+| timestamps | Set during creation and every accepted state transition |
+
+### Owner booking action fields
+
+| Field | Rule |
+| --- | --- |
+| assignedEmployeeId | Optional during acceptance and a required path value during explicit assignment; employee must pass salon, capability, and schedule checks |
+| ownerNote | Optional for first assignment and acceptance; required when replacing an already assigned employee; maximum 1000 characters |
+| ownerSuggestedTime | Optional response detail used during an owner decision |
+
+## Salon review contract
+
+| Field | Rule |
+| --- | --- |
+| bookingId | Required; booking must belong to the authenticated customer and be `COMPLETED` |
+| rating | Required integer from 1 through 5 |
+| comment | Optional trimmed text; maximum 2000 characters |
+| uniqueness | One salon review per booking, protected by service validation and a database constraint |
+| visibility | Public only while the salon is active and the reviewing customer is active |
+
 ## API catalog
 
 All routes except explicitly public authentication routes require a valid bearer token under the current security configuration.
@@ -524,6 +806,10 @@ The current product decision is to represent business outcomes through `ApiRespo
 | Active salon and service discovery | Yes | Yes | Yes | Yes | Yes |
 | Salon ownership actions | No | Request only | Owned salon | No | Approval and moderation |
 | Salon service management | No | No | Accepted owned salon | No | No special access |
+| Employee discovery | No | Active salon team | Owned salon team | Active salon team | Active salon team |
+| Employee capabilities and schedules | No | No | Owned salon employees | No | No special access |
+| Booking | No | Own bookings and actions | Owned salon decisions | Assigned bookings | No special access |
+| Salon reviews | Public salon list and summary | Own creation, list, and deletion | Public read | Public read | Public read |
 | Employment and leave | No | Applicable requests | Owned salon decisions | Applicable requests | No special access |
 | Hiring discovery and application | No | Yes | Owner cannot apply as owner | Yes | No special access |
 | Hiring-post management | No | No | Owned salon only | No | No special access |
@@ -567,6 +853,42 @@ The current product decision is to represent business outcomes through `ApiRespo
 | GET | `/api/salon-services/my-salon` | List active and inactive services for management | Accepted salon owner |
 | PUT | `/api/salon-services/{serviceId}` | Update and optionally reactivate an owned service | Accepted salon owner |
 | DELETE | `/api/salon-services/{serviceId}` | Disable an owned service without deleting history | Accepted salon owner |
+
+### Salon employees, capabilities, and schedules
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| GET | `/api/salon-employees/salon/{salonId}` | List active employees and service capabilities for an accepted, unblocked salon | Authenticated user |
+| GET | `/api/salon-employees/my-salon` | List the authenticated owner's active employees | Accepted salon owner |
+| GET | `/api/salon-employees/{employeeId}/services` | Read one owned employee's current service capabilities | Accepted salon owner |
+| PUT | `/api/salon-employees/{employeeId}/services` | Replace one owned employee's validated service-capability set | Accepted salon owner |
+| GET | `/api/salon-employees/{employeeId}/schedule` | Read configured weekly periods or inherited salon hours | Accepted salon owner |
+| PUT | `/api/salon-employees/{employeeId}/schedule` | Replace one owned employee's weekly working periods and breaks | Accepted salon owner |
+
+### Appointment bookings
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| POST | `/api/bookings` | Create a validated future appointment request with service snapshots | Authenticated customer |
+| GET | `/api/bookings/my` | Return the authenticated customer's booking history | Booking customer |
+| GET | `/api/bookings/my-salon` | Return all bookings for the authenticated owner's salon | Accepted salon owner |
+| GET | `/api/bookings/my-salon/pending` | Return the owner's pending queue ordered by appointment time | Accepted salon owner |
+| GET | `/api/bookings/employee/my` | Return bookings assigned to the authenticated employee | Active employee |
+| PUT | `/api/bookings/{bookingId}/accept` | Accept a pending booking after current capability and availability checks | Booking salon owner |
+| PUT | `/api/bookings/{bookingId}/reject` | Reject a pending booking with a required owner note | Booking salon owner |
+| PUT | `/api/bookings/{bookingId}/cancel` | Cancel an owned pending or accepted booking | Booking customer |
+| PUT | `/api/bookings/{bookingId}/complete` | Complete an accepted appointment | Booking salon owner |
+| PUT | `/api/bookings/{bookingId}/assign-employee/{employeeId}` | Assign a qualified available employee; reassignment requires an explanatory `ownerNote` body | Booking salon owner |
+
+### Verified salon reviews
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| POST | `/api/reviews` | Create one salon review for an owned completed booking | Booking customer |
+| GET | `/api/reviews/salon/{salonId}` | List visible reviews newest first for an active salon | Public |
+| GET | `/api/reviews/salon/{salonId}/summary` | Return average rating and total visible reviews | Public |
+| GET | `/api/reviews/my` | Return the authenticated customer's reviews | Review owner |
+| DELETE | `/api/reviews/{reviewId}` | Delete a review owned by the authenticated customer | Review owner |
 
 ### Employment and leave
 
@@ -617,6 +939,152 @@ The authenticated user for every route above comes from the JWT principal. No ro
 | GET | `/api/users` | Return users to an administrator |
 | GET | `/api/users/active` | Return active users to an administrator |
 | GET | `/api/users/blocked` | Return blocked users to an administrator |
+
+## Complete API contract reference
+
+This reference lists every implemented controller route. `Body` names JSON fields, `path` and `query` identify URL inputs, and `none` means the caller sends no application data beyond authentication. Every success value below is placed in `ApiResponse.data`.
+
+For controller and business validation failures, the API uses `{ "success": false, "message": "...", "data": null }`. The frontend reads this envelope with `requireData` and displays the server `message` in an error toast or page error. Success uses `{ "success": true, "message": "...", "data": ... }`. Spring Security can reject a request before it reaches a controller; current HTTP 401 and 403 transport failures are handled by Axios, and only a matching 401 clears the saved session. Standardizing pre-controller security errors into the same envelope remains a release-hardening task.
+
+### Authentication and profile contracts
+
+| Endpoint | Access | Request data | Success data | Main errors shown in `message` |
+| --- | --- | --- | --- | --- |
+| `POST /api/auth/register` | Public | Body: `firstName`, `lastName`, `userName`, `email`, `phoneNumber`, `password` | Registered user identity DTO | Required or duplicate identity data, invalid values |
+| `POST /api/auth/rigester` | Public legacy alias | Same registration body | Same registration response | Same registration errors |
+| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `token`, `userRole`, `email` | Invalid credentials or blocked account |
+| `POST /api/auth/logout` | Authenticated | Bearer token; body is ignored | `null` with logout message | Invalid/expired token is still treated as logout |
+| `GET /api/profile` | Authenticated user | None | Unified identity plus career-mode profile DTO | User/profile not found or blocked session |
+| `PUT /api/profile/career` | Authenticated user | Body: `dateOfBirth`, `yearsOfExperience`, `skills[]`, `preferredWorkLocations[]`, optional PDF `resumeUrl`, optional HTTP(S) `portfolioUrl`, `professionalBio` | Updated unified profile DTO with career mode enabled | Invalid age, experience, URLs, resume type, or profile data |
+
+### Salon and administration contracts
+
+| Endpoint | Access | Request data | Success data | Main errors shown in `message` |
+| --- | --- | --- | --- | --- |
+| `GET /api/salons` | ADMIN | None | List of all salon DTOs | Administrator authorization failure |
+| `GET /api/salons/active` | Public | None | Accepted and active salon DTO list | Empty list is valid |
+| `GET /api/salons/{salonId}` | Public | Path: `salonId` | Salon DTO | Salon missing or unavailable |
+| `GET /api/salons/mine` | Authenticated owner | None | Owned salon, status, rejection reason, resubmission count | No owned salon |
+| `POST /api/salons/create` | Authenticated user | Body: salon name, description, phone, email, city, employee limit, opening/closing time, profile picture URL; legacy `ownerId` is ignored and the JWT principal is authoritative | Requested salon DTO | Existing ownership/request, invalid hours or fields |
+| `PUT /api/salons/{salonId}/edit` | Salon owner | Path: `salonId`; body: editable salon fields | Updated salon DTO | Not owner, salon missing, invalid fields/status |
+| `POST /api/salons/{salonId}/resubmit` | Rejected salon owner | Path: `salonId` | Requested salon DTO with updated counters | Not rejected, not owner, or three-resubmission limit reached |
+| `DELETE /api/salons/{salonId}` | Salon owner | Path: `salonId` | Confirmation string/null | Not owner or salon missing |
+| `POST /api/dashboard/login` | Public admin login | Body: `adminEmail`, `adminPassword` | JWT token | Invalid credentials, non-admin, or blocked admin |
+| `GET /api/dashboard/salons/requested` | ADMIN | None | Requested salon DTO list | Administrator authorization failure |
+| `POST /api/dashboard/salons/requested/accept` | ADMIN | Body: `salonId` | Accepted salon DTO | Missing salon or invalid current status |
+| `POST /api/dashboard/salons/requested/reject` | ADMIN | Body: `salonId`, `rejectionReason` | Rejected salon DTO | Missing reason, salon, or invalid status |
+| `POST /api/dashboard/users/{userId}/block` | ADMIN | Path: `userId` | Confirmation string | User missing, already blocked, or target is an admin |
+| `POST /api/dashboard/users/{userId}/unblock` | ADMIN | Path: `userId` | Confirmation string | User missing or not blocked |
+| `POST /api/dashboard/salons/{salonId}/block` | ADMIN | Path: `salonId` | Confirmation string | Salon missing or already blocked |
+| `POST /api/dashboard/salons/{salonId}/unblock` | ADMIN | Path: `salonId` | Confirmation string | Salon missing or no direct block to restore |
+| `GET /api/users` | ADMIN | None | All user DTOs | Administrator authorization failure |
+| `GET /api/users/active` | ADMIN | None | Active user DTOs | Administrator authorization failure |
+| `GET /api/users/blocked` | ADMIN | None | Blocked user DTOs | Administrator authorization failure |
+
+### Service and employee contracts
+
+| Endpoint | Access | Request data | Success data | Main errors shown in `message` |
+| --- | --- | --- | --- | --- |
+| `POST /api/salon-services` | Accepted salon owner | Body: `name`, optional `description`, `price`, `durationMinutes` | Service DTO with ID and active state | No accepted salon, duplicate/invalid fields |
+| `GET /api/salon-services/salon/{salonId}` | Public | Path: `salonId` | Active service DTO list | Salon missing, blocked, or not accepted |
+| `GET /api/salon-services/my-salon` | Accepted salon owner | None | Owned service DTO list including inactive items | No accepted owned salon |
+| `PUT /api/salon-services/{serviceId}` | Accepted salon owner | Path: `serviceId`; body: name, description, price, duration, optional `isActive` | Updated service DTO | Not owner, missing service, invalid values |
+| `DELETE /api/salon-services/{serviceId}` | Accepted salon owner | Path: `serviceId` | Disabled service DTO/message | Not owner, missing service, already inactive |
+| `GET /api/salon-employees/salon/{salonId}` | Authenticated | Path: `salonId` | Active employee DTO list with service IDs | Salon unavailable |
+| `GET /api/salon-employees/my-salon` | Accepted salon owner | None | Owned active employee DTO list | No accepted owned salon |
+| `GET /api/salon-employees/{employeeId}/services` | Accepted salon owner | Path: `employeeId` | Employee capability DTO | Employee not in owned salon |
+| `PUT /api/salon-employees/{employeeId}/services` | Accepted salon owner | Path: `employeeId`; body: `serviceIds[]` | Replaced capability DTO | Employee/service mismatch, inactive service, duplicates |
+| `GET /api/salon-employees/{employeeId}/schedule` | Accepted salon owner | Path: `employeeId` | Weekly periods plus inherited-hours indicator | Employee not in owned salon |
+| `PUT /api/salon-employees/{employeeId}/schedule` | Accepted salon owner | Path: `employeeId`; body: `periods[{dayOfWeek,startTime,endTime}]`; multiple periods on one day represent breaks between them | Validated weekly schedule DTO | More than 28 periods, overlap, invalid interval, outside salon hours |
+
+### Booking and review contracts
+
+| Endpoint | Access | Request data | Success data | Main errors shown in `message` |
+| --- | --- | --- | --- | --- |
+| `POST /api/bookings` | Authenticated customer | Body: `salonId`, `serviceIds[]`, optional `assignedEmployeeId`, `customerPhoneNumber`, `customerLocation`, `bookingDate`, `bookingTime`, optional `note` | Pending booking DTO with service price/duration snapshots | Past time, unavailable salon/employee, unsupported service, schedule conflict |
+| `GET /api/bookings/my` | Booking customer | None | Customer booking DTO list | Authentication failure; empty list is valid |
+| `GET /api/bookings/my-salon` | Accepted salon owner | None | All owned-salon booking DTOs | No accepted owned salon |
+| `GET /api/bookings/my-salon/pending` | Accepted salon owner | None | Pending booking DTOs ordered by appointment | No accepted owned salon |
+| `GET /api/bookings/employee/my` | Active employee | None | Assigned booking DTO list | Caller is not an active employee |
+| `PUT /api/bookings/{bookingId}/accept` | Booking salon owner | Path: `bookingId`; optional body: `ownerNote` | Accepted booking DTO | Not owner, wrong state, expired time, employee no longer eligible |
+| `PUT /api/bookings/{bookingId}/reject` | Booking salon owner | Path: `bookingId`; body: required `ownerNote` | Rejected booking DTO | Blank/long note, not owner, wrong state |
+| `PUT /api/bookings/{bookingId}/cancel` | Booking customer | Path: `bookingId` | Cancelled booking DTO | Not customer or state cannot be cancelled |
+| `PUT /api/bookings/{bookingId}/complete` | Booking salon owner | Path: `bookingId` | Completed booking DTO | Not owner, not accepted, or appointment not eligible for completion |
+| `PUT /api/bookings/{bookingId}/assign-employee/{employeeId}` | Booking salon owner | Paths: booking and employee IDs; optional body `ownerNote`, required when replacing an assignment, max 1000 chars | Booking DTO with assigned employee and explanation | Not owner, employee unqualified/unavailable, conflict, missing reassignment explanation |
+| `POST /api/reviews` | Completed-booking customer | Body: `bookingId`, integer `rating` 1-5, optional `comment` up to 2000 chars | Verified salon review DTO | Booking not owned/completed, duplicate review, invalid rating/comment |
+| `GET /api/reviews/salon/{salonId}` | Public | Path: `salonId` | Visible reviews newest first | Salon unavailable; empty list is valid |
+| `GET /api/reviews/salon/{salonId}/summary` | Public | Path: `salonId` | `averageRating`, `totalReviews` | Salon unavailable |
+| `GET /api/reviews/my` | Authenticated customer | None | Customer's review DTO list | Authentication failure |
+| `DELETE /api/reviews/{reviewId}` | Review owner | Path: `reviewId` | Confirmation string/null | Review missing or caller is not its owner |
+
+### Employment and hiring contracts
+
+| Endpoint | Access | Request data | Success data | Main errors shown in `message` |
+| --- | --- | --- | --- | --- |
+| `POST /api/employment/join` | Authenticated user | Body: `salonId` | Employment request DTO | Already employed/pending, salon unavailable/capacity reached |
+| `POST /api/employment/invite/{salonId}` | Salon owner | Path: `salonId`; body: `userId` | Invitation DTO | Not owner, user unavailable, duplicate request, capacity issue |
+| `POST /api/employment/accept` | Applicable receiver | Body: `requestId` | Accepted employment DTO | Wrong receiver/state, existing employment, capacity issue |
+| `POST /api/employment/reject` | Applicable receiver | Body: request ID and rejection reason | Rejected employment DTO | Wrong receiver/state or blank reason |
+| `POST /api/employment/cancel` | Request sender | Body: `requestId` | Cancelled employment DTO | Not sender or request no longer cancellable |
+| `POST /api/employment/leave/request` | Active employee | Body: optional reason | Leave request DTO | No active employment or existing leave request |
+| `POST /api/employment/leave/accept/{requestId}` | Salon owner | Path: `requestId` | Accepted leave DTO and ended employment | Not owner, missing request, wrong state |
+| `POST /api/employment/leave/cancel/{requestId}` | Leave requester | Path: `requestId` | Cancelled leave DTO | Not requester or wrong state |
+| `POST /api/employment/invitation/accept-and-leave` | Employed invitee | Body: `requestId`; optional query `reason` | Pending transfer employment DTO | Wrong invitee/state or missing current employment |
+| `GET /api/hiring-posts` | Authenticated | Query: keyword, location, skill, maximum required experience, paging/sorting | Page containing post, match score/level, pagination, personalization message | Invalid paging/filter values |
+| `POST /api/hiring-posts` | Accepted salon owner | Body: title, description, skills, age range, employee location, minimum experience, positions, future expiry | Hiring-post DTO | Not eligible owner, invalid range/date/positions/fields |
+| `GET /api/hiring-posts/owner` | Accepted salon owner | Optional query: `status` | Owner post DTO list with application counts | No owned salon or invalid status |
+| `GET /api/hiring-posts/owner/{hiringPostId}` | Post owner | Path: `hiringPostId` | Owned post plus application counts | Post missing or not owner |
+| `PUT /api/hiring-posts/owner/{hiringPostId}` | Post owner | Path; body: title, description, expiry, `additionalPositions` | Updated hiring-post DTO | Locked field/state, invalid future date/positions, not owner |
+| `POST /api/hiring-posts/owner/{hiringPostId}/close` | Post owner | Path: `hiringPostId` | Closed hiring-post DTO | Already closed or not owner |
+| `POST /api/hiring-posts/owner/{hiringPostId}/reopen` | Post owner | Path; body: future `expiresAt` | Reopened hiring-post DTO | Not reopenable, no free position, invalid date |
+| `POST /api/hiring-posts/{hiringPostId}/applications` | Authenticated career user | Path; body: optional `applicationNote` | Application snapshot with match analysis | Career mode incomplete, duplicate application, own post, closed/expired/full post |
+| `GET /api/hiring-posts/{hiringPostId}/applications` | Post owner | Path: `hiringPostId` | All applications ranked suggested/matched/missing | Not owner or post missing |
+| `POST /api/hiring-posts/applications/{applicationId}/accept` | Post owner | Path: `applicationId` | Accepted or pending-transfer application DTO | Wrong state, capacity/position issue, employment conflict |
+| `POST /api/hiring-posts/applications/{applicationId}/reject` | Post owner | Path; body: `rejectionReason` | Rejected application DTO | Blank reason, wrong state, not owner |
+| `GET /api/hiring-posts/applications/me` | Applicant | None | Permanent application-history DTO list | Authentication failure |
+| `POST /api/hiring-posts/applications/{applicationId}/cancel-join` | Applicant | Path: `applicationId` | Cancelled linked join/transfer DTO and restored position | Not applicant, no cancellable linked request, wrong state |
+
+### API usage example
+
+```text
+POST /api/reviews
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{
+  "bookingId": 42,
+  "rating": 5,
+  "comment": "Excellent service."
+}
+```
+
+Successful response body:
+
+```text
+{
+  "success": true,
+  "message": "Review created successfully",
+  "data": {
+    "id": 9,
+    "bookingId": 42,
+    "salonId": 3,
+    "rating": 5,
+    "comment": "Excellent service."
+  }
+}
+```
+
+Business-error response body:
+
+```text
+{
+  "success": false,
+  "message": "Only completed bookings can be reviewed",
+  "data": null
+}
+```
+
+The frontend presents the error `message` to the user through the shared notification component. It must not replace useful server validation text with a generic failure unless no message exists.
 
 ## Security model
 
@@ -673,7 +1141,7 @@ The current implementation does not yet define retention periods, user data expo
 
 | Environment | Purpose | Database | Secrets | Schema strategy |
 | --- | --- | --- | --- | --- |
-| Local development | Developer implementation and manual testing | Local MySQL | IDE or shell environment | Hibernate update currently used |
+| Local development | Developer implementation and manual testing | Persistent H2 in MySQL compatibility mode by default; MySQL can be configured | IDE or shell environment | Hibernate update currently used |
 | Automated test | Repeatable unit and Spring context verification | Ephemeral H2 in MySQL mode | Test-only values | Create and drop |
 | Staging | Production-like validation and release acceptance | Managed isolated MySQL | Deployment secret manager | Planned versioned migrations |
 | Production | Customer traffic and durable business data | Managed MySQL with backup policy | Deployment secret manager | Required versioned migrations |
@@ -687,7 +1155,8 @@ Required runtime variables are `DB_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`, 
 ```text
 Internet client
   -> TLS load balancer / reverse proxy
-      -> Salon Hup API instances
+      -> Static React application
+      -> /api to Salon Hup API instances
           -> Managed MySQL
           -> Durable token/session revocation store
           -> SMTP or transactional email provider
@@ -695,7 +1164,7 @@ Internet client
           -> Metrics, logs, alerts, and error tracking
 ```
 
-The application is currently packaged as a Spring Boot service. A production container definition, environment-specific configuration, database migrations, shared token revocation, health/readiness policy, and hosting pipeline still need implementation.
+The frontend currently builds into a static `dist/` bundle and the backend packages as a Spring Boot service. Production must rewrite client routes to `index.html`, proxy `/api` to the backend or configure an approved API origin and CORS policy, and serve both over HTTPS. Container definitions, environment-specific configuration, database migrations, shared token revocation, health/readiness policy, and the hosting pipeline still need implementation.
 
 ### Deployment sequence - planned
 
@@ -711,7 +1180,7 @@ The application is currently packaged as a Spring Boot service. A production con
 
 ### Current automated evidence
 
-The current suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, and URL validation. The suite runs against an isolated H2 test database. At document version 1.1.0, the latest verified suite contains 38 passing tests.
+The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle and reassignment rules, verified salon reviews, and URL validation. It runs against an isolated H2 test database. At document version 1.2.0, the latest verified backend suite contains 70 passing tests with no failures or errors. The frontend includes Vitest and Testing Library coverage for active routes, login redirects, authentication subscriptions, 401/403 behavior, stale request cancellation, response-envelope handling, and salon payload contracts; its previous lint and production build verification passed, and a combined frontend/backend staging acceptance run remains required.
 
 ### Required test layers
 
@@ -731,7 +1200,7 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 
 - Health and readiness checks for the API, database, and required external services.
 - Request volume, error rate, latency percentiles, JVM health, connection-pool pressure, and database saturation.
-- Business metrics for registration, salon approvals, applications, hiring acceptance, and future bookings.
+- Business metrics for registration, salon approvals, applications, hiring acceptance, bookings, completion, cancellation, and verified reviews.
 - Alerts tied to user impact, with an owner, severity, runbook, and escalation path.
 - Centralized structured logs with retention and access controls.
 
@@ -762,6 +1231,8 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 | Area | Status | Notes |
 | --- | --- | --- |
 | Registration and login | Implemented | Core validation, BCrypt, JWT, and immutable-ID authenticated principal available |
+| React application shell | Implemented | Lazy routes, shared layout, protected navigation, loading/not-found/render-error fallbacks, and responsive feature pages are available |
+| Frontend API integration | Implemented for core journeys | Shared Axios client, JWT attachment, timeout, stale-request cancellation, `ApiResponse` parsing, field normalization, and toast feedback connect active screens to the API |
 | Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
 | Logout | Implemented | In-memory blacklist; not durable across restarts |
 | Salon onboarding | Implemented | Admin approval, persisted rejection reason, correction, and three explicit resubmissions available |
@@ -775,8 +1246,13 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 | Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
 | Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
 | Salon service catalog | Implemented | Owner create/list/update/disable/reactivate and public active-service discovery are available through DTO-based APIs |
-| Customer booking | Partial | Service foundation exists; availability, appointments, assignment, history, and calendar APIs remain planned |
-| Automated tests | Initial | 38 tests cover application startup and selected JWT, moderation, employment, hiring, salon, salon-service, directory, and URL-validation behavior against isolated H2; broader authorization, integration, concurrency, and performance coverage remains required |
+| Employee directory and capabilities | Implemented | Authenticated discovery and owner directories include capability data; owners replace validated service assignments |
+| Employee weekly schedules | Implemented | Owners configure periods and breaks; validation enforces salon hours, non-overlap, and explicit empty availability |
+| Customer booking | Implemented | Creation, customer and owner history, pending queue, employee view, acceptance, rejection, cancellation, assignment, completion, and service snapshots are available |
+| Verified salon reviews | Implemented | Completed-booking ownership, one-review constraint, public list and summary, customer list, deletion, and blocked-user filtering are available |
+| Salon media | Partial | Frontend page and API adapter exist; backend entity, persistence, service, and controller are not implemented |
+| Interactive API documentation | Partial | The `Live API Test` address and security allowlist exist; Springdoc/OpenAPI dependency and generated runtime UI are not yet enabled |
+| Automated tests | Active | 70 tests cover application startup and selected JWT, moderation, employment, hiring, salon, services, employee capabilities, schedules, bookings, reassignment explanations, reviews, directory, and URL-validation behavior against isolated H2; broader authorization, integration, concurrency, and performance coverage remains required |
 | Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
 | Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
@@ -793,7 +1269,12 @@ The current suite covers Spring application startup, immutable JWT identity, blo
 | R-05 | Employee capacity changes need wider concurrency verification | High | Medium | Add database-backed contention tests and constraints |
 | R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
 | R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
-| R-08 | Appointment and availability domains are not implemented | High | Certain | Complete booking scheduling after the service-catalog foundation |
+| R-08 | Automatic slot generation and schedule exceptions are not implemented | Medium | High | Add holidays, employee time off, conflict checks, and server-calculated available slots |
+| R-09 | Payment processing and reconciliation are not implemented | High | Certain | Approve payment methods and provider before defining secure payment APIs |
+| R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
+| R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
+| R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
+| R-13 | Spring Security 401/403 responses may bypass the application `ApiResponse` envelope | Medium | High | Add compatible security entry-point handling within the approved response convention |
 
 ### Entity exposure
 
@@ -809,7 +1290,7 @@ The logout blacklist is stored in application memory. It disappears after a rest
 
 ### Data integrity and concurrency
 
-Hiring-post position reservation, post lifecycle changes, and linked transfer cancellation now use transactional locks and version fields. Remaining employee-capacity mutations should be audited and covered with database-backed concurrency tests before deployment.
+Hiring-post position reservation, post lifecycle changes, linked transfer cancellation, booking decisions, and one-review-per-booking creation use transactional locks or database constraints. Employee-capacity mutations, overlapping appointment requests, and review creation should receive database-backed concurrency tests before deployment.
 
 ### Error and validation consistency
 
@@ -846,11 +1327,15 @@ Hibernate currently uses automatic schema update. Production environments should
 ### Priority 4 Booking foundation
 
 - Define salon services, prices, and durations. Completed with owner management, public active-service discovery, validation, DTOs, ownership checks, and reversible disable.
-- Define which employees can perform each service.
-- Define weekly working hours, breaks, holidays, and time off.
-- Calculate available appointment slots.
-- Create booking, confirmation, cancellation, and rescheduling workflows.
-- Add customer booking history and salon calendars.
+- Define which employees can perform each service. Completed with owner-managed capabilities and full-service-set enforcement.
+- Define weekly working hours and breaks. Completed with validated employee periods, inherited salon hours, and explicit empty availability.
+- Create booking request, confirmation, rejection, cancellation, assignment, completion, customer history, owner queue, and employee views. Completed.
+- Preserve service price, duration, and name snapshots in booking history. Completed.
+- Add booking-verified salon ratings, public review lists, and aggregate summaries. Completed.
+- Calculate server-owned available appointment slots and reject overlapping accepted bookings.
+- Add holidays, employee time off, rescheduling, reminders, and salon calendar views.
+- Approve and implement payment methods, provider integration, refunds, and reconciliation.
+- Extend reviews with approved employee and service rating rules.
 
 ### Priority 5 Production readiness
 
@@ -876,6 +1361,11 @@ Hibernate currently uses automatic schema update. Production environments should
 | Pending leave | A transfer stage in which a new opportunity is accepted but the current salon must release the employee |
 | Reserved position | A hiring-post position consumed while an accepted transfer is waiting for leave completion |
 | Salon service | A priced and timed offering owned by one salon and shown publicly only while active |
+| Employee capability | A persisted relationship showing that one salon employee can perform one active salon service |
+| Working period | A weekly day and time interval during which an employee can receive a complete appointment |
+| Inherited schedule | Availability derived from salon hours when no employee schedule has been configured |
+| Booking service snapshot | The service name, price, duration, and source ID copied when a booking is created |
+| Verified salon review | A one-to-one review created by the customer from an owned completed booking |
 | Soft disable | A reversible state change that hides a service without deleting its identity or future booking references |
 | DTO | A request or response object that defines an external API contract without exposing persistence entities |
 
@@ -895,7 +1385,7 @@ Every feature should move through a small reviewable slice:
 
 ## Documentation maintenance
 
-The editable source is `documentation/Salon-Hup-Project-Documentation.md`. The published PDF is `output/pdf/Salon-Hup-Project-Documentation.pdf`.
+The editable source is `documentation/Salon-Hup-Project-Documentation.md`. The published PDF is `output/pdf/Salon-Hup-Project-Documentation.pdf`. The document is maintained with the backend repository because it describes the shared product, but every approved frontend or backend change must update the relevant product, integration, API, testing, and diagram sections.
 
 Approved feature batches should update the document version, last-updated date, implementation-status table, relevant workflow, API catalog, domain model, and roadmap. Draft or unapproved behavior should remain marked as planned and should not be described as implemented.
 
@@ -910,6 +1400,8 @@ Document versions use three numeric positions: `major.minor.patch`.
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.2.0 | 12 October 2026 | Expanded the specification to the complete React and Spring product: frontend architecture, routes and journeys, shared HTTP/error behavior, environment and deployment connection, integration coverage and gaps, Live API Test link, frontend-to-backend diagram, and complete request/response/error tables for every implemented backend endpoint |
+| 1.1.1 | 12 October 2026 | Added employee directories, service capabilities, weekly schedules and breaks, schedule-aware appointment booking, qualified assignment and reassignment explanation, booking state transitions and views, verified salon reviews, five public and customer review routes, updated test evidence, risks, roadmap, availability decision, booking lifecycle, booking sequence, and review sequence diagrams |
 | 1.1.0 | 10 October 2026 | Added the salon-service domain and API contract, local persistent development database model, current test evidence, and professional system context, use case, component, sequence, and stakeholder-benefit diagrams |
 | 1.0.0 | 29 September 2026 | Rebuilt the complete document as a production product and engineering specification with document control, linked contents, product scope and principles, functional requirements, domain transitions, API conventions, governance, non-functional requirements, environment and deployment models, testing strategy, operations, release gates, risk register, and glossary |
 | 0.7.0 | 29 September 2026 | Added reversible non-admin user and salon blocking, independent overlapping block state, exact salon-status and owner-role restoration, administrator-only user directories, and immediate blocked-token enforcement |

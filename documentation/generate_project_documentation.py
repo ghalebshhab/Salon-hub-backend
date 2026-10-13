@@ -20,8 +20,8 @@ from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, Stri
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.1.0"
-UPDATED = "10 October 2026"
+VERSION = "1.2.0"
+UPDATED = "12 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
 MIDNIGHT = colors.HexColor("#0B132B")
@@ -59,6 +59,7 @@ FONTS = register_fonts()
 
 def inline(text):
     text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r'<a href="\2" color="#2563EB"><u>\1</u></a>', text)
     text = re.sub(r"`([^`]+)`", r'<font name="%s" color="#0369A1">\1</font>' % FONTS["DocMono"], text)
     return re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
 
@@ -73,6 +74,8 @@ styles.add(ParagraphStyle(name="DocCode", parent=styles["Code"], fontName=FONTS[
 styles.add(ParagraphStyle(name="Callout", parent=styles["DocBody"], fontSize=9, leading=13, textColor=NAVY, backColor=BLUE_TINT, borderColor=BLUE, borderWidth=0, borderLeftWidth=4, borderPadding=(8, 10, 8, 10), spaceBefore=5, spaceAfter=9))
 styles.add(ParagraphStyle(name="TableHeader", fontName=FONTS["DocBold"], fontSize=7.5, leading=9.5, textColor=WHITE, alignment=TA_LEFT))
 styles.add(ParagraphStyle(name="TableCell", fontName=FONTS["DocRegular"], fontSize=7.35, leading=9.5, textColor=INK))
+styles.add(ParagraphStyle(name="ApiTableHeader", fontName=FONTS["DocBold"], fontSize=6.3, leading=8.1, textColor=WHITE, alignment=TA_LEFT))
+styles.add(ParagraphStyle(name="ApiTableCell", fontName=FONTS["DocRegular"], fontSize=6.15, leading=8.0, textColor=INK))
 styles.add(ParagraphStyle(name="ControlLabel", fontName=FONTS["DocBold"], fontSize=7.35, leading=9.5, textColor=WHITE))
 styles.add(ParagraphStyle(name="TOCTitle", fontName=FONTS["DocBold"], fontSize=24, leading=29, textColor=MIDNIGHT, spaceAfter=7))
 styles.add(ParagraphStyle(name="TOCLead", fontName=FONTS["DocRegular"], fontSize=9.5, leading=14, textColor=MUTED, spaceAfter=12))
@@ -190,6 +193,8 @@ def column_widths(rows, width):
         return [width * 0.10, width * 0.28, width * 0.47, width * 0.15]
     if columns == 4:
         return [width * 0.15, width * 0.24, width * 0.45, width * 0.16]
+    if columns == 5 and header[0] == "endpoint":
+        return [width * 0.20, width * 0.12, width * 0.24, width * 0.20, width * 0.24]
     if columns == 5:
         return [width * 0.13, width * 0.19, width * 0.37, width * 0.19, width * 0.12]
     if columns == 6:
@@ -198,9 +203,13 @@ def column_widths(rows, width):
 
 
 def make_table(rows, width):
+    is_api_contract = len(rows[0]) == 5 and rows[0][0].lower() == "endpoint"
     converted = []
     for row_index, row in enumerate(rows):
-        style = styles["TableHeader"] if row_index == 0 else styles["TableCell"]
+        if is_api_contract:
+            style = styles["ApiTableHeader"] if row_index == 0 else styles["ApiTableCell"]
+        else:
+            style = styles["TableHeader"] if row_index == 0 else styles["TableCell"]
         converted.append([Paragraph(inline(cell), style) for cell in row])
     table = Table(converted, colWidths=column_widths(rows, width), repeatRows=1, hAlign="LEFT")
     table.setStyle(TableStyle([
@@ -223,9 +232,9 @@ def document_control_table(width):
         ["Document", "Salon Hup Product & Engineering Specification"],
         ["Version", VERSION],
         ["Lifecycle", "Active development"],
-        ["System", "Backend API - Spring Boot 4.1.0 / Java 17"],
+        ["System", "React 19 web client + Spring Boot 4.1.0 API / Java 17"],
         ["Audience", "Product owner, engineering, QA, operations, and reviewers"],
-        ["Source of truth", "Approved behavior implemented in the backend repository"],
+        ["Source of truth", "Implemented frontend and backend behavior, integration contracts, and approved plans"],
     ]
     converted = [
         [Paragraph(inline(row[0]), styles["ControlLabel"]), Paragraph(inline(row[1]), styles["TableCell"])]
@@ -293,7 +302,7 @@ def system_context_diagram(width):
     actor_x = 36
     for y, label in [(175, "Customer"), (100, "Salon team"), (25, "Administrator")]:
         add_actor(d, actor_x, y, label)
-    add_box(d, 88, 82, 105, 88, "React web client", ["Discovery and profiles", "Owner workspace", "Hiring journeys"], BLUE_TINT, BLUE)
+    add_box(d, 88, 82, 105, 88, "React web client", ["Discovery and profiles", "Booking and reviews", "Owner workspace"], BLUE_TINT, BLUE)
     add_box(d, 225, 82, 118, 88, "Salon Hup API", ["JWT authorization", "Business workflows", "ApiResponse DTOs"], colors.HexColor("#ECFDF3"), EMERALD)
     add_box(d, 382, 142, 95, 58, "Database", ["MySQL target", "H2 local and test"], SURFACE, NAVY)
     add_box(d, 382, 52, 95, 58, "SMTP provider", ["Account email", "Recovery delivery"], SURFACE, NAVY)
@@ -323,7 +332,7 @@ def use_case_diagram(width):
         (254, 205, 120, 38, "Manage salon", ["Profile and services"]),
         (254, 145, 120, 38, "Recruit team", ["Post, rank, decide"]),
         (254, 85, 120, 38, "Platform control", ["Approve, block, restore"]),
-        (182, 30, 120, 38, "Book appointment", ["Planned workflow"]),
+        (182, 30, 120, 38, "Book and review", ["Verified visit workflow"]),
     ]
     for x, y, w, h, title, lines in cases:
         fill = SURFACE if "Planned" in lines[0] else WHITE
@@ -358,6 +367,35 @@ def component_diagram(width):
     add_arrow(d, 276, 172, 188, 138, "delegates")
     add_arrow(d, 232, 112, 264, 112)
     add_arrow(d, 324, 86, 270, 58, "entities")
+    return d
+
+
+def frontend_integration_diagram(width):
+    height = 265
+    d = Drawing(width, height)
+    boxes = [
+        (4, 178, 82, 58, "React route", ["Lazy page", "Protected navigation"]),
+        (98, 178, 82, 58, "Feature hook", ["Form and state", "Toast feedback"]),
+        (192, 178, 82, 58, "API adapter", ["Endpoint mapping", "DTO normalization"]),
+        (286, 178, 82, 58, "Axios client", ["/api base", "JWT and timeout"]),
+        (380, 178, 82, 58, "Spring API", ["Security filter", "Controller DTO"]),
+    ]
+    for x, y, w, h, title, lines in boxes:
+        add_box(d, x, y, w, h, title, lines, BLUE_TINT, BLUE)
+    for index in range(len(boxes) - 1):
+        x, y, w, h, _, _ = boxes[index]
+        next_x = boxes[index + 1][0]
+        add_arrow(d, x + w, y + h / 2, next_x, y + h / 2, None, CYAN)
+
+    add_box(d, 112, 72, 120, 62, "Domain services", ["Business validation", "Authorization and state"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, 270, 72, 120, 62, "Persistence", ["Repositories and locks", "MySQL / H2"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_arrow(d, 421, 178, 232, 134, "delegates", EMERALD)
+    add_arrow(d, 232, 103, 270, 103, "JPA", EMERALD)
+    d.add(Line(421, 178, 421, 34, strokeColor=BLUE, strokeWidth=1.4))
+    add_arrow(d, 421, 34, 139, 34, "ApiResponse success / error", BLUE)
+    add_arrow(d, 139, 34, 45, 178, "render", CYAN)
+    d.add(String(width / 2, 9, "Local: Vite /api proxy -> localhost:8080. Production: same-origin reverse proxy or configured HTTPS API.",
+                 fontName=FONTS["DocRegular"], fontSize=6.8, fillColor=MUTED, textAnchor="middle"))
     return d
 
 
@@ -422,14 +460,85 @@ def service_sequence_diagram(width):
     ])
 
 
+def availability_flow_diagram(width):
+    height = 230
+    d = Drawing(width, height)
+    box_width = 86
+    gap = (width - 5 * box_width) / 4
+    boxes = [
+        ("Salon", ["Accepted", "Unblocked"]),
+        ("Employee", ["Active", "Same salon"]),
+        ("Capabilities", ["Supports every", "selected service"]),
+        ("Salon hours", ["Full duration", "fits inside"]),
+        ("Work period", ["Schedule covers", "full interval"]),
+    ]
+    xs = [index * (box_width + gap) for index in range(5)]
+    for index, ((title, lines), x) in enumerate(zip(boxes, xs)):
+        fill = colors.HexColor("#ECFDF3") if index == 4 else BLUE_TINT
+        stroke = EMERALD if index == 4 else BLUE
+        add_box(d, x, 118, box_width, 62, title, lines, fill, stroke)
+        if index < 4:
+            add_arrow(d, x + box_width, 149, xs[index + 1], 149, "pass", EMERALD)
+    add_box(d, width / 2 - 90, 28, 180, 54, "Eligible employee", ["May be selected or assigned", "for this complete appointment"], MIDNIGHT, MIDNIGHT, WHITE)
+    add_arrow(d, xs[-1] + box_width / 2, 118, width / 2, 82, "all checks pass", EMERALD)
+    d.add(String(width / 2, 9, "Any failed check returns ApiResponse.error and does not mutate the booking.",
+                 fontName=FONTS["DocRegular"], fontSize=7, fillColor=MUTED, textAnchor="middle"))
+    return d
+
+
+def booking_sequence_diagram(width):
+    return sequence_diagram(width, ["Customer", "Booking API", "Catalog", "Availability", "Owner"], [
+        (0, 1, "Request services and time", False),
+        (1, 2, "Load active salon services", False),
+        (2, 1, "Price and duration snapshots", True),
+        (1, 3, "Check hours and employee fit", False),
+        (3, 1, "Full interval is valid", True),
+        (1, 0, "Return pending booking", True),
+        (4, 1, "Accept, reject, or assign", False),
+        (1, 3, "Recheck capability and schedule", False),
+        (3, 4, "Decision is valid", True),
+        (4, 1, "Complete accepted visit", False),
+        (1, 0, "Completed booking", True),
+    ])
+
+
+def booking_lifecycle_diagram(width):
+    height = 245
+    d = Drawing(width, height)
+    add_box(d, width / 2 - 55, 170, 110, 48, "PENDING", ["Customer request"], BLUE_TINT, BLUE)
+    add_box(d, 28, 88, 110, 48, "REJECTED", ["Owner reason required", "Terminal state"], SURFACE, NAVY)
+    add_box(d, width / 2 - 55, 88, 110, 48, "ACCEPTED", ["Owner confirmation", "Employee optional"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, width - 138, 88, 110, 48, "CANCELLED", ["Customer action", "Terminal state"], SURFACE, NAVY)
+    add_box(d, width / 2 - 55, 8, 110, 48, "COMPLETED", ["Owner after visit", "Review eligible"], MIDNIGHT, MIDNIGHT, WHITE)
+    add_arrow(d, width / 2 - 38, 170, 83, 136, "owner rejects", BLUE)
+    add_arrow(d, width / 2, 170, width / 2, 136, "owner accepts", EMERALD)
+    add_arrow(d, width / 2 + 38, 170, width - 83, 136, "customer cancels", BLUE)
+    add_arrow(d, width / 2, 88, width / 2, 56, "owner completes", EMERALD)
+    add_arrow(d, width / 2 + 55, 112, width - 138, 112, "customer cancels", BLUE)
+    return d
+
+
+def review_sequence_diagram(width):
+    return sequence_diagram(width, ["Customer", "Review API", "Booking", "Review store", "Public client"], [
+        (0, 1, "Submit booking, rating, comment", False),
+        (1, 2, "Lock and verify owned completion", False),
+        (2, 1, "Eligible booking", True),
+        (1, 3, "Enforce one review per booking", False),
+        (3, 0, "Return verified salon review", True),
+        (4, 1, "Request salon reviews", False),
+        (1, 3, "Filter active customers", False),
+        (3, 4, "List and aggregate summary", True),
+    ])
+
+
 def benefits_diagram(width):
     height = 245
     d = Drawing(width, height)
     center_x = width / 2
     add_box(d, center_x - 62, 94, 124, 58, "SALON HUP", ["One trusted platform", "One consistent identity"], MIDNIGHT, MIDNIGHT, WHITE)
     benefits = [
-        (8, 170, 145, 55, "Customers", ["Compare trusted salons", "See price and duration"]),
-        (width - 153, 170, 145, 55, "Salon owners", ["Control services and staff", "Rank applicants clearly"]),
+        (8, 170, 145, 55, "Customers", ["Book qualified staff", "Share verified feedback"]),
+        (width - 153, 170, 145, 55, "Salon owners", ["Control services and staff", "Manage appointment demand"]),
         (8, 18, 145, 55, "Career users", ["Reusable career profile", "Fair visible matching"]),
         (width - 153, 18, 145, 55, "Platform operations", ["Approval and moderation", "Restorable restrictions"]),
     ]
@@ -448,8 +557,13 @@ def diagram_for(name, width):
         "system-context": system_context_diagram,
         "use-cases": use_case_diagram,
         "components": component_diagram,
+        "frontend-integration": frontend_integration_diagram,
         "hiring-sequence": hiring_sequence_diagram,
         "service-sequence": service_sequence_diagram,
+        "availability-flow": availability_flow_diagram,
+        "booking-sequence": booking_sequence_diagram,
+        "booking-lifecycle": booking_lifecycle_diagram,
+        "review-sequence": review_sequence_diagram,
         "benefits": benefits_diagram,
     }
     builder = diagrams.get(name)
