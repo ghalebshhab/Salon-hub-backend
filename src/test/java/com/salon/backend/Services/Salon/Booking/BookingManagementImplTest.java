@@ -153,7 +153,7 @@ class BookingManagementImplTest {
         Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
-        when(userRepo.findById(4L)).thenReturn(Optional.of(employee));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
 
@@ -170,13 +170,83 @@ class BookingManagementImplTest {
     }
 
     @Test
+    void ownerCannotAcceptOverlappingBookingForTheSameEmployee() {
+        Salon salon = activeSalon(10L, 2L);
+        User employee = activeUser(4L, UserRole.Employee, salon);
+        Booking requestedBooking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        Booking existingBooking = booking(31L, salon, activeUser(5L, UserRole.USER, null));
+        existingBooking.setStatus(BookingStatus.ACCEPTED);
+        existingBooking.setAssignedEmployee(employee);
+        existingBooking.setBookingDate(requestedBooking.getBookingDate());
+        existingBooking.setBookingTime(requestedBooking.getBookingTime().plusMinutes(15));
+
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(requestedBooking));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
+        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
+                4L,
+                requestedBooking.getBookingDate(),
+                BookingStatus.ACCEPTED
+        )).thenReturn(List.of(existingBooking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
+                30L,
+                new BookingActionRequest("Confirmed", null, 4L),
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(
+                "Selected employee already has an accepted appointment during this time",
+                response.getMessage()
+        );
+        assertEquals(BookingStatus.PENDING, requestedBooking.getStatus());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void adjacentAcceptedBookingDoesNotCreateAConflict() {
+        Salon salon = activeSalon(10L, 2L);
+        User employee = activeUser(4L, UserRole.Employee, salon);
+        Booking requestedBooking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        Booking existingBooking = booking(31L, salon, activeUser(5L, UserRole.USER, null));
+        existingBooking.setStatus(BookingStatus.ACCEPTED);
+        existingBooking.setAssignedEmployee(employee);
+        existingBooking.setBookingDate(requestedBooking.getBookingDate());
+        existingBooking.setBookingTime(requestedBooking.getBookingTime().plusMinutes(30));
+
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(requestedBooking));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
+        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
+                4L,
+                requestedBooking.getBookingDate(),
+                BookingStatus.ACCEPTED
+        )).thenReturn(List.of(existingBooking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
+                30L,
+                new BookingActionRequest("Confirmed", null, 4L),
+                2L
+        );
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.ACCEPTED, requestedBooking.getStatus());
+        verify(bookingRepo).save(requestedBooking);
+    }
+
+    @Test
     void ownerCannotAssignEmployeeMissingARequestedServiceCapability() {
         Salon salon = activeSalon(10L, 2L);
         User employee = activeUser(4L, UserRole.Employee, salon);
         Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
-        when(userRepo.findById(4L)).thenReturn(Optional.of(employee));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(0L);
 
@@ -197,7 +267,7 @@ class BookingManagementImplTest {
         booking.setAssignedEmployee(previousEmployee);
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
-        when(userRepo.findById(4L)).thenReturn(Optional.of(replacement));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(replacement));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
 
@@ -227,7 +297,7 @@ class BookingManagementImplTest {
         booking.setAssignedEmployee(previousEmployee);
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
-        when(userRepo.findById(4L)).thenReturn(Optional.of(replacement));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(replacement));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
 
@@ -235,6 +305,43 @@ class BookingManagementImplTest {
                 30L,
                 4L,
                 "  ",
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(3L, booking.getAssignedEmployee().getId());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void acceptedBookingCannotBeReassignedToAnEmployeeWithAConflict() {
+        Salon salon = activeSalon(10L, 2L);
+        User previousEmployee = activeUser(3L, UserRole.Employee, salon);
+        User replacement = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(previousEmployee);
+        Booking conflict = booking(31L, salon, activeUser(5L, UserRole.USER, null));
+        conflict.setStatus(BookingStatus.ACCEPTED);
+        conflict.setAssignedEmployee(replacement);
+        conflict.setBookingDate(booking.getBookingDate());
+        conflict.setBookingTime(booking.getBookingTime().plusMinutes(10));
+
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+        when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(replacement));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
+        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
+                4L,
+                booking.getBookingDate(),
+                BookingStatus.ACCEPTED
+        )).thenReturn(List.of(conflict));
+
+        ApiResponse<BookingResponse> response = bookingManagement.assignEmployee(
+                30L,
+                4L,
+                "Another employee will take your appointment.",
                 2L
         );
 

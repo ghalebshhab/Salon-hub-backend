@@ -240,18 +240,25 @@ public class BookingManagementImpl implements BookingManagement {
             return ApiResponse.error(actionValidation.getMessage());
         }
 
+        User assignedEmployee = booking.getAssignedEmployee();
         if (request != null && request.assignedEmployeeId() != null) {
-            User employee = findAvailableSalonEmployee(
+            assignedEmployee = findAvailableSalonEmployeeForUpdate(
                     request.assignedEmployeeId(),
                     booking.getSalon().getId()
             );
-            if (employee == null) {
+            if (assignedEmployee == null) {
                 return ApiResponse.error("Selected employee is not active in this salon");
             }
-            booking.setAssignedEmployee(employee);
+        } else if (assignedEmployee != null) {
+            assignedEmployee = findAvailableSalonEmployeeForUpdate(
+                    assignedEmployee.getId(),
+                    booking.getSalon().getId()
+            );
+            if (assignedEmployee == null) {
+                return ApiResponse.error("Selected employee is not active in this salon");
+            }
         }
 
-        User assignedEmployee = booking.getAssignedEmployee();
         if (assignedEmployee != null) {
             if (!canPerformAllBookingServices(assignedEmployee.getId(), booking)) {
                 return ApiResponse.error("Selected employee cannot perform every requested service");
@@ -265,6 +272,9 @@ public class BookingManagementImpl implements BookingManagement {
             )) {
                 return ApiResponse.error("Selected employee is not working for the full requested appointment");
             }
+            if (hasAcceptedBookingConflict(assignedEmployee.getId(), booking)) {
+                return ApiResponse.error("Selected employee already has an accepted appointment during this time");
+            }
         } else if (!scheduleAvailability.isSalonOpenFor(
                 booking.getSalon(),
                 booking.getBookingTime(),
@@ -274,6 +284,7 @@ public class BookingManagementImpl implements BookingManagement {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        booking.setAssignedEmployee(assignedEmployee);
         booking.setStatus(BookingStatus.ACCEPTED);
         booking.setOwnerNote(request == null ? null : normalizeText(request.ownerNote()));
         booking.setOwnerSuggestedTime(request == null ? null : request.ownerSuggestedTime());
@@ -382,7 +393,7 @@ public class BookingManagementImpl implements BookingManagement {
             return ApiResponse.error("An employee can be assigned only to a pending or accepted booking");
         }
 
-        User employee = findAvailableSalonEmployee(employeeId, booking.getSalon().getId());
+        User employee = findAvailableSalonEmployeeForUpdate(employeeId, booking.getSalon().getId());
         if (employee == null) {
             return ApiResponse.error("Selected employee is not active in this salon");
         }
@@ -398,10 +409,17 @@ public class BookingManagementImpl implements BookingManagement {
         )) {
             return ApiResponse.error("Selected employee is not working for the full requested appointment");
         }
+        if (booking.getStatus() == BookingStatus.ACCEPTED
+                && hasAcceptedBookingConflict(employee.getId(), booking)) {
+            return ApiResponse.error("Selected employee already has an accepted appointment during this time");
+        }
 
         String normalizedOwnerNote = normalizeText(ownerNote);
-        boolean changingAssignedEmployee = booking.getAssignedEmployee() != null
-                && booking.getAssignedEmployee().getId() != employee.getId();
+        Long previousEmployeeId = booking.getAssignedEmployee() == null
+                ? null
+                : booking.getAssignedEmployee().getId();
+        boolean changingAssignedEmployee = previousEmployeeId != null
+                && previousEmployeeId != employee.getId();
         if (changingAssignedEmployee && normalizedOwnerNote == null) {
             return ApiResponse.error("Please explain the employee change to the customer");
         }
@@ -415,7 +433,6 @@ public class BookingManagementImpl implements BookingManagement {
         }
         booking.setUpdatedAt(LocalDateTime.now());
         bookingRepo.save(booking);
-
         return ApiResponse.success("Employee assigned successfully", mapToResponse(booking));
     }
 
@@ -493,13 +510,52 @@ public class BookingManagementImpl implements BookingManagement {
 
     private User findAvailableSalonEmployee(Long employeeId, Long salonId) {
         User employee = findActiveUser(employeeId);
+        return isAvailableSalonEmployee(employee, salonId) ? employee : null;
+    }
+
+    private User findAvailableSalonEmployeeForUpdate(Long employeeId, Long salonId) {
+        if (employeeId == null) {
+            return null;
+        }
+        User employee = userRepo.findByIdForUpdate(employeeId)
+                .filter(user -> user.getStatus() == UserStatus.Active)
+                .orElse(null);
+        return isAvailableSalonEmployee(employee, salonId) ? employee : null;
+    }
+
+    private boolean isAvailableSalonEmployee(User employee, Long salonId) {
         if (employee == null
                 || employee.getRole() != UserRole.Employee
                 || employee.getSalon() == null
+                || salonId == null
                 || !employee.getSalon().getId().equals(salonId)) {
-            return null;
+            return false;
         }
-        return employee;
+        return true;
+    }
+
+    private boolean hasAcceptedBookingConflict(Long employeeId, Booking targetBooking) {
+        LocalDateTime targetStart = LocalDateTime.of(
+                targetBooking.getBookingDate(),
+                targetBooking.getBookingTime()
+        );
+        LocalDateTime targetEnd = targetStart.plusMinutes(targetBooking.getTotalDurationMinutes());
+
+        return bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
+                        employeeId,
+                        targetBooking.getBookingDate(),
+                        BookingStatus.ACCEPTED
+                ).stream()
+                .filter(existing -> targetBooking.getId() == null
+                        || !targetBooking.getId().equals(existing.getId()))
+                .anyMatch(existing -> {
+                    LocalDateTime existingStart = LocalDateTime.of(
+                            existing.getBookingDate(),
+                            existing.getBookingTime()
+                    );
+                    LocalDateTime existingEnd = existingStart.plusMinutes(existing.getTotalDurationMinutes());
+                    return existingStart.isBefore(targetEnd) && targetStart.isBefore(existingEnd);
+                });
     }
 
     private boolean isActiveSalon(Salon salon) {
