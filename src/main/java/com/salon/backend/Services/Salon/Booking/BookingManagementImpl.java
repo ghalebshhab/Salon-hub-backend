@@ -362,6 +362,16 @@ public class BookingManagementImpl implements BookingManagement {
             Long bookingId,
             Long employeeId,
             Long ownerId) {
+        return assignEmployee(bookingId, employeeId, null, ownerId);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<BookingResponse> assignEmployee(
+            Long bookingId,
+            Long employeeId,
+            String ownerNote,
+            Long ownerId) {
 
         Booking booking = findOwnedBookingForUpdate(bookingId, ownerId);
         if (booking == null) {
@@ -389,7 +399,20 @@ public class BookingManagementImpl implements BookingManagement {
             return ApiResponse.error("Selected employee is not working for the full requested appointment");
         }
 
+        String normalizedOwnerNote = normalizeText(ownerNote);
+        boolean changingAssignedEmployee = booking.getAssignedEmployee() != null
+                && booking.getAssignedEmployee().getId() != employee.getId();
+        if (changingAssignedEmployee && normalizedOwnerNote == null) {
+            return ApiResponse.error("Please explain the employee change to the customer");
+        }
+        if (normalizedOwnerNote != null && normalizedOwnerNote.length() > MAX_NOTE_LENGTH) {
+            return ApiResponse.error("Owner note cannot exceed " + MAX_NOTE_LENGTH + " characters");
+        }
+
         booking.setAssignedEmployee(employee);
+        if (normalizedOwnerNote != null) {
+            booking.setOwnerNote(normalizedOwnerNote);
+        }
         booking.setUpdatedAt(LocalDateTime.now());
         bookingRepo.save(booking);
 

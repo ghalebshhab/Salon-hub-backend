@@ -28,4 +28,11 @@ public interface BookingManagement {
     ApiResponse<BookingResponse> completeBooking(Long bookingId, Long ownerId);
 
     ApiResponse<BookingResponse> assignEmployee(Long bookingId, Long employeeId, Long ownerId);
+
+    ApiResponse<BookingResponse> assignEmployee(
+            Long bookingId,
+            Long employeeId,
+            String ownerNote,
+            Long ownerId
+    );
 }

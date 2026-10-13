@@ -3,6 +3,7 @@ package com.salon.backend.Controllers.Salons;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
+import com.salon.backend.DTOs.Salon.Booking.AssignBookingEmployeeRequest;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Booking.BookingManagement;
@@ -90,7 +91,13 @@ public class BookingController {
     public ApiResponse<BookingResponse> assignEmployee(
             @PathVariable Long bookingId,
             @PathVariable Long employeeId,
+            @RequestBody(required = false) AssignBookingEmployeeRequest request,
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
-        return bookingManagement.assignEmployee(bookingId, employeeId, currentUser.getId());
+        return bookingManagement.assignEmployee(
+                bookingId,
+                employeeId,
+                request == null ? null : request.ownerNote(),
+                currentUser.getId()
+        );
     }
 }

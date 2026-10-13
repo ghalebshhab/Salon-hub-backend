@@ -188,6 +188,62 @@ class BookingManagementImplTest {
     }
 
     @Test
+    void ownerCanReassignEmployeeAndSaveCustomerUpdate() {
+        Salon salon = activeSalon(10L, 2L);
+        User previousEmployee = activeUser(3L, UserRole.Employee, salon);
+        User replacement = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(previousEmployee);
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+        when(userRepo.findById(4L)).thenReturn(Optional.of(replacement));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
+
+        ApiResponse<BookingResponse> response = bookingManagement.assignEmployee(
+                30L,
+                4L,
+                "Your selected employee is unavailable. Alex will help you instead.",
+                2L
+        );
+
+        assertTrue(response.isSuccess());
+        assertEquals(4L, response.getData().assignedEmployeeId());
+        assertEquals(
+                "Your selected employee is unavailable. Alex will help you instead.",
+                response.getData().ownerNote()
+        );
+        verify(bookingRepo).save(booking);
+    }
+
+    @Test
+    void reassignmentRequiresAnUpdateForTheCustomer() {
+        Salon salon = activeSalon(10L, 2L);
+        User previousEmployee = activeUser(3L, UserRole.Employee, salon);
+        User replacement = activeUser(4L, UserRole.Employee, salon);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(previousEmployee);
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+        when(userRepo.findById(4L)).thenReturn(Optional.of(replacement));
+        when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
+                .thenReturn(1L);
+
+        ApiResponse<BookingResponse> response = bookingManagement.assignEmployee(
+                30L,
+                4L,
+                "  ",
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(3L, booking.getAssignedEmployee().getId());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
     void bookingOutsideSalonHoursIsRejectedBeforePersistence() {
         User customer = activeUser(1L, UserRole.USER, null);
         Salon salon = activeSalon(10L, 2L);
