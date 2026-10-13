@@ -20,6 +20,7 @@ import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
+import com.salon.backend.Services.Notification.BookingNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final UserRepo userRepo;
     private final EmployeeServiceCapabilityRepo capabilityRepo;
     private final EmployeeScheduleAvailability scheduleAvailability;
+    private final BookingNotificationService bookingNotificationService;
 
     @Override
     @Transactional
@@ -291,6 +293,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
         bookingRepo.save(booking);
+        bookingNotificationService.bookingAccepted(booking);
 
         return ApiResponse.success("Booking accepted successfully", mapToResponse(booking));
     }
@@ -322,6 +325,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
         bookingRepo.save(booking);
+        bookingNotificationService.bookingRejected(booking);
 
         return ApiResponse.success("Booking rejected successfully", mapToResponse(booking));
     }
@@ -343,6 +347,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setCancelledAt(now);
         booking.setUpdatedAt(now);
         bookingRepo.save(booking);
+        bookingNotificationService.bookingCancelled(booking);
 
         return ApiResponse.success("Booking cancelled successfully", mapToResponse(booking));
     }
@@ -433,6 +438,10 @@ public class BookingManagementImpl implements BookingManagement {
         }
         booking.setUpdatedAt(LocalDateTime.now());
         bookingRepo.save(booking);
+        if (changingAssignedEmployee) {
+            bookingNotificationService.bookingEmployeeReassigned(booking, previousEmployeeId);
+        }
+
         return ApiResponse.success("Employee assigned successfully", mapToResponse(booking));
     }
 

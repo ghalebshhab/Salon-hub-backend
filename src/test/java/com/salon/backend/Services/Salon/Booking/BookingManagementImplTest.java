@@ -19,6 +19,7 @@ import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
+import com.salon.backend.Services.Notification.BookingNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,7 @@ class BookingManagementImplTest {
     @Mock private UserRepo userRepo;
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @Mock private EmployeeScheduleAvailability scheduleAvailability;
+    @Mock private BookingNotificationService bookingNotificationService;
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach
@@ -167,6 +169,7 @@ class BookingManagementImplTest {
         assertEquals(BookingStatus.ACCEPTED, response.getData().status());
         assertEquals(4L, response.getData().assignedEmployeeId());
         verify(bookingRepo).save(booking);
+        verify(bookingNotificationService).bookingAccepted(booking);
     }
 
     @Test
@@ -204,6 +207,7 @@ class BookingManagementImplTest {
         );
         assertEquals(BookingStatus.PENDING, requestedBooking.getStatus());
         verify(bookingRepo, never()).save(any());
+        verify(bookingNotificationService, never()).bookingAccepted(any());
     }
 
     @Test
@@ -285,6 +289,7 @@ class BookingManagementImplTest {
                 response.getData().ownerNote()
         );
         verify(bookingRepo).save(booking);
+        verify(bookingNotificationService).bookingEmployeeReassigned(booking, 3L);
     }
 
     @Test
@@ -388,6 +393,24 @@ class BookingManagementImplTest {
     }
 
     @Test
+    void successfulRejectionCreatesCustomerNotification() {
+        Salon salon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.rejectBooking(
+                30L,
+                new BookingActionRequest("This time is unavailable", null, null),
+                2L
+        );
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.REJECTED, booking.getStatus());
+        verify(bookingNotificationService).bookingRejected(booking);
+    }
+
+    @Test
     void customerCanCancelAnAcceptedBookingButCannotCancelAgain() {
         Salon salon = activeSalon(10L, 2L);
         Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
@@ -401,6 +424,7 @@ class BookingManagementImplTest {
         assertEquals(BookingStatus.CANCELLED, first.getData().status());
         assertFalse(second.isSuccess());
         verify(bookingRepo).save(booking);
+        verify(bookingNotificationService).bookingCancelled(booking);
     }
 
     @Test
