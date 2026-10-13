@@ -20,8 +20,8 @@ from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, Stri
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.2.0"
-UPDATED = "12 October 2026"
+VERSION = "1.2.2"
+UPDATED = "13 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
 MIDNIGHT = colors.HexColor("#0B132B")
@@ -486,6 +486,129 @@ def availability_flow_diagram(width):
     return d
 
 
+def application_flow_diagram(width):
+    height = 600
+    d = Drawing(width, height)
+    margin = 4
+    lane_gap = 10
+    lane_width = (width - margin * 2 - lane_gap * 2) / 3
+    lane_xs = [margin + index * (lane_width + lane_gap) for index in range(3)]
+    lane_top = height - 8
+    lane_bottom = 10
+    lane_height = lane_top - lane_bottom
+    lane_colors = [BLUE_TINT, colors.HexColor("#ECFDF3"), SURFACE]
+    lane_strokes = [BLUE, EMERALD, NAVY]
+    lane_titles = ["CUSTOMER", "SALON OWNER", "CAREER + EMPLOYEE"]
+
+    for x, fill, stroke, title in zip(lane_xs, lane_colors, lane_strokes, lane_titles):
+        d.add(Rect(x, lane_bottom, lane_width, lane_height, rx=9, ry=9,
+                   fillColor=fill, strokeColor=stroke, strokeWidth=1))
+        d.add(String(x + lane_width / 2, lane_top - 17, title,
+                     fontName=FONTS["DocBold"], fontSize=7.5,
+                     fillColor=stroke, textAnchor="middle"))
+
+    box_height = 40
+    step = 48
+    first_y = 530
+    customer_steps = [
+        ("Home and discovery", ["Explore salons"]),
+        ("Browse salons", ["Choose a salon"]),
+        ("Salon profile", ["Services and customer reviews"]),
+        ("Sign in or register", ["Required before booking"]),
+        ("Build a booking", ["Service + qualified employee", "Future date and time"]),
+        ("Backend validation", ["Salon hours, capabilities,", "and employee schedule"]),
+        ("Send booking request", ["Request is PENDING"]),
+        ("See the salon decision", ["Accepted or declined"]),
+        ("See provider updates", ["Replacement employee + note"]),
+        ("Attend appointment", ["Go to the salon"]),
+        ("Rate the salon", ["After the owner marks it complete"]),
+    ]
+    owner_steps = [
+        ("Owner dashboard", ["Manage the salon"]),
+        ("Salon profile", ["Create and maintain details"]),
+        ("Hiring", ["Posts and applications"]),
+        ("Service catalog", ["Prices and durations"]),
+        ("Employee setup", ["Services + weekly hours"]),
+        ("Booking inbox", ["Review customer requests"]),
+        ("Decide booking", ["Accept or decline"]),
+        ("Reassign if unavailable", ["Choose qualified staff", "Add a note for the customer"]),
+        ("Complete appointment", ["After the service is done"]),
+    ]
+    career_employee_steps = [
+        ("Career profile", ["Set up professional details"]),
+        ("Browse hiring posts", ["Find relevant opportunities"]),
+        ("Apply", ["Send application to salon"]),
+        ("Track applications", ["See application status"]),
+        ("Owner decision", ["Application is reviewed"]),
+        ("Employee account", ["Sign in as an employee"]),
+        ("My bookings", ["View assigned appointments"]),
+        ("Appointment details", ["Check date, time, services"]),
+    ]
+
+    def draw_vertical_steps(lane_index, steps, first_node_y=first_y):
+        x = lane_xs[lane_index]
+        center_x = x + lane_width / 2
+        node_width = lane_width - 14
+        node_x = x + 7
+        node_ys = [first_node_y - index * step for index in range(len(steps))]
+        for index, ((title, lines), y) in enumerate(zip(steps, node_ys)):
+            add_box(d, node_x, y, node_width, box_height, title, lines,
+                    WHITE, lane_strokes[lane_index])
+            if index < len(node_ys) - 1:
+                next_top = node_ys[index + 1] + box_height
+                d.add(Line(center_x, y, center_x, next_top,
+                           strokeColor=lane_strokes[lane_index], strokeWidth=1.2))
+                d.add(Polygon([
+                    center_x, next_top,
+                    center_x - 3.5, next_top + 6,
+                    center_x + 3.5, next_top + 6,
+                ], fillColor=lane_strokes[lane_index], strokeColor=lane_strokes[lane_index]))
+        return node_ys
+
+    customer_ys = draw_vertical_steps(0, customer_steps)
+    owner_ys = draw_vertical_steps(1, owner_steps)
+    career_ys = draw_vertical_steps(2, career_employee_steps[:5])
+    employee_ys = draw_vertical_steps(2, career_employee_steps[5:], first_node_y=230)
+    career_lane_x = lane_xs[2]
+    d.add(Line(career_lane_x + 8, 300, career_lane_x + lane_width - 8, 300,
+               strokeColor=LINE, strokeWidth=0.8))
+    d.add(String(career_lane_x + lane_width / 2, 283, "EMPLOYEE",
+                 fontName=FONTS["DocBold"], fontSize=6.3,
+                 fillColor=NAVY, textAnchor="middle"))
+
+    def cross_arrow(source_lane, source_y, target_lane, target_y, label, color):
+        source_x = lane_xs[source_lane] + (lane_width - 7 if target_lane > source_lane else 7)
+        target_x = lane_xs[target_lane] + (7 if target_lane > source_lane else lane_width - 7)
+        start_y = source_y + box_height / 2
+        end_y = target_y + box_height / 2
+        add_arrow(d, source_x, start_y, target_x, end_y, label, color)
+
+    # Customer requests enter the owner queue; the decision and any replacement
+    # update flow back to the customer's booking page.
+    cross_arrow(0, customer_ys[6], 1, owner_ys[5], None, BLUE)
+    cross_arrow(1, owner_ys[6], 0, customer_ys[7], None, EMERALD)
+    cross_arrow(1, owner_ys[7], 0, customer_ys[8], None, EMERALD)
+    cross_arrow(2, career_ys[2], 1, owner_ys[2], None, CYAN)
+
+    owner_complete_x = lane_xs[1] + 7
+    between_lanes_x = lane_xs[0] + lane_width + lane_gap / 2
+    customer_review_x = lane_xs[0] + lane_width - 7
+    owner_complete_y = owner_ys[8] + box_height / 2
+    customer_review_y = customer_ys[10] + box_height / 2
+    d.add(Line(owner_complete_x, owner_complete_y, between_lanes_x, owner_complete_y,
+               strokeColor=EMERALD, strokeWidth=1.2))
+    d.add(Line(between_lanes_x, owner_complete_y, between_lanes_x, customer_review_y,
+               strokeColor=EMERALD, strokeWidth=1.2))
+    add_arrow(d, between_lanes_x, customer_review_y, customer_review_x,
+              customer_review_y, None, EMERALD)
+
+    d.add(String(width / 2, 2,
+                 "Employee breaks are handled as needed. Admin tools are backend-only; payments and separate employee/service ratings are planned.",
+                 fontName=FONTS["DocRegular"], fontSize=5.7,
+                 fillColor=MUTED, textAnchor="middle"))
+    return d
+
+
 def booking_sequence_diagram(width):
     return sequence_diagram(width, ["Customer", "Booking API", "Catalog", "Availability", "Owner"], [
         (0, 1, "Request services and time", False),
@@ -531,6 +654,23 @@ def review_sequence_diagram(width):
     ])
 
 
+def notification_sequence_diagram(width):
+    return sequence_diagram(width, ["Salon action", "Booking service", "Notification", "Database", "Signed-in user"], [
+        (0, 1, "Accept, reject, reassign, cancel", False),
+        (1, 1, "Lock and validate booking state", False),
+        (1, 3, "Persist booking transition", False),
+        (1, 2, "Publish event in same transaction", False),
+        (2, 2, "Build recipient from domain data", False),
+        (2, 3, "Save unique event key + snapshot", True),
+        (3, 1, "Commit booking and notification", True),
+        (4, 2, "Poll authenticated inbox", False),
+        (2, 3, "Query recipient newest first", False),
+        (3, 4, "ApiResponse with page DTO", True),
+        (4, 2, "Mark one or all as read", False),
+        (2, 3, "Update owned records only", True),
+    ])
+
+
 def benefits_diagram(width):
     height = 245
     d = Drawing(width, height)
@@ -561,9 +701,11 @@ def diagram_for(name, width):
         "hiring-sequence": hiring_sequence_diagram,
         "service-sequence": service_sequence_diagram,
         "availability-flow": availability_flow_diagram,
+        "application-flow": application_flow_diagram,
         "booking-sequence": booking_sequence_diagram,
         "booking-lifecycle": booking_lifecycle_diagram,
         "review-sequence": review_sequence_diagram,
+        "notification-sequence": notification_sequence_diagram,
         "benefits": benefits_diagram,
     }
     builder = diagrams.get(name)
