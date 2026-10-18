@@ -20,7 +20,7 @@ from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, Stri
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 UPDATED = "18 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
@@ -643,6 +643,22 @@ def booking_lifecycle_diagram(width):
     return d
 
 
+def reschedule_sequence_diagram(width):
+    return sequence_diagram(width, ["Salon owner", "Booking API", "Availability", "Customer", "Notification"], [
+        (0, 1, "Request trusted reschedule slots", False),
+        (1, 2, "Exclude current booking interval", False),
+        (2, 0, "Return qualified free times", True),
+        (0, 1, "Propose required date and time", False),
+        (1, 4, "Persist customer proposal event", False),
+        (1, 3, "Original appointment unchanged", True),
+        (3, 1, "Accept or reject proposal", False),
+        (1, 2, "Revalidate accepted proposal", False),
+        (2, 1, "Slot remains available", True),
+        (1, 4, "Commit appointment and events", False),
+        (1, 0, "Return durable decision", True),
+    ])
+
+
 def review_sequence_diagram(width):
     return sequence_diagram(width, ["Customer", "Review API", "Booking", "Review store", "Public client"], [
         (0, 1, "Submit booking, rating, comment", False),
@@ -706,6 +722,7 @@ def diagram_for(name, width):
         "application-flow": application_flow_diagram,
         "booking-sequence": booking_sequence_diagram,
         "booking-lifecycle": booking_lifecycle_diagram,
+        "reschedule-sequence": reschedule_sequence_diagram,
         "review-sequence": review_sequence_diagram,
         "notification-sequence": notification_sequence_diagram,
         "benefits": benefits_diagram,
