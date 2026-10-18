@@ -47,6 +47,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final EmployeeServiceCapabilityRepo capabilityRepo;
     private final EmployeeScheduleAvailability scheduleAvailability;
     private final BookingNotificationService bookingNotificationService;
+    private final BookingAvailabilityService bookingAvailabilityService;
 
     @Override
     @Transactional
@@ -158,6 +159,16 @@ public class BookingManagementImpl implements BookingManagement {
                 totalDuration
         )) {
             return ApiResponse.error("Selected employee is not working for the full requested appointment");
+        }
+        if (!bookingAvailabilityService.isSlotAvailable(
+                salon,
+                uniqueServiceIds,
+                request.bookingDate(),
+                request.bookingTime(),
+                totalDuration,
+                assignedEmployee == null ? null : assignedEmployee.getId()
+        )) {
+            return ApiResponse.error("Selected appointment time is no longer available");
         }
 
         bookingRepo.save(booking);

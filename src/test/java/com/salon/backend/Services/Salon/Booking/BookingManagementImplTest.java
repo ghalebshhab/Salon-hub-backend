@@ -54,14 +54,20 @@ class BookingManagementImplTest {
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @Mock private EmployeeScheduleAvailability scheduleAvailability;
     @Mock private BookingNotificationService bookingNotificationService;
+    @Mock private BookingAvailabilityService bookingAvailabilityService;
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach
     void allowWorkingHoursUnlessATestOverridesThem() {
         lenient().when(scheduleAvailability.isSalonOpenFor(any(), any(), anyInt()))
                 .thenReturn(true);
-        lenient().when(scheduleAvailability.isEmployeeAvailable(any(), any(), any(), any(), anyInt()))
+        lenient().when(scheduleAvailability.isEmployeeAvailable(
+                any(Long.class), any(), any(), any(), anyInt()
+        ))
                 .thenReturn(true);
+        lenient().when(bookingAvailabilityService.isSlotAvailable(
+                any(), any(), any(), any(), anyInt(), any()
+        )).thenReturn(true);
     }
 
     @Test
@@ -131,6 +137,28 @@ class BookingManagementImplTest {
 
         assertFalse(response.isSuccess());
         verify(salonServiceRepo, never()).findByIdInAndSalonIdAndActiveTrue(any(), any());
+        verify(bookingRepo, never()).save(any());
+    }
+
+    @Test
+    void rejectsBookingWhenTheSelectedSlotIsNoLongerAvailable() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        Salon salon = activeSalon(10L, 2L);
+        SalonService service = salonService(20L, salon, "Haircut", "7.50", 30);
+        CreateBookingRequest request = validCreateRequest(10L, List.of(20L));
+
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+        when(salonServiceRepo.findByIdInAndSalonIdAndActiveTrue(List.of(20L), 10L))
+                .thenReturn(List.of(service));
+        when(bookingAvailabilityService.isSlotAvailable(
+                any(), any(), any(), any(), anyInt(), any()
+        )).thenReturn(false);
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(request, 1L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Selected appointment time is no longer available", response.getMessage());
         verify(bookingRepo, never()).save(any());
     }
 
