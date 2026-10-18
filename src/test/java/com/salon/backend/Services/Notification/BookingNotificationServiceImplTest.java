@@ -4,6 +4,8 @@ import com.salon.backend.Entities.notifications.NotificationEventType;
 import com.salon.backend.Entities.notifications.UserNotification;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.bookings.Booking;
+import com.salon.backend.Entities.salons.bookings.BookingRescheduleProposal;
+import com.salon.backend.Entities.salons.bookings.BookingRescheduleStatus;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Notification.UserNotificationRepo;
@@ -34,27 +36,16 @@ class BookingNotificationServiceImplTest {
     @InjectMocks private BookingNotificationServiceImpl bookingNotificationService;
 
     @Test
-    void acceptedBookingWithSuggestedTimeCreatesBothCustomerEvents() {
+    void acceptedBookingCreatesCustomerEvent() {
         Booking booking = booking();
         booking.setStatus(BookingStatus.ACCEPTED);
-        booking.setOwnerSuggestedTime(LocalTime.of(14, 30));
 
         bookingNotificationService.bookingAccepted(booking);
 
         ArgumentCaptor<UserNotification> saved = ArgumentCaptor.forClass(UserNotification.class);
-        verify(notificationRepo, times(2)).save(saved.capture());
-        List<NotificationEventType> types = saved.getAllValues().stream()
-                .map(UserNotification::getEventType)
-                .toList();
-        assertEquals(
-                List.of(
-                        NotificationEventType.BOOKING_ACCEPTED,
-                        NotificationEventType.BOOKING_TIME_SUGGESTED
-                ),
-                types
-        );
-        assertTrue(saved.getAllValues().stream()
-                .allMatch(notification -> notification.getRecipient().getId() == 1L));
+        verify(notificationRepo).save(saved.capture());
+        assertEquals(NotificationEventType.BOOKING_ACCEPTED, saved.getValue().getEventType());
+        assertEquals(1L, saved.getValue().getRecipient().getId());
     }
 
     @Test
@@ -124,6 +115,29 @@ class BookingNotificationServiceImplTest {
         bookingNotificationService.bookingAccepted(booking);
 
         verify(notificationRepo, never()).save(any());
+    }
+
+    @Test
+    void rescheduleProposalNotifiesCustomerWithProposedDateAndTime() {
+        Booking booking = booking();
+        BookingRescheduleProposal proposal = new BookingRescheduleProposal();
+        proposal.setId(50L);
+        proposal.setBooking(booking);
+        proposal.setProposedDate(LocalDate.now().plusDays(2));
+        proposal.setProposedTime(LocalTime.of(15, 30));
+        proposal.setStatus(BookingRescheduleStatus.PENDING);
+
+        bookingNotificationService.bookingRescheduleProposed(booking, proposal);
+
+        ArgumentCaptor<UserNotification> saved = ArgumentCaptor.forClass(UserNotification.class);
+        verify(notificationRepo).save(saved.capture());
+        assertEquals(
+                NotificationEventType.BOOKING_RESCHEDULE_PROPOSED,
+                saved.getValue().getEventType()
+        );
+        assertEquals(booking.getCustomer().getId(), saved.getValue().getRecipient().getId());
+        assertEquals(proposal.getProposedDate(), saved.getValue().getSuggestedDate());
+        assertEquals(proposal.getProposedTime(), saved.getValue().getSuggestedTime());
     }
 
     private Booking booking() {

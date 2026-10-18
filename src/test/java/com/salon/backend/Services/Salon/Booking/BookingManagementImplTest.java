@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
+import com.salon.backend.Repositories.Salon.BookingRescheduleProposalRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
@@ -55,6 +56,7 @@ class BookingManagementImplTest {
     @Mock private EmployeeScheduleAvailability scheduleAvailability;
     @Mock private BookingNotificationService bookingNotificationService;
     @Mock private BookingAvailabilityService bookingAvailabilityService;
+    @Mock private BookingRescheduleProposalRepo rescheduleProposalRepo;
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach
@@ -189,7 +191,7 @@ class BookingManagementImplTest {
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
-                new BookingActionRequest("Confirmed", null, 4L),
+                new BookingActionRequest("Confirmed", 4L),
                 2L
         );
 
@@ -224,7 +226,7 @@ class BookingManagementImplTest {
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
-                new BookingActionRequest("Confirmed", null, 4L),
+                new BookingActionRequest("Confirmed", 4L),
                 2L
         );
 
@@ -262,7 +264,7 @@ class BookingManagementImplTest {
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
-                new BookingActionRequest("Confirmed", null, 4L),
+                new BookingActionRequest("Confirmed", 4L),
                 2L
         );
 
@@ -411,7 +413,7 @@ class BookingManagementImplTest {
 
         ApiResponse<BookingResponse> response = bookingManagement.rejectBooking(
                 30L,
-                new BookingActionRequest("  ", null, null),
+                new BookingActionRequest("  ", null),
                 2L
         );
 
@@ -429,7 +431,7 @@ class BookingManagementImplTest {
 
         ApiResponse<BookingResponse> response = bookingManagement.rejectBooking(
                 30L,
-                new BookingActionRequest("This time is unavailable", null, null),
+                new BookingActionRequest("This time is unavailable", null),
                 2L
         );
 
@@ -471,7 +473,7 @@ class BookingManagementImplTest {
         assertEquals(BookingStatus.COMPLETED, response.getData().status());
         assertEquals(4L, response.getData().assignedEmployeeId());
         assertEquals("Haircut", response.getData().services().get(0).name());
-        assertNull(response.getData().ownerSuggestedTime());
+        assertTrue(response.getData().rescheduleProposals().isEmpty());
     }
 
     private CreateBookingRequest validCreateRequest(Long salonId, List<Long> serviceIds) {

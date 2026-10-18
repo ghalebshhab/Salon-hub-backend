@@ -6,6 +6,7 @@ import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.bookings.Booking;
+import com.salon.backend.Entities.salons.bookings.BookingServiceItem;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.salons.services.EmployeeServiceCapability;
 import com.salon.backend.Entities.salons.services.SalonService;
@@ -228,6 +229,41 @@ class BookingAvailabilityServiceImplTest {
         );
 
         assertFalse(available);
+    }
+
+    @Test
+    void rescheduleAvailabilityExcludesTheBookingBeingMoved() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(11, 0));
+        SalonService service = service(20L, salon, 30);
+        User employee = user(2L, UserRole.Employee, salon);
+        Booking booking = acceptedBooking(30L, employee, date, LocalTime.of(9, 15), 30);
+        booking.setSalon(salon);
+        BookingServiceItem item = new BookingServiceItem();
+        item.setSourceServiceId(service.getId());
+        item.setDurationMinutes(30);
+        booking.addServiceItem(item);
+
+        when(userRepo.findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
+                10L,
+                UserRole.Employee,
+                UserStatus.Active
+        )).thenReturn(List.of(employee));
+        when(capabilityRepo.findByEmployeeIdIn(any()))
+                .thenReturn(List.of(capability(employee, service)));
+        when(scheduleRepo.findByEmployeeIdIn(any())).thenReturn(List.of());
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatus(
+                any(),
+                any(),
+                any()
+        )).thenReturn(List.of(booking));
+
+        ApiResponse<BookingAvailabilityResponse> response = availabilityService
+                .getRescheduleAvailability(booking, date);
+
+        assertTrue(response.isSuccess());
+        assertEquals(7, response.getData().slots().size());
+        assertEquals(LocalTime.of(9, 15), response.getData().slots().get(1).time());
     }
 
     private void arrangeAvailability(
