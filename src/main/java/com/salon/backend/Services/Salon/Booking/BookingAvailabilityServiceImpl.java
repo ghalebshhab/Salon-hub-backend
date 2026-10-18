@@ -8,6 +8,7 @@ import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilitySlotResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.bookings.Booking;
+import com.salon.backend.Entities.salons.bookings.BookingServiceItem;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.salons.schedule.EmployeeSchedule;
 import com.salon.backend.Entities.salons.services.EmployeeServiceCapability;
@@ -99,7 +100,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             return ApiResponse.error("Selected employee cannot perform every requested service");
         }
 
-        AvailabilityData data = loadAvailabilityData(eligibleEmployees, request.bookingDate());
+        AvailabilityData data = loadAvailabilityData(eligibleEmployees, request.bookingDate(), null);
         List<BookingAvailabilitySlotResponse> slots = new ArrayList<>();
         LocalTime candidate = salon.getOpeningTime();
         while (candidate != null
@@ -140,6 +141,85 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
 
     @Override
     @Transactional(readOnly = true)
+    public ApiResponse<BookingAvailabilityResponse> getRescheduleAvailability(
+            Booking booking,
+            LocalDate bookingDate) {
+        if (booking == null || bookingDate == null) {
+            return ApiResponse.error("Booking and reschedule date are required");
+        }
+        if (bookingDate.isBefore(LocalDate.now(clock))) {
+            return ApiResponse.error("Reschedule date cannot be in the past");
+        }
+
+        Salon salon = booking.getSalon();
+        if (!isActiveSalon(salon)) {
+            return ApiResponse.error("Active salon not found");
+        }
+
+        Set<Long> serviceIds = booking.getServiceItems().stream()
+                .map(BookingServiceItem::getSourceServiceId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Long employeeId = booking.getAssignedEmployee() == null
+                ? null
+                : booking.getAssignedEmployee().getId();
+        List<User> eligibleEmployees = findQualifiedEmployees(
+                salon.getId(),
+                serviceIds,
+                employeeId
+        );
+        if (employeeId != null && eligibleEmployees.isEmpty()) {
+            return ApiResponse.error("Assigned employee can no longer perform every requested service");
+        }
+
+        AvailabilityData data = loadAvailabilityData(
+                eligibleEmployees,
+                bookingDate,
+                booking.getId()
+        );
+        List<BookingAvailabilitySlotResponse> slots = new ArrayList<>();
+        LocalTime candidate = salon.getOpeningTime();
+        while (candidate != null
+                && scheduleAvailability.isSalonOpenFor(
+                        salon,
+                        candidate,
+                        booking.getTotalDurationMinutes()
+                )) {
+            List<User> availableEmployees = availableEmployeesAt(
+                    eligibleEmployees,
+                    data,
+                    salon,
+                    bookingDate,
+                    candidate,
+                    booking.getTotalDurationMinutes()
+            );
+            if (meetsMinimumLeadTime(bookingDate, candidate)
+                    && !availableEmployees.isEmpty()) {
+                slots.add(new BookingAvailabilitySlotResponse(
+                        candidate,
+                        availableEmployees.stream().map(this::mapEmployee).toList()
+                ));
+            }
+            candidate = candidate.plusMinutes(SLOT_INTERVAL_MINUTES);
+            if (candidate.equals(salon.getOpeningTime())) {
+                break;
+            }
+        }
+
+        return ApiResponse.success(
+                "Reschedule appointment times fetched successfully",
+                new BookingAvailabilityResponse(
+                        salon.getId(),
+                        bookingDate,
+                        booking.getTotalDurationMinutes(),
+                        SLOT_INTERVAL_MINUTES,
+                        MINIMUM_LEAD_MINUTES,
+                        slots
+                )
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean isSlotAvailable(
             Salon salon,
             Set<Long> serviceIds,
@@ -147,6 +227,27 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             LocalTime bookingTime,
             int durationMinutes,
             Long employeeId) {
+        return isSlotAvailable(
+                salon,
+                serviceIds,
+                bookingDate,
+                bookingTime,
+                durationMinutes,
+                employeeId,
+                null
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isSlotAvailable(
+            Salon salon,
+            Set<Long> serviceIds,
+            LocalDate bookingDate,
+            LocalTime bookingTime,
+            int durationMinutes,
+            Long employeeId,
+            Long excludedBookingId) {
         if (!isActiveSalon(salon)
                 || serviceIds == null
                 || serviceIds.isEmpty()
@@ -167,7 +268,11 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         if (eligibleEmployees.isEmpty()) {
             return false;
         }
-        AvailabilityData data = loadAvailabilityData(eligibleEmployees, bookingDate);
+        AvailabilityData data = loadAvailabilityData(
+                eligibleEmployees,
+                bookingDate,
+                excludedBookingId
+        );
         return !availableEmployeesAt(
                 eligibleEmployees,
                 data,
@@ -239,7 +344,10 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                 .toList();
     }
 
-    private AvailabilityData loadAvailabilityData(List<User> employees, LocalDate bookingDate) {
+    private AvailabilityData loadAvailabilityData(
+            List<User> employees,
+            LocalDate bookingDate,
+            Long excludedBookingId) {
         Set<Long> employeeIds = employees.stream().map(User::getId).collect(Collectors.toSet());
         if (employeeIds.isEmpty()) {
             return new AvailabilityData(Map.of(), Map.of());
@@ -257,6 +365,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                         bookingDate,
                         BookingStatus.ACCEPTED
                 ).stream()
+                .filter(booking -> excludedBookingId == null
+                        || !excludedBookingId.equals(booking.getId()))
                 .collect(Collectors.groupingBy(booking -> booking.getAssignedEmployee().getId()));
         return new AvailabilityData(schedules, bookingsByEmployee);
     }
