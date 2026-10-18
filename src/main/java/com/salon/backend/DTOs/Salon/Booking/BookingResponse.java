@@ -29,7 +29,7 @@ public record BookingResponse(
         String assignedEmployeeSpecialty,
         String note,
         String ownerNote,
-        LocalTime ownerSuggestedTime,
+        List<BookingRescheduleProposalResponse> rescheduleProposals,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

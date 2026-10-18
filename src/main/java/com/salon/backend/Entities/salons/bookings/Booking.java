@@ -85,7 +85,9 @@ public class Booking {
     @Column(length = 1000)
     private String ownerNote;
 
-    private LocalTime ownerSuggestedTime;
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt DESC, id DESC")
+    private List<BookingRescheduleProposal> rescheduleProposals = new ArrayList<>();
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice;
