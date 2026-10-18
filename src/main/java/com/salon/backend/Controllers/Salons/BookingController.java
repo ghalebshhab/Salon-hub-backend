@@ -5,11 +5,15 @@ import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
+import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleAvailabilityRequest;
+import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalRequest;
+import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalResponse;
 import com.salon.backend.DTOs.Salon.Booking.AssignBookingEmployeeRequest;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Booking.BookingManagement;
 import com.salon.backend.Services.Salon.Booking.BookingAvailabilityService;
+import com.salon.backend.Services.Salon.Booking.BookingRescheduleManagement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +33,7 @@ public class BookingController {
 
     private final BookingManagement bookingManagement;
     private final BookingAvailabilityService bookingAvailabilityService;
+    private final BookingRescheduleManagement bookingRescheduleManagement;
 
     @PostMapping("/availability")
     public ApiResponse<BookingAvailabilityResponse> getAvailability(
@@ -108,6 +113,50 @@ public class BookingController {
                 bookingId,
                 employeeId,
                 request == null ? null : request.ownerNote(),
+                currentUser.getId()
+        );
+    }
+
+    @PostMapping("/{bookingId}/reschedule-availability")
+    public ApiResponse<BookingAvailabilityResponse> getRescheduleAvailability(
+            @PathVariable Long bookingId,
+            @RequestBody BookingRescheduleAvailabilityRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingRescheduleManagement.getAvailability(
+                bookingId,
+                request,
+                currentUser.getId()
+        );
+    }
+
+    @PostMapping("/{bookingId}/reschedule-proposals")
+    public ApiResponse<BookingRescheduleProposalResponse> proposeReschedule(
+            @PathVariable Long bookingId,
+            @RequestBody BookingRescheduleProposalRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingRescheduleManagement.propose(bookingId, request, currentUser.getId());
+    }
+
+    @PutMapping("/{bookingId}/reschedule-proposals/{proposalId}/accept")
+    public ApiResponse<BookingRescheduleProposalResponse> acceptReschedule(
+            @PathVariable Long bookingId,
+            @PathVariable Long proposalId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingRescheduleManagement.accept(
+                bookingId,
+                proposalId,
+                currentUser.getId()
+        );
+    }
+
+    @PutMapping("/{bookingId}/reschedule-proposals/{proposalId}/reject")
+    public ApiResponse<BookingRescheduleProposalResponse> rejectReschedule(
+            @PathVariable Long bookingId,
+            @PathVariable Long proposalId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingRescheduleManagement.reject(
+                bookingId,
+                proposalId,
                 currentUser.getId()
         );
     }

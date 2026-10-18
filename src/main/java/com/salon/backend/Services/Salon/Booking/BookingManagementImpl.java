@@ -3,18 +3,21 @@ package com.salon.backend.Services.Salon.Booking;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
+import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingServiceItemResponse;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.bookings.Booking;
 import com.salon.backend.Entities.salons.bookings.BookingServiceItem;
+import com.salon.backend.Entities.salons.bookings.BookingRescheduleStatus;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.salons.services.SalonService;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
+import com.salon.backend.Repositories.Salon.BookingRescheduleProposalRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
@@ -48,6 +51,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final EmployeeScheduleAvailability scheduleAvailability;
     private final BookingNotificationService bookingNotificationService;
     private final BookingAvailabilityService bookingAvailabilityService;
+    private final BookingRescheduleProposalRepo rescheduleProposalRepo;
 
     @Override
     @Transactional
@@ -244,6 +248,9 @@ public class BookingManagementImpl implements BookingManagement {
         if (booking.getStatus() != BookingStatus.PENDING) {
             return ApiResponse.error("Only a pending booking can be accepted");
         }
+        if (hasPendingRescheduleProposal(booking)) {
+            return ApiResponse.error("The customer must decide the reschedule proposal before acceptance");
+        }
         if (!LocalDateTime.of(booking.getBookingDate(), booking.getBookingTime()).isAfter(LocalDateTime.now())) {
             return ApiResponse.error("A booking with a past appointment time cannot be accepted");
         }
@@ -300,7 +307,6 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setAssignedEmployee(assignedEmployee);
         booking.setStatus(BookingStatus.ACCEPTED);
         booking.setOwnerNote(request == null ? null : normalizeText(request.ownerNote()));
-        booking.setOwnerSuggestedTime(request == null ? null : request.ownerSuggestedTime());
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
         bookingRepo.save(booking);
@@ -332,9 +338,9 @@ public class BookingManagementImpl implements BookingManagement {
         LocalDateTime now = LocalDateTime.now();
         booking.setStatus(BookingStatus.REJECTED);
         booking.setOwnerNote(request.ownerNote().trim());
-        booking.setOwnerSuggestedTime(request.ownerSuggestedTime());
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
+        cancelPendingRescheduleProposals(booking, now);
         bookingRepo.save(booking);
         bookingNotificationService.bookingRejected(booking);
 
@@ -357,6 +363,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(now);
         booking.setUpdatedAt(now);
+        cancelPendingRescheduleProposals(booking, now);
         bookingRepo.save(booking);
         bookingNotificationService.bookingCancelled(booking);
 
@@ -378,6 +385,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setStatus(BookingStatus.COMPLETED);
         booking.setCompletedAt(now);
         booking.setUpdatedAt(now);
+        cancelPendingRescheduleProposals(booking, now);
         bookingRepo.save(booking);
 
         return ApiResponse.success("Booking completed successfully", mapToResponse(booking));
@@ -638,7 +646,17 @@ public class BookingManagementImpl implements BookingManagement {
                 employee == null ? null : employeeSpecialty(employee),
                 booking.getNote(),
                 booking.getOwnerNote(),
-                booking.getOwnerSuggestedTime(),
+                booking.getRescheduleProposals().stream()
+                        .map(proposal -> new BookingRescheduleProposalResponse(
+                                proposal.getId(),
+                                proposal.getProposedDate(),
+                                proposal.getProposedTime(),
+                                proposal.getNote(),
+                                proposal.getStatus(),
+                                proposal.getCreatedAt(),
+                                proposal.getRespondedAt()
+                        ))
+                        .toList(),
                 booking.getCreatedAt(),
                 booking.getUpdatedAt()
         );
@@ -659,5 +677,30 @@ public class BookingManagementImpl implements BookingManagement {
 
     private String normalizeText(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private boolean hasPendingRescheduleProposal(Booking booking) {
+        return booking.getId() != null && rescheduleProposalRepo.existsByBookingIdAndStatus(
+                booking.getId(),
+                BookingRescheduleStatus.PENDING
+        );
+    }
+
+    private void cancelPendingRescheduleProposals(Booking booking, LocalDateTime now) {
+        if (booking.getId() == null) {
+            return;
+        }
+        rescheduleProposalRepo.cancelPendingForBooking(
+                booking.getId(),
+                BookingRescheduleStatus.PENDING,
+                BookingRescheduleStatus.CANCELLED,
+                now
+        );
+        booking.getRescheduleProposals().stream()
+                .filter(proposal -> proposal.getStatus() == BookingRescheduleStatus.PENDING)
+                .forEach(proposal -> {
+                    proposal.setStatus(BookingRescheduleStatus.CANCELLED);
+                    proposal.setRespondedAt(now);
+                });
     }
 }
