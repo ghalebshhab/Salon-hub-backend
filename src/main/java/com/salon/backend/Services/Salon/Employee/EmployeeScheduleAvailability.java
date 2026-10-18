@@ -49,6 +49,18 @@ public class EmployeeScheduleAvailability {
         }
 
         EmployeeSchedule schedule = scheduleRepo.findByEmployeeId(employeeId).orElse(null);
+        return isEmployeeAvailable(schedule, salon, date, startTime, durationMinutes);
+    }
+
+    public boolean isEmployeeAvailable(
+            EmployeeSchedule schedule,
+            Salon salon,
+            LocalDate date,
+            LocalTime startTime,
+            int durationMinutes) {
+        if (date == null || !isSalonOpenFor(salon, startTime, durationMinutes)) {
+            return false;
+        }
         if (schedule == null) {
             return true;
         }

@@ -2,11 +2,14 @@ package com.salon.backend.Controllers.Salons;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
+import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityRequest;
+import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
 import com.salon.backend.DTOs.Salon.Booking.AssignBookingEmployeeRequest;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Booking.BookingManagement;
+import com.salon.backend.Services.Salon.Booking.BookingAvailabilityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +28,14 @@ import java.util.List;
 public class BookingController {
 
     private final BookingManagement bookingManagement;
+    private final BookingAvailabilityService bookingAvailabilityService;
+
+    @PostMapping("/availability")
+    public ApiResponse<BookingAvailabilityResponse> getAvailability(
+            @RequestBody BookingAvailabilityRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingAvailabilityService.getAvailability(request, currentUser.getId());
+    }
 
     @PostMapping
     public ApiResponse<BookingResponse> createBooking(
