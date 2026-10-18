@@ -20,8 +20,8 @@ from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, Stri
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.2.2"
-UPDATED = "13 October 2026"
+VERSION = "1.2.3"
+UPDATED = "18 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
 MIDNIGHT = colors.HexColor("#0B132B")
@@ -461,27 +461,26 @@ def service_sequence_diagram(width):
 
 
 def availability_flow_diagram(width):
-    height = 230
+    height = 270
     d = Drawing(width, height)
-    box_width = 86
-    gap = (width - 5 * box_width) / 4
-    boxes = [
-        ("Salon", ["Accepted", "Unblocked"]),
-        ("Employee", ["Active", "Same salon"]),
-        ("Capabilities", ["Supports every", "selected service"]),
-        ("Salon hours", ["Full duration", "fits inside"]),
-        ("Work period", ["Schedule covers", "full interval"]),
-    ]
-    xs = [index * (box_width + gap) for index in range(5)]
-    for index, ((title, lines), x) in enumerate(zip(boxes, xs)):
-        fill = colors.HexColor("#ECFDF3") if index == 4 else BLUE_TINT
-        stroke = EMERALD if index == 4 else BLUE
-        add_box(d, x, 118, box_width, 62, title, lines, fill, stroke)
-        if index < 4:
-            add_arrow(d, x + box_width, 149, xs[index + 1], 149, "pass", EMERALD)
-    add_box(d, width / 2 - 90, 28, 180, 54, "Eligible employee", ["May be selected or assigned", "for this complete appointment"], MIDNIGHT, MIDNIGHT, WHITE)
-    add_arrow(d, xs[-1] + box_width / 2, 118, width / 2, 82, "all checks pass", EMERALD)
-    d.add(String(width / 2, 9, "Any failed check returns ApiResponse.error and does not mutate the booking.",
+    box_width = 132
+    left_x = 14
+    right_x = width - box_width - 14
+    center_x = width / 2 - box_width / 2
+    add_box(d, left_x, 184, box_width, 58, "Request", ["Salon + services + date", "Optional employee"], BLUE_TINT, BLUE)
+    add_box(d, center_x, 184, box_width, 58, "Duration and grid", ["Sum service durations", "Start every 15 minutes"], BLUE_TINT, BLUE)
+    add_box(d, right_x, 184, box_width, 58, "Salon window", ["Accepted and unblocked", "Full duration fits"], BLUE_TINT, BLUE)
+    add_box(d, right_x, 96, box_width, 58, "Employee eligibility", ["Active + all capabilities", "Schedule covers interval"], BLUE_TINT, BLUE)
+    add_box(d, center_x, 96, box_width, 58, "Capacity", ["No accepted overlap", "Pending does not reserve"], BLUE_TINT, BLUE)
+    add_box(d, left_x, 96, box_width, 58, "Lead time", ["Same day starts at least", "30 minutes from now"], BLUE_TINT, BLUE)
+    add_box(d, width / 2 - 96, 22, 192, 48, "Available slot", ["Time + every eligible employee", "Revalidated during creation"], MIDNIGHT, MIDNIGHT, WHITE)
+    add_arrow(d, left_x + box_width, 213, center_x, 213, "validate", EMERALD)
+    add_arrow(d, center_x + box_width, 213, right_x, 213, "generate", EMERALD)
+    add_arrow(d, right_x + box_width / 2, 184, right_x + box_width / 2, 154, None, EMERALD)
+    add_arrow(d, right_x, 125, center_x + box_width, 125, None, EMERALD)
+    add_arrow(d, center_x, 125, left_x + box_width, 125, None, EMERALD)
+    add_arrow(d, left_x + box_width / 2, 96, width / 2, 70, None, EMERALD)
+    d.add(String(width / 2, 7, "Invalid input returns ApiResponse.error; a valid request may return an empty slot list.",
                  fontName=FONTS["DocRegular"], fontSize=7, fillColor=MUTED, textAnchor="middle"))
     return d
 
@@ -515,8 +514,8 @@ def application_flow_diagram(width):
         ("Browse salons", ["Choose a salon"]),
         ("Salon profile", ["Services and customer reviews"]),
         ("Sign in or register", ["Required before booking"]),
-        ("Build a booking", ["Service + qualified employee", "Future date and time"]),
-        ("Backend validation", ["Salon hours, capabilities,", "and employee schedule"]),
+        ("Build a booking", ["Services + date", "Optional employee"]),
+        ("Choose available time", ["Server slots + qualified staff", "15-minute interval"]),
         ("Send booking request", ["Request is PENDING"]),
         ("See the salon decision", ["Accepted or declined"]),
         ("See provider updates", ["Replacement employee + note"]),
@@ -611,11 +610,14 @@ def application_flow_diagram(width):
 
 def booking_sequence_diagram(width):
     return sequence_diagram(width, ["Customer", "Booking API", "Catalog", "Availability", "Owner"], [
-        (0, 1, "Request services and time", False),
+        (0, 1, "Request availability", False),
         (1, 2, "Load active salon services", False),
         (2, 1, "Price and duration snapshots", True),
-        (1, 3, "Check hours and employee fit", False),
-        (3, 1, "Full interval is valid", True),
+        (1, 3, "Generate qualified free slots", False),
+        (3, 0, "Times and eligible employees", True),
+        (0, 1, "Create with selected slot", False),
+        (1, 3, "Revalidate current availability", False),
+        (3, 1, "Selected slot remains valid", True),
         (1, 0, "Return pending booking", True),
         (4, 1, "Accept, reject, or assign", False),
         (1, 3, "Recheck capability and schedule", False),

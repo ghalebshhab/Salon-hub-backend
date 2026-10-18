@@ -3,8 +3,8 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.2.2
-**Last updated:** 13 October 2026
+**Document version:** 1.2.3
+**Last updated:** 18 October 2026
 **Status:** Active development
 
 ## Document purpose
@@ -21,7 +21,7 @@ Salon Hup is a responsive web platform for salon discovery, service catalogs, sa
 
 The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, an owner-managed public service catalog, employee service capabilities and schedules, appointment requests and decisions, employee assignment and reassignment explanations, customer and employee booking views, persistent user-specific booking notifications, completion, and booking-verified salon reviews.
 
-The booking workflow validates salon hours, employee working periods, selected-service capability, future appointment time, salon state, ownership, and accepted-booking overlap before accepting a transition. Booking decisions and material changes create durable inbox events in the same transaction. Salon reviews require a completed booking owned by the customer and remain linked to that booking. Automatic slot generation, schedule exceptions, push delivery, payment processing, employee ratings, and service ratings remain planned.
+The booking workflow now calculates appointment slots on the server from salon hours, selected-service duration, employee capabilities, weekly schedules, and accepted-booking conflicts. The React booking page displays those slots and the eligible employees for each time. Booking creation revalidates the chosen slot so stale or manipulated clients cannot bypass current availability. Booking decisions and material changes create durable inbox events in the same transaction. Salon reviews require a completed booking owned by the customer and remain linked to that booking. Schedule exceptions, push delivery, payment processing, employee ratings, and service ratings remain planned.
 
 ### Product status snapshot
 
@@ -32,9 +32,9 @@ The booking workflow validates salon hours, employee working periods, selected-s
 | Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
 | Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
 | Salon service catalog | Implemented | Approved owners manage priced, timed services and public salon pages receive active offerings |
-| Customer booking | Implemented | Customers create future appointment requests; owners decide, assign, and complete them; employees and customers receive scoped booking views |
-| Employee availability | Implemented | Owners configure weekly working periods; ad hoc absences are handled through owner reassignment, while booking logic checks salon hours, capabilities, and scheduled availability |
-| Notification inbox | Backend ready | Durable booking events, authenticated pagination, unread count, and owned read operations are ready for frontend polling |
+| Customer booking | Implemented | Customers select server-calculated appointment slots; owners decide, assign, and complete requests; employees and customers receive scoped booking views |
+| Employee availability | Implemented | Fifteen-minute slots reflect selected-service duration, qualified employees, weekly schedules, accepted conflicts, and a 30-minute same-day lead time |
+| Notification inbox | Implemented | Durable booking events, authenticated pagination, unread count, owned read operations, and frontend polling are connected |
 | Verified salon reviews | Implemented | A customer can review a completed owned booking once; public lists and aggregate summaries exclude blocked customers |
 | Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, and reviews |
 | Frontend/API integration | Partial | Core journeys use shared Axios and `ApiResponse`; media calls lack backend routes and Swagger UI lacks its runtime dependency |
@@ -281,7 +281,8 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 | Employee directory, capabilities, and schedules | Implemented | Implemented | Connected |
 | Booking creation and customer, owner, employee views | Implemented | Implemented | Connected |
 | Booking assignment explanation | Implemented | Implemented | Connected; explanation is required when replacing an assigned employee |
-| Persistent notification inbox | Pending | Implemented | Backend ready for 30-60 second polling while signed in and refresh when the app becomes active |
+| Persistent notification inbox | Implemented | Implemented | Connected with signed-in polling and refresh when the application becomes active |
+| Server-calculated booking availability | Implemented | Implemented | Connected; the booking page renders qualified employees and selectable 15-minute slots |
 | Verified salon reviews | Implemented | Implemented | Connected |
 | Direct employment, leave, transfer | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
 | Administration dashboard | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
@@ -340,9 +341,9 @@ The service sequence shows owner authorization, validation, persistence, public 
 
 [[PAGEBREAK]]
 
-### Employee qualification and availability decision
+### Employee qualification and appointment-slot decision
 
-This decision flow shows the server-side checks that determine whether an employee can be selected or assigned for the complete requested appointment.
+This decision flow shows how the server creates selectable appointment times from active services, total duration, salon hours, qualified employees, weekly schedules, accepted bookings, and the same-day lead rule. The same checks run again when the customer submits the booking.
 
 [[DIAGRAM:availability-flow]]
 
@@ -606,9 +607,13 @@ The owner can read or replace a current employee's weekly schedule. A schedule a
 
 When no employee schedule has ever been configured, booking validation treats the salon's opening and closing times as the employee's working period. Once an empty schedule is explicitly saved, the employee is unavailable all week. This distinction preserves existing employee behavior while allowing owners to disable appointment availability intentionally.
 
-### Appointment request and decision
+### Appointment availability, request, and decision
 
-An authenticated customer creates a booking using a salon ID, one to ten unique service IDs, a future date and time, location, optional phone override, optional note, and optional employee ID. The backend loads the customer and salon, verifies every service is active and belongs to that salon, defaults the phone number from the profile when omitted, calculates price and duration, and saves service snapshots.
+An authenticated customer first requests availability using a salon ID, one to ten unique service IDs, a date, and an optional employee ID. The backend calculates the total duration, finds employees who support every selected service, loads their weekly schedules and accepted bookings in batches, and returns selectable times at 15-minute intervals. A same-day slot must start at least 30 minutes after the current server time. Pending requests do not reserve capacity.
+
+When no employee is selected, a slot is returned when at least one fully qualified employee is free, and the response lists every eligible employee for that time. When an employee is selected, only that employee's availability is considered. An employee without a configured schedule inherits the salon hours; an explicitly empty schedule means unavailable all week.
+
+The customer creates the booking using one returned time plus the salon, services, location, optional phone override, optional note, and optional employee ID. The backend loads the customer and salon, verifies every service is active and belongs to that salon, defaults the phone number from the profile when omitted, calculates price and duration, and saves service snapshots. It revalidates the exact slot before persistence so elapsed time, a newly accepted appointment, or a manipulated request cannot create an unavailable booking.
 
 If the customer selects an employee, that employee must be active in the salon, support every selected service, and work for the complete appointment interval. The complete interval must also fit within salon opening hours. The owner may accept a pending request, reject it with a required note, or assign a qualified available employee to a pending or accepted booking. Replacing an employee who is already assigned requires an owner explanation, which is stored as the customer-visible owner note. Acceptance and assignment repeat capability and schedule validation because availability may have changed since creation.
 
@@ -777,7 +782,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | salonId | Required; salon must be accepted and unblocked |
 | serviceIds | One to ten unique active services belonging to the selected salon |
 | assignedEmployeeId | Optional; employee must support every selected service and be available for the full interval |
-| bookingDate and bookingTime | Required future appointment start |
+| bookingDate and bookingTime | Required server-offered appointment start; 15-minute grid, full duration inside salon hours, and at least 30 minutes of notice on the same day |
 | customerPhoneNumber | Optional override; otherwise loaded from the authenticated profile; maximum 30 characters |
 | customerLocation | Required; maximum 255 characters |
 | note | Optional; maximum 1000 characters |
@@ -792,6 +797,20 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | totalDurationMinutes | Sum of selected service durations |
 | status | Set to `PENDING` at creation |
 | timestamps | Set during creation and every accepted state transition |
+
+### Availability request and response
+
+| Field | Rule |
+| --- | --- |
+| salonId | Required; salon must be accepted, open, and unblocked |
+| serviceIds | One to ten unique active services from the selected salon |
+| bookingDate | Required and not before the current server date |
+| employeeId | Optional; when supplied, the employee must be active in the salon and capable of every selected service |
+| totalDurationMinutes | Calculated from current service durations |
+| slotIntervalMinutes | Server-owned interval; currently 15 minutes |
+| minimumLeadMinutes | Server-owned same-day notice; currently 30 minutes |
+| slots[].time | A start time whose complete duration fits salon and employee availability |
+| slots[].eligibleEmployees | Qualified active employees without an accepted overlap at that time |
 
 ### Owner booking action fields
 
@@ -902,6 +921,7 @@ The current product decision is to represent business outcomes through `ApiRespo
 
 | Method | Route | Purpose | Access |
 | --- | --- | --- | --- |
+| POST | `/api/bookings/availability` | Calculate available 15-minute appointment starts and eligible employees for selected services and date | Authenticated user |
 | POST | `/api/bookings` | Create a validated future appointment request with service snapshots | Authenticated customer |
 | GET | `/api/bookings/my` | Return the authenticated customer's booking history | Booking customer |
 | GET | `/api/bookings/my-salon` | Return all bookings for the authenticated owner's salon | Accepted salon owner |
@@ -1043,7 +1063,8 @@ For controller and business validation failures, the API uses `{ "success": fals
 
 | Endpoint | Access | Request data | Success data | Main errors shown in `message` |
 | --- | --- | --- | --- | --- |
-| `POST /api/bookings` | Authenticated customer | Body: `salonId`, `serviceIds[]`, optional `assignedEmployeeId`, `customerPhoneNumber`, `customerLocation`, `bookingDate`, `bookingTime`, optional `note` | Pending booking DTO with service price/duration snapshots | Past time, unavailable salon/employee, unsupported service, schedule conflict |
+| `POST /api/bookings/availability` | Authenticated user | Body: `salonId`, `serviceIds[]`, `bookingDate`, optional `employeeId` | Total duration, 15-minute interval, 30-minute lead, and ordered slots with eligible employee summaries | Inactive salon/service, duplicate or excessive services, past date, selected employee not fully qualified |
+| `POST /api/bookings` | Authenticated customer | Body: `salonId`, `serviceIds[]`, optional `assignedEmployeeId`, `customerPhoneNumber`, `customerLocation`, `bookingDate`, `bookingTime`, optional `note` | Pending booking DTO with service price/duration snapshots | Past or off-grid time, stale/unavailable slot, unavailable salon/employee, unsupported service, schedule conflict |
 | `GET /api/bookings/my` | Booking customer | None | Customer booking DTO list | Authentication failure; empty list is valid |
 | `GET /api/bookings/my-salon` | Accepted salon owner | None | All owned-salon booking DTOs | No accepted owned salon |
 | `GET /api/bookings/my-salon/pending` | Accepted salon owner | None | Pending booking DTOs ordered by appointment | No accepted owned salon |
@@ -1294,12 +1315,12 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 | Salon service catalog | Implemented | Owner create/list/update/disable/reactivate and public active-service discovery are available through DTO-based APIs |
 | Employee directory and capabilities | Implemented | Authenticated discovery and owner directories include capability data; owners replace validated service assignments |
 | Employee weekly schedules | Implemented | Owners configure working periods; ad hoc absences are handled through reassignment; validation enforces salon hours, non-overlap, and explicit empty availability |
-| Customer booking | Implemented | Creation, customer and owner history, pending queue, employee view, acceptance, rejection, cancellation, assignment, accepted-interval conflict prevention, completion, and service snapshots are available |
-| Notification inbox | Backend ready | Booking events persist atomically with recipient and booking snapshots; authenticated users can page their inbox, read unread count, and mark one or all owned notifications as read |
+| Customer booking | Implemented | Server-calculated slots, creation revalidation, customer and owner history, pending queue, employee view, acceptance, rejection, cancellation, assignment, accepted-interval conflict prevention, completion, and service snapshots are available |
+| Notification inbox | Implemented | Booking events persist atomically with recipient and booking snapshots; the frontend polls the authenticated inbox and supports unread count and owned read operations |
 | Verified salon reviews | Implemented | Completed-booking ownership, one-review constraint, public list and summary, customer list, deletion, and blocked-user filtering are available |
 | Salon media | Partial | Frontend page and API adapter exist; backend entity, persistence, service, and controller are not implemented |
 | Interactive API documentation | Partial | The `Live API Test` address and security allowlist exist; Springdoc/OpenAPI dependency and generated runtime UI are not yet enabled |
-| Automated tests | Active | 83 tests cover application startup and selected JWT, moderation, employment, hiring, salon, services, employee capabilities, schedules, booking overlap and transitions, notification ownership/events, reassignment explanations, reviews, directory, and URL-validation behavior against isolated H2; broader integration, database contention, and performance coverage remains required |
+| Automated tests | Active | 89 tests cover application startup and selected JWT, moderation, employment, hiring, salon, services, employee capabilities, schedules, generated availability, slot revalidation, booking overlap and transitions, notification ownership/events, reassignment explanations, reviews, directory, and URL-validation behavior against isolated H2; broader integration, database contention, and performance coverage remains required |
 | Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
 | Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
@@ -1316,7 +1337,7 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 | R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
 | R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
 | R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
-| R-08 | Automatic slot generation and schedule exceptions are not implemented | Medium | High | Add holidays, employee time off, conflict checks, and server-calculated available slots |
+| R-08 | Holidays and employee time-off exceptions are not implemented | Medium | High | Add dated salon closures and employee absence records to the availability calculation |
 | R-09 | Payment processing and reconciliation are not implemented | High | Certain | Approve payment methods and provider before defining secure payment APIs |
 | R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
 | R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
@@ -1380,8 +1401,8 @@ Hibernate currently uses automatic schema update. Production environments should
 - Preserve service price, duration, and name snapshots in booking history. Completed.
 - Add booking-verified salon ratings, public review lists, and aggregate summaries. Completed.
 - Reject overlapping accepted bookings. Completed with employee write locking, complete-interval comparison, and adjacent-appointment support.
-- Calculate server-owned available appointment slots.
-- Connect the frontend notification inbox with 30-60 second signed-in polling and refresh on application activation.
+- Calculate server-owned available appointment slots. Completed with 15-minute generation, qualified-employee details, accepted-conflict filtering, 30-minute same-day notice, creation-time revalidation, and connected frontend selection.
+- Connect the frontend notification inbox with 30-60 second signed-in polling and refresh on application activation. Completed.
 - Add holidays, employee time off, rescheduling, reminders, and salon calendar views.
 - Approve and implement payment methods, provider integration, refunds, and reconciliation.
 - Extend reviews with approved employee and service rating rules.
@@ -1413,6 +1434,7 @@ Hibernate currently uses automatic schema update. Production environments should
 | Employee capability | A persisted relationship showing that one salon employee can perform one active salon service |
 | Working period | A weekly day and time interval during which an employee can receive a complete appointment |
 | Inherited schedule | Availability derived from salon hours when no employee schedule has been configured |
+| Availability slot | A server-calculated appointment start where at least one fully qualified employee can cover the complete selected-service duration |
 | Booking service snapshot | The service name, price, duration, and source ID copied when a booking is created |
 | Notification event key | A deterministic unique value that prevents the same logical booking event from producing duplicate inbox records |
 | Notification snapshot | Salon and booking display data copied into an inbox item so the frontend can render a useful durable message |
@@ -1451,6 +1473,7 @@ Document versions use three numeric positions: `major.minor.patch`.
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.2.3 | 18 October 2026 | Added server-calculated 15-minute booking availability, qualified-employee slot details, 30-minute same-day notice, accepted-conflict filtering, booking-creation revalidation, connected frontend slot selection, updated booking diagrams and API contracts, and 89-test verification evidence |
 | 1.2.2 | 13 October 2026 | Added persistent recipient-scoped booking notifications, authenticated paginated inbox and read APIs, atomic and idempotent event creation, frontend polling contract, accepted-booking overlap prevention, notification sequence diagram, API tables, authorization rules, and 83-test verification evidence |
 | 1.2.1 | 13 October 2026 | Added a portrait application-flow chart for completed customer, owner, career, and employee journeys; clarified that employee breaks are ad hoc and unavailable appointments are handled by qualified reassignment with a customer update |
 | 1.2.0 | 12 October 2026 | Expanded the specification to the complete React and Spring product: frontend architecture, routes and journeys, shared HTTP/error behavior, environment and deployment connection, integration coverage and gaps, Live API Test link, frontend-to-backend diagram, and complete request/response/error tables for every implemented backend endpoint |
