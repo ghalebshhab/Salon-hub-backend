@@ -87,6 +87,8 @@ public class UserNotification {
 
     private LocalTime suggestedTime;
 
+    private LocalDate suggestedDate;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BookingStatus bookingStatus;

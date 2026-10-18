@@ -127,6 +127,7 @@ public class NotificationInboxServiceImpl implements NotificationInboxService {
                 notification.getMessage(),
                 notification.getBookingDate(),
                 notification.getBookingTime(),
+                notification.getSuggestedDate(),
                 notification.getSuggestedTime(),
                 notification.getBookingStatus(),
                 notification.getTargetPath(),

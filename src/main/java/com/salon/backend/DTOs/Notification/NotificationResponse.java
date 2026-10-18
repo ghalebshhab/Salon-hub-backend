@@ -16,6 +16,7 @@ public record NotificationResponse(
         String message,
         LocalDate bookingDate,
         LocalTime bookingTime,
+        LocalDate suggestedDate,
         LocalTime suggestedTime,
         BookingStatus bookingStatus,
         String targetPath,
