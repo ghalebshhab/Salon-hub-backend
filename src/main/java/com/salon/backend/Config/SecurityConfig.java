@@ -40,16 +40,13 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/register").permitAll()
-                        .requestMatchers("/api/auth/rigester").permitAll()
-                        .requestMatchers("/api/auth/google").permitAll()
-                        .requestMatchers("/api/auth/facebook").permitAll()
-                        .requestMatchers("/api/auth/forgot-password").permitAll()
-                        .requestMatchers("/api/auth/verify-reset-otp").permitAll()
-                        .requestMatchers("/api/auth/reset-password").permitAll()
-                        .requestMatchers("/api/dashboard/login").permitAll()
-                        .requestMatchers("/api/dashboard/salons/**","/api/dashboard/users/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/rigester",
+                                "/api/dashboard/login")
+                        .permitAll()
+                        .requestMatchers("/api/dashboard/salons/**", "/api/dashboard/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/salons").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/salons/mine").authenticated()
@@ -61,7 +58,6 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html")
                         .permitAll()
-                        .requestMatchers("/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/search/**")
                         .permitAll()
                         .anyRequest().authenticated())
