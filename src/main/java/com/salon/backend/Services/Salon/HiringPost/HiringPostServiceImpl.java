@@ -1078,6 +1078,7 @@ public class HiringPostServiceImpl implements HiringPostService {
                 hiringPost.getTitle(),
                 salon.getId(),
                 salon.getName(),
+                salon.getLocation(),
                 applicant.getId(),
                 applicant.getFirstName() + " " + applicant.getLastName(),
                 applicant.getUserName(),

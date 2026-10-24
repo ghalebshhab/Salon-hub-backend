@@ -14,6 +14,7 @@ public record HiringApplicationResponse(
         String hiringPostTitle,
         Long salonId,
         String salonName,
+        String salonLocation,
         Long applicantId,
         String applicantName,
         String applicantUsername,
