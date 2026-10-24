@@ -29,6 +29,32 @@ class SalonServiceImplTest {
     @InjectMocks private SalonServiceImpl service;
 
     @Test
+    void publicSalonDetailsOnlyReturnApprovedSalons() {
+        Salon accepted = new Salon();
+        accepted.setId(12L);
+        accepted.setStatus(SalonStatus.Accepted);
+        when(salonRepo.findById(accepted.getId())).thenReturn(Optional.of(accepted));
+
+        ApiResponse<SalonResponse> response = service.getSalonById(accepted.getId());
+
+        assertTrue(response.isSuccess());
+        assertEquals(accepted.getId(), response.getData().id());
+    }
+
+    @Test
+    void publicSalonDetailsHideSalonsThatAreNotApproved() {
+        Salon rejected = new Salon();
+        rejected.setId(12L);
+        rejected.setStatus(SalonStatus.Rejected);
+        when(salonRepo.findById(rejected.getId())).thenReturn(Optional.of(rejected));
+
+        ApiResponse<SalonResponse> response = service.getSalonById(rejected.getId());
+
+        assertFalse(response.isSuccess());
+        assertEquals("Salon is not available", response.getMessage());
+    }
+
+    @Test
     void activeSalonsAreQueriedByStatusAndMappedWithoutEntityGraphs() {
         User owner = new User();
         owner.setId(4L);

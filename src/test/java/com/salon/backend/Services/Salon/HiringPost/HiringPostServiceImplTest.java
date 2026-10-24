@@ -222,6 +222,7 @@ class HiringPostServiceImplTest {
                 );
 
         assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().salonLocation()).isEqualTo("Amman");
         assertThat(employmentRequest.getStatus())
                 .isEqualTo(EmploymentRequestStatus.Cancelled);
         assertThat(post.getNumOfPositions()).isEqualTo(1);
