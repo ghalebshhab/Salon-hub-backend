@@ -255,6 +255,9 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("Salon Not Found");
         }
         Salon salon=opSalon.get();
+        if (salon.getStatus() != SalonStatus.Accepted) {
+            return ApiResponse.error("Salon is not available");
+        }
         return ApiResponse.success("Salon Fetched Successfully", mapSalonResponse(salon));
     }
 
