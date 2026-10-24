@@ -26,7 +26,7 @@ public class SecurityConfig {
     private final JWTAuthFilter jwtAuthFilter;
     private final CustomUserDetailsService userDetailsService;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,http://127.0.0.1:3000}")
     private List<String> allowedOrigins;
 
     @Bean
@@ -48,6 +48,13 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/dashboard/salons/**", "/api/dashboard/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/bookings/my-salon",
+                                "/api/bookings/my-salon/pending",
+                                "/api/salon-employees/my-salon",
+                                "/api/salon-services/my-salon")
+                        .hasRole("OWNER")
                         .requestMatchers(HttpMethod.GET, "/api/salons").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/salons/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/salons/active", "/api/salons/{salonId}").permitAll()
