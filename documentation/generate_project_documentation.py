@@ -20,20 +20,21 @@ from reportlab.graphics.shapes import Circle, Drawing, Line, Polygon, Rect, Stri
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "documentation" / "Salon-Hup-Project-Documentation.md"
 OUTPUT = ROOT / "output" / "pdf" / "Salon-Hup-Project-Documentation.pdf"
-VERSION = "1.2.4"
-UPDATED = "18 October 2026"
+VERSION = "1.4.0"
+UPDATED = "27 October 2026"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 
-MIDNIGHT = colors.HexColor("#0B132B")
-NAVY = colors.HexColor("#16213E")
-BLUE = colors.HexColor("#2563EB")
-CYAN = colors.HexColor("#06B6D4")
-EMERALD = colors.HexColor("#10B981")
-INK = colors.HexColor("#182230")
-MUTED = colors.HexColor("#667085")
-LINE = colors.HexColor("#D9E2EC")
-SURFACE = colors.HexColor("#F5F8FC")
-BLUE_TINT = colors.HexColor("#EFF6FF")
+MIDNIGHT = colors.HexColor("#2B2029")
+NAVY = colors.HexColor("#5E4058")
+BLUE = colors.HexColor("#76546F")
+CYAN = colors.HexColor("#D7A86E")
+EMERALD = colors.HexColor("#8A6A82")
+INK = colors.HexColor("#292329")
+MUTED = colors.HexColor("#746B72")
+LINE = colors.HexColor("#E8DEDF")
+SURFACE = colors.HexColor("#FAF7F4")
+BLUE_TINT = colors.HexColor("#F1E8EF")
+GOLD_TINT = colors.HexColor("#FBF3E8")
 WHITE = colors.white
 
 
@@ -59,21 +60,22 @@ FONTS = register_fonts()
 
 def inline(text):
     text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    text = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r'<a href="\2" color="#2563EB"><u>\1</u></a>', text)
-    text = re.sub(r"`([^`]+)`", r'<font name="%s" color="#0369A1">\1</font>' % FONTS["DocMono"], text)
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r'<a href="\2" color="#76546F"><u>\1</u></a>', text)
+    text = re.sub(r"`([^`]+)`", r'<font name="%s" color="#5E4058">\1</font>' % FONTS["DocMono"], text)
     return re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
 
 
 styles = getSampleStyleSheet()
 styles.add(ParagraphStyle(name="DocBody", parent=styles["BodyText"], fontName=FONTS["DocRegular"], fontSize=9.2, leading=13.6, textColor=INK, spaceAfter=7))
 styles.add(ParagraphStyle(name="DocH1", parent=styles["Heading1"], fontName=FONTS["DocBold"], fontSize=18, leading=22, textColor=MIDNIGHT, spaceBefore=15, spaceAfter=9, borderColor=BLUE, borderWidth=0, borderLeftWidth=4, borderPadding=(0, 0, 0, 9), keepWithNext=True))
-styles.add(ParagraphStyle(name="DocH2", parent=styles["Heading2"], fontName=FONTS["DocBold"], fontSize=12.2, leading=16, textColor=colors.HexColor("#087F8C"), spaceBefore=11, spaceAfter=6, keepWithNext=True))
+styles.add(ParagraphStyle(name="DocH2", parent=styles["Heading2"], fontName=FONTS["DocBold"], fontSize=12.2, leading=16, textColor=BLUE, spaceBefore=11, spaceAfter=6, keepWithNext=True))
 styles.add(ParagraphStyle(name="DocH3", parent=styles["Heading3"], fontName=FONTS["DocBold"], fontSize=10.2, leading=14, textColor=NAVY, spaceBefore=8, spaceAfter=4, keepWithNext=True))
 styles.add(ParagraphStyle(name="DocBullet", parent=styles["DocBody"], leftIndent=15, firstLineIndent=-8, bulletIndent=2, spaceAfter=4))
-styles.add(ParagraphStyle(name="DocCode", parent=styles["Code"], fontName=FONTS["DocMono"], fontSize=8, leading=11, textColor=colors.HexColor("#E5EEFF"), backColor=MIDNIGHT, borderColor=NAVY, borderWidth=0.5, borderPadding=10, spaceBefore=5, spaceAfter=10))
+styles.add(ParagraphStyle(name="DocCode", parent=styles["Code"], fontName=FONTS["DocMono"], fontSize=8, leading=11, textColor=colors.HexColor("#F8F3F6"), backColor=MIDNIGHT, borderColor=CYAN, borderWidth=0.5, borderPadding=10, spaceBefore=5, spaceAfter=10))
 styles.add(ParagraphStyle(name="Callout", parent=styles["DocBody"], fontSize=9, leading=13, textColor=NAVY, backColor=BLUE_TINT, borderColor=BLUE, borderWidth=0, borderLeftWidth=4, borderPadding=(8, 10, 8, 10), spaceBefore=5, spaceAfter=9))
 styles.add(ParagraphStyle(name="TableHeader", fontName=FONTS["DocBold"], fontSize=7.5, leading=9.5, textColor=WHITE, alignment=TA_LEFT))
 styles.add(ParagraphStyle(name="TableCell", fontName=FONTS["DocRegular"], fontSize=7.35, leading=9.5, textColor=INK))
+styles.add(ParagraphStyle(name="CompactTableCell", fontName=FONTS["DocRegular"], fontSize=6.7, leading=8.2, textColor=INK))
 styles.add(ParagraphStyle(name="ApiTableHeader", fontName=FONTS["DocBold"], fontSize=6.3, leading=8.1, textColor=WHITE, alignment=TA_LEFT))
 styles.add(ParagraphStyle(name="ApiTableCell", fontName=FONTS["DocRegular"], fontSize=6.15, leading=8.0, textColor=INK))
 styles.add(ParagraphStyle(name="ControlLabel", fontName=FONTS["DocBold"], fontSize=7.35, leading=9.5, textColor=WHITE))
@@ -122,23 +124,23 @@ def draw_cover(canvas, doc):
     canvas.rect(0, PAGE_HEIGHT - 9 * mm, PAGE_WIDTH, 9 * mm, stroke=0, fill=1)
     canvas.setFillColor(CYAN)
     canvas.rect(0, PAGE_HEIGHT - 9 * mm, PAGE_WIDTH * 0.38, 9 * mm, stroke=0, fill=1)
-    canvas.setFillColor(colors.HexColor("#122451"))
+    canvas.setFillColor(colors.HexColor("#3B2B38"))
     canvas.circle(PAGE_WIDTH + 6 * mm, PAGE_HEIGHT - 54 * mm, 54 * mm, stroke=0, fill=1)
-    canvas.setFillColor(colors.HexColor("#173B78"))
+    canvas.setFillColor(colors.HexColor("#5E4058"))
     canvas.circle(PAGE_WIDTH - 12 * mm, PAGE_HEIGHT - 42 * mm, 32 * mm, stroke=0, fill=1)
     canvas.setFillColor(CYAN)
     canvas.circle(PAGE_WIDTH - 7 * mm, PAGE_HEIGHT - 28 * mm, 12 * mm, stroke=0, fill=1)
     canvas.setFillColor(WHITE)
     canvas.setFont(FONTS["DocBold"], 10)
     canvas.drawString(24 * mm, PAGE_HEIGHT - 34 * mm, "SALON HUP")
-    canvas.setFillColor(colors.HexColor("#91A4C4"))
+    canvas.setFillColor(colors.HexColor("#D4C5CF"))
     canvas.setFont(FONTS["DocRegular"], 8)
     canvas.drawString(24 * mm, PAGE_HEIGHT - 41 * mm, "PRODUCT  /  PLATFORM  /  OPERATIONS")
     canvas.setFillColor(WHITE)
     canvas.setFont(FONTS["DocBold"], 32)
     canvas.drawString(24 * mm, PAGE_HEIGHT - 92 * mm, "Product & Engineering")
     canvas.drawString(24 * mm, PAGE_HEIGHT - 106 * mm, "Specification")
-    canvas.setFillColor(colors.HexColor("#B8C5D9"))
+    canvas.setFillColor(colors.HexColor("#E6DDE3"))
     canvas.setFont(FONTS["DocRegular"], 13)
     canvas.drawString(24 * mm, PAGE_HEIGHT - 122 * mm, "Business rules, API contracts, architecture,")
     canvas.drawString(24 * mm, PAGE_HEIGHT - 130 * mm, "security, delivery plan, and production readiness")
@@ -150,7 +152,7 @@ def draw_cover(canvas, doc):
     canvas.setFont(FONTS["DocBold"], 7.5)
     canvas.drawCentredString(41.5 * mm, PAGE_HEIGHT - 150.2 * mm, f"VERSION {VERSION}")
     canvas.drawCentredString(85.5 * mm, PAGE_HEIGHT - 150.2 * mm, "ACTIVE DEVELOPMENT")
-    canvas.setFillColor(colors.HexColor("#8FA3C4"))
+    canvas.setFillColor(colors.HexColor("#CDBFC8"))
     canvas.setFont(FONTS["DocRegular"], 8.5)
     canvas.drawString(24 * mm, 41 * mm, "Prepared for product, engineering, QA, and deployment review")
     canvas.drawString(24 * mm, 34 * mm, f"Last updated  {UPDATED}")
@@ -204,10 +206,13 @@ def column_widths(rows, width):
 
 def make_table(rows, width):
     is_api_contract = len(rows[0]) == 5 and rows[0][0].lower() == "endpoint"
+    is_compact_matrix = rows[0][0].lower() == "capability"
     converted = []
     for row_index, row in enumerate(rows):
         if is_api_contract:
             style = styles["ApiTableHeader"] if row_index == 0 else styles["ApiTableCell"]
+        elif is_compact_matrix:
+            style = styles["TableHeader"] if row_index == 0 else styles["CompactTableCell"]
         else:
             style = styles["TableHeader"] if row_index == 0 else styles["TableCell"]
         converted.append([Paragraph(inline(cell), style) for cell in row])
@@ -221,8 +226,8 @@ def make_table(rows, width):
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3 if is_compact_matrix else 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3 if is_compact_matrix else 5),
     ]))
     return table
 
@@ -266,7 +271,7 @@ def add_box(drawing, x, y, width, height, title, lines=(), fill=WHITE, stroke=LI
     drawing.add(String(x + width / 2, y + height - 15, title, fontName=FONTS["DocBold"], fontSize=8.2,
                        fillColor=title_color, textAnchor="middle"))
     line_y = y + height - 29
-    line_color = colors.HexColor("#C8D4E8") if fill == MIDNIGHT else MUTED
+    line_color = colors.HexColor("#D8CBD4") if fill == MIDNIGHT else MUTED
     for line in lines:
         drawing.add(String(x + width / 2, line_y, line, fontName=FONTS["DocRegular"], fontSize=6.7,
                            fillColor=line_color, textAnchor="middle"))
@@ -303,7 +308,7 @@ def system_context_diagram(width):
     for y, label in [(175, "Customer"), (100, "Salon team"), (25, "Administrator")]:
         add_actor(d, actor_x, y, label)
     add_box(d, 88, 82, 105, 88, "React web client", ["Discovery and profiles", "Booking and reviews", "Owner workspace"], BLUE_TINT, BLUE)
-    add_box(d, 225, 82, 118, 88, "Salon Hup API", ["JWT authorization", "Business workflows", "ApiResponse DTOs"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, 225, 82, 118, 88, "Salon Hup API", ["JWT authorization", "Business workflows", "ApiResponse DTOs"], GOLD_TINT, EMERALD)
     add_box(d, 382, 142, 95, 58, "Database", ["MySQL target", "H2 local and test"], SURFACE, NAVY)
     add_box(d, 382, 52, 95, 58, "SMTP provider", ["Account email", "Recovery delivery"], SURFACE, NAVY)
     add_arrow(d, 193, 126, 225, 126, "HTTPS JSON")
@@ -317,7 +322,7 @@ def system_context_diagram(width):
 def use_case_diagram(width):
     height = 285
     d = Drawing(width, height)
-    d.add(Rect(88, 15, width - 110, height - 30, rx=10, ry=10, fillColor=colors.HexColor("#FAFCFF"),
+    d.add(Rect(88, 15, width - 110, height - 30, rx=10, ry=10, fillColor=SURFACE,
                strokeColor=BLUE, strokeWidth=1.2))
     d.add(String(104, height - 34, "SALON HUP USE CASES", fontName=FONTS["DocBold"], fontSize=8,
                  fillColor=BLUE))
@@ -359,7 +364,7 @@ def component_diagram(width):
         (188, 12, 120, 46, "Relational database", ["MySQL / compatible H2"]),
     ]
     for x, y, w, h, title, lines in boxes:
-        fill = BLUE_TINT if y > 150 else colors.HexColor("#ECFDF3") if y > 60 else SURFACE
+        fill = BLUE_TINT if y > 150 else GOLD_TINT if y > 60 else SURFACE
         add_box(d, x, y, w, h, title, lines, fill, BLUE if y > 150 else EMERALD)
     add_arrow(d, 96, 196, 112, 196)
     add_arrow(d, 200, 196, 216, 196)
@@ -387,8 +392,8 @@ def frontend_integration_diagram(width):
         next_x = boxes[index + 1][0]
         add_arrow(d, x + w, y + h / 2, next_x, y + h / 2, None, CYAN)
 
-    add_box(d, 112, 72, 120, 62, "Domain services", ["Business validation", "Authorization and state"], colors.HexColor("#ECFDF3"), EMERALD)
-    add_box(d, 270, 72, 120, 62, "Persistence", ["Repositories and locks", "MySQL / H2"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, 112, 72, 120, 62, "Domain services", ["Business validation", "Authorization and state"], GOLD_TINT, EMERALD)
+    add_box(d, 270, 72, 120, 62, "Persistence", ["Repositories and locks", "MySQL / H2"], GOLD_TINT, EMERALD)
     add_arrow(d, 421, 178, 232, 134, "delegates", EMERALD)
     add_arrow(d, 232, 103, 270, 103, "JPA", EMERALD)
     d.add(Line(421, 178, 421, 34, strokeColor=BLUE, strokeWidth=1.4))
@@ -396,6 +401,42 @@ def frontend_integration_diagram(width):
     add_arrow(d, 139, 34, 45, 178, "render", CYAN)
     d.add(String(width / 2, 9, "Local: Vite /api proxy -> localhost:8080. Production: same-origin reverse proxy or configured HTTPS API.",
                  fontName=FONTS["DocRegular"], fontSize=6.8, fillColor=MUTED, textAnchor="middle"))
+    return d
+
+
+def frontend_feedback_diagram(width):
+    height = 292
+    d = Drawing(width, height)
+
+    d.add(String(12, height - 18, "FOREGROUND ACTION", fontName=FONTS["DocBold"], fontSize=7.4,
+                 fillColor=BLUE))
+    action_boxes = [
+        (8, 190, 104, 56, "Feature action", ["Login, search, book", "Apply, decide, update"]),
+        (132, 190, 104, 56, "Loader store", ["Action message", "Concurrent request count"]),
+        (256, 190, 104, 56, "Signature Snip", ["180 ms delay", "320 ms minimum"]),
+        (380, 190, 104, 56, "Result feedback", ["Update view", "Success or clear error"]),
+    ]
+    for x, y, w, h, title, lines in action_boxes:
+        add_box(d, x, y, w, h, title, lines, BLUE_TINT, BLUE)
+    for left, right in zip(action_boxes, action_boxes[1:]):
+        add_arrow(d, left[0] + left[2], 218, right[0], 218, None, CYAN)
+
+    add_box(d, 112, 106, 122, 48, "Axios + ApiResponse", ["Preserve server reason", "Normalize transport failure"], GOLD_TINT, EMERALD)
+    add_box(d, 270, 106, 122, 48, "Shared error view", ["Toast or page state", "Fallback only if needed"], GOLD_TINT, EMERALD)
+    add_arrow(d, 421, 190, 331, 154, "failure", EMERALD)
+    add_arrow(d, 234, 130, 270, 130, None, EMERALD)
+
+    d.add(String(12, 82, "NAVIGATION", fontName=FONTS["DocBold"], fontSize=7.4,
+                 fillColor=BLUE))
+    nav_boxes = [
+        (8, 18, 128, 48, "Navigation source", ["Link, redirect, useNavigate", "Back or forward"]),
+        (184, 18, 128, 48, "Route observer", ["Destination-aware message", "Protected-route decision"]),
+        (360, 18, 128, 48, "Salon Hup loader", ["Brand mark", "Approx. 650 ms"]),
+    ]
+    for x, y, w, h, title, lines in nav_boxes:
+        add_box(d, x, y, w, h, title, lines, SURFACE, NAVY)
+    add_arrow(d, 136, 42, 184, 42, None, CYAN)
+    add_arrow(d, 312, 42, 360, 42, None, CYAN)
     return d
 
 
@@ -441,6 +482,25 @@ def hiring_sequence_diagram(width):
         (0, 1, "Owner accepts application", False),
         (1, 4, "Execute join or transfer", False),
         (4, 0, "Accepted or pending leave", True),
+    ])
+
+
+def auth_sequence_diagram(width):
+    return sequence_diagram(width, ["Visitor", "React auth", "Auth API", "Verification", "Email / DB"], [
+        (0, 1, "Register identity and password", False),
+        (1, 2, "POST /auth/register", False),
+        (2, 3, "Create hashed 6-digit code", False),
+        (3, 4, "Persist code and send email", False),
+        (0, 1, "Enter verification code", False),
+        (1, 2, "POST /auth/email/verify", False),
+        (2, 3, "Validate expiry and attempts", False),
+        (3, 4, "Mark account verified", False),
+        (0, 1, "Forgot password", False),
+        (1, 2, "Request and verify reset code", False),
+        (2, 3, "Issue one-time reset token", True),
+        (1, 2, "Submit matching new passwords", False),
+        (2, 4, "BCrypt password and timestamp", False),
+        (2, 1, "Success; earlier JWTs rejected", True),
     ])
 
 
@@ -495,7 +555,7 @@ def application_flow_diagram(width):
     lane_top = height - 8
     lane_bottom = 10
     lane_height = lane_top - lane_bottom
-    lane_colors = [BLUE_TINT, colors.HexColor("#ECFDF3"), SURFACE]
+    lane_colors = [BLUE_TINT, GOLD_TINT, SURFACE]
     lane_strokes = [BLUE, EMERALD, NAVY]
     lane_titles = ["CUSTOMER", "SALON OWNER", "CAREER + EMPLOYEE"]
 
@@ -632,7 +692,7 @@ def booking_lifecycle_diagram(width):
     d = Drawing(width, height)
     add_box(d, width / 2 - 55, 170, 110, 48, "PENDING", ["Customer request"], BLUE_TINT, BLUE)
     add_box(d, 28, 88, 110, 48, "REJECTED", ["Owner reason required", "Terminal state"], SURFACE, NAVY)
-    add_box(d, width / 2 - 55, 88, 110, 48, "ACCEPTED", ["Owner confirmation", "Employee optional"], colors.HexColor("#ECFDF3"), EMERALD)
+    add_box(d, width / 2 - 55, 88, 110, 48, "ACCEPTED", ["Owner confirmation", "Employee optional"], GOLD_TINT, EMERALD)
     add_box(d, width - 138, 88, 110, 48, "CANCELLED", ["Customer action", "Terminal state"], SURFACE, NAVY)
     add_box(d, width / 2 - 55, 8, 110, 48, "COMPLETED", ["Owner after visit", "Review eligible"], MIDNIGHT, MIDNIGHT, WHITE)
     add_arrow(d, width / 2 - 38, 170, 83, 136, "owner rejects", BLUE)
@@ -716,6 +776,8 @@ def diagram_for(name, width):
         "use-cases": use_case_diagram,
         "components": component_diagram,
         "frontend-integration": frontend_integration_diagram,
+        "frontend-feedback": frontend_feedback_diagram,
+        "auth-sequence": auth_sequence_diagram,
         "hiring-sequence": hiring_sequence_diagram,
         "service-sequence": service_sequence_diagram,
         "availability-flow": availability_flow_diagram,

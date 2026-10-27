@@ -3,8 +3,8 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.2.4
-**Last updated:** 18 October 2026
+**Document version:** 1.4.0
+**Last updated:** 27 October 2026
 **Status:** Active development
 
 ## Document purpose
@@ -19,7 +19,7 @@ The document distinguishes between implemented behavior and planned behavior. A 
 
 Salon Hup is a responsive web platform for salon discovery, service catalogs, salon ownership, employment, hiring, appointment booking, and verified customer reviews. The React client presents the customer, career, owner, and employee journeys; the Spring Boot API connects them through authenticated identity, explicit ownership rules, transactional state changes, and DTO-based contracts.
 
-The application currently supports user registration and JWT login, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, an owner-managed public service catalog, employee service capabilities and schedules, appointment requests and decisions, customer-approved rescheduling, employee assignment and reassignment explanations, customer and employee booking views, persistent user-specific booking notifications, completion, and booking-verified salon reviews.
+The application currently supports verified user registration, JWT login, secure email-code verification, password recovery, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, an owner-managed public service catalog, employee service capabilities and schedules, appointment requests and decisions, customer-approved rescheduling, employee assignment and reassignment explanations, customer and employee booking views, persistent user-specific booking notifications, completion, and booking-verified salon reviews. The React experience also includes an owner-only operational dashboard, a shared plum-and-gold light/dark design system, contextual action loading, branded route-transition loading, centralized backend-error presentation, and a prototype route for reviewing completed product states.
 
 The booking workflow now calculates appointment slots on the server from salon hours, selected-service duration, employee capabilities, weekly schedules, and accepted-booking conflicts. The React booking page displays those slots and the eligible employees for each time. Booking creation revalidates the chosen slot so stale or manipulated clients cannot bypass current availability. Booking decisions and material changes create durable inbox events in the same transaction. Salon reviews require a completed booking owned by the customer and remain linked to that booking. Schedule exceptions, push delivery, payment processing, employee ratings, and service ratings remain planned.
 
@@ -27,7 +27,7 @@ The booking workflow now calculates appointment slots on the server from salon h
 
 | Capability group | Delivery state | Product meaning |
 | --- | --- | --- |
-| Identity and access | Implemented | Registration, login, logout, JWT authentication, role authorization, and blocked-account enforcement exist |
+| Identity and access | Implemented | Registration, email verification, resend cooldown, login, logout, password recovery, JWT authentication and invalidation, role authorization, and blocked-account enforcement exist |
 | Career and hiring | Implemented | Unified career profiles, discovery ranking, applications, owner decisions, and hiring lifecycle exist |
 | Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
 | Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
@@ -36,7 +36,8 @@ The booking workflow now calculates appointment slots on the server from salon h
 | Employee availability | Implemented | Fifteen-minute slots reflect selected-service duration, qualified employees, weekly schedules, accepted conflicts, and a 30-minute same-day lead time |
 | Notification inbox | Implemented | Durable booking events, authenticated pagination, unread count, owned read operations, and frontend polling are connected |
 | Verified salon reviews | Implemented | A customer can review a completed owned booking once; public lists and aggregate summaries exclude blocked customers |
-| Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, and reviews |
+| Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, reviews, and an owner-only dashboard in a consistent light/dark theme |
+| Interaction feedback | Implemented | Contextual Signature Snip action loader, branded route-transition loader, stable overlapping-request handling, and clear server-error messages are shared across active journeys |
 | Frontend/API integration | Partial | Core journeys use shared Axios and `ApiResponse`; media calls lack backend routes and Swagger UI lacks its runtime dependency |
 | Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
 
@@ -113,7 +114,7 @@ Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, a
 
 | ID | Requirement | Current state |
 | --- | --- | --- |
-| FR-01 | A visitor can register a unique validated account and authenticate securely | Implemented |
+| FR-01 | A visitor can register a unique validated account, verify email ownership, recover a forgotten password, and authenticate securely | Implemented |
 | FR-02 | A user has one profile that can be upgraded with career information | Implemented |
 | FR-03 | A user can request a salon and an administrator governs activation | Implemented |
 | FR-04 | Owners and users can create and decide employment relationships through controlled workflows | Implemented |
@@ -205,7 +206,7 @@ The frontend is a React 19 single-page application built by Vite. It is organize
 | Area | Responsibility | Implemented examples |
 | --- | --- | --- |
 | `app` | Route composition, layout, loading, not-found, and render-error boundaries | Lazy routes, `ProtectedRoute`, navbar, toast container |
-| `features/auth` | Registration, login, logout, and session entry | Forms, auth hooks, `/auth/*` adapters |
+| `features/auth` | Registration, email verification, login, logout, password recovery, and session entry | Forms, auth hooks, public recovery routes, `/auth/*` adapters |
 | `features/salons` | Public discovery, details, salon request, and owner profile | Home cards, salon details, create salon, my salon |
 | `features/services` | Public catalog and owner service management | List, create, edit, deactivate |
 | `features/profile` | Unified profile and career-mode upgrade | Career form with resume and portfolio validation |
@@ -214,9 +215,40 @@ The frontend is a React 19 single-page application built by Vite. It is organize
 | `features/bookings` | Customer request, owner queue, employee view, and status monitoring | Qualified employee filtering, lifecycle actions, 30-second polling |
 | `features/reviews` | Verified salon ratings and comments | Review modal, public list, summary, own deletion |
 | `features/media` | Salon media forms and API adapters | Frontend foundation only; backend contract is pending |
-| `shared` | Cross-feature transport, auth storage, feedback, and UI primitives | Axios interceptors, `requireData`, toast helpers |
+| `shared` | Cross-feature transport, auth storage, feedback, loading, and UI primitives | Axios interceptors, `requireData`, error normalization, toast helpers, persistent loader state, branded overlays |
 
 Dependencies flow from `app` to `features` to `shared`. Pages use hooks rather than importing transport code directly. Pure model functions remain independent of React and HTTP; for example, booking employee filtering checks that one employee supports every selected service.
+
+### Visual design system
+
+The application uses an editorial salon identity built around deep plum, warm gold, soft rose surfaces, and high-contrast neutral text. The same semantic color roles drive the navigation, cards, forms, dashboard, feedback components, and documentation. Components consume theme variables instead of feature-specific hard-coded colors so light and dark modes remain visually consistent.
+
+| Token | Light value | Dark value | Use |
+| --- | --- | --- | --- |
+| Primary | `#76546F` | `#C58EBA` | Brand actions, active navigation, focus and diagram emphasis |
+| Primary strong | `#5E4058` | `#D7A8CE` | Hover emphasis, headings, high-priority controls |
+| Primary soft | `#F1E8EF` | Derived dark plum surface | Selected states, subtle panels, loader aura |
+| Accent gold | `#D7A86E` | `#E1B978` | Highlights, status accents, premium visual details |
+| Page background | `#FAF7F4` | `#141216` | Main application canvas |
+| Card surface | `#FFFFFF` | `#211D23` | Cards, dialogs, forms, dashboard panels |
+| Main text | `#292329` | `#F8F3F6` | Readable foreground content |
+| Muted text | `#746B72` | `#B9AFB6` | Secondary labels and supporting copy |
+| Border | `#E8DEDF` | `#423942` | Dividers, input outlines, non-destructive hover feedback |
+
+Hover states preserve the card's dark surface instead of replacing it with a light fill. They communicate interaction through a stronger border, restrained background modulation, shadow, and motion so text remains readable. Normal pages show the Salon Hup wordmark once in the header; repeated full-brand blocks were removed from authentication content and the footer. Startup and route-transition states may show the brand because normal page chrome is not yet available.
+
+### Loading and transition experience
+
+Two coordinated loading patterns clarify what the application is doing:
+
+- **Signature Snip action loader:** used for API operations such as signing in, registering, searching, booking, deciding a request, applying to a post, changing staff or services, and updating notifications. Animated scissors open and close with a small gold sparkle over a softened page backdrop. The message describes the current action instead of displaying a generic spinner.
+- **Salon Hup navigation loader:** used for initial application startup, lazy route loading, redirects, link navigation, programmatic navigation, and browser back or forward movement. It uses the primary brand mark and a destination-aware message without duplicating the header wordmark.
+
+The shared loader store counts overlapping operations so one completed request cannot hide another request that is still running. Action overlays appear after 180 ms to avoid flicker and remain visible for at least 320 ms once shown. Route transitions remain visible for approximately 650 ms to make the navigation feel intentional. Background availability refresh and notification polling do not take over the screen. Both loaders respect light/dark tokens and reduced-motion preferences.
+
+### Error presentation
+
+The backend `ApiResponse.error(...)` factory trims supplied messages and guarantees a clear fallback when a caller provides a blank or null reason. On the client, one normalizer prioritizes the backend `message`, validation `errors`, or legacy `error` field and then maps timeouts, network failures, and HTTP status failures to understandable text. Axios interceptors preserve those details; feature hooks render them through the common toast or page-error components. A generic failure is used only when neither the server nor transport provides a useful reason.
 
 ### Frontend routes and user journeys
 
@@ -224,14 +256,16 @@ Dependencies flow from `app` to `features` to `shared`. Pages use hooks rather t
 | --- | --- | --- | --- |
 | `/` | Public | Active salon discovery | `GET /api/salons/active` |
 | `/salons/:salonId` | Public | Salon profile, services, ratings, and reviews | Salon, service, and review public endpoints |
-| `/login`, `/register` | Public | Account access | Auth login and registration |
+| `/login`, `/register` | Public | Account access and verified account creation | Auth login and registration |
+| `/verify-email` | Public | Verify a new account or request a replacement code | Email verification and resend endpoints |
+| `/forgot-password`, `/verify-reset-code`, `/reset-password` | Public | Request, authorize, and complete password recovery | Password recovery endpoints |
 | `/salons/:salonId/book` | Authenticated | Select services, qualified employee, future date, and contact details | Salon, services, employees, `POST /api/bookings` |
 | `/my-bookings` | Authenticated customer | Track, cancel, and review appointments; poll decisions every 30 seconds while open | Customer booking and review endpoints |
 | `/hiring-posts` | Authenticated | Browse filtered and personalized vacancies | `GET /api/hiring-posts` |
 | `/hiring-posts/:postId/apply` | Authenticated career user | Submit the optional application note | Hiring application endpoint |
 | `/profile/career` | Authenticated | Enable or update the career section on the unified profile | Profile GET and career PUT |
 | `/my-applications` | Authenticated applicant | View permanent application history and decisions | Applicant-history endpoint |
-| `/owner/dashboard` | Authenticated | Owner workspace navigation and operational summary | Owner salon and feature APIs |
+| `/owner/dashboard` | OWNER only | Owner workspace with salon, employee, customer, booking, revenue, rating, and employee-performance summaries | Owner dashboard and scoped salon APIs |
 | `/owner/create-salon`, `/owner/my-salon` | Authenticated owner candidate/owner | Request and manage an owned salon | Salon create, mine, edit, delete |
 | `/owner/create-hiring-post`, `/owner/applications` | Authenticated owner | Publish vacancies and rank or decide applicants | Hiring owner endpoints |
 | `/owner/employees`, `/owner/employees/:employeeId/setup` | Authenticated owner | Manage active staff, capabilities, and weekly working periods | Salon employee endpoints |
@@ -249,10 +283,12 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 
 | Concern | Frontend behavior | Backend behavior |
 | --- | --- | --- |
-| Authentication | Stores the current JWT contract, adds `Authorization: Bearer <token>` outside auth routes | Validates JWT, resolves immutable user ID, checks active state, applies roles |
+| Authentication | Keeps verification and recovery calls public, stores the current JWT contract, and adds `Authorization: Bearer <token>` outside auth routes | Verifies account email before login, validates JWT, resolves immutable user ID, checks active state and credential-change time, and applies roles |
 | Request lifecycle | Uses a 15-second timeout and abort signals for stale page requests | Binds DTOs, derives caller identity from the security principal |
 | Success handling | Reads `ApiResponse.data`; feature hooks update UI and show success feedback | Returns `ApiResponse.success(message, data)` |
-| Business failure | `requireData` throws `message`; hooks show the message in an error toast or page state | Returns `ApiResponse.error(message)` with `data: null` |
+| Business failure | Shared normalization preserves `message`, validation `errors`, and legacy `error`; hooks show the result in a toast or page state | Returns `ApiResponse.error(message)` with `data: null`; blank reasons receive a safe fallback |
+| Slow foreground action | Begins a contextual Signature Snip loading operation and keeps concurrent work visible | Completes or fails the requested transaction and returns the standard envelope |
+| Route transition | Shows the branded navigation overlay for links, redirects, programmatic navigation, and history changes | Protected resources still enforce authentication and role authorization |
 | Unauthorized session | Clears matching current credentials on HTTP 401; HTTP 403 does not sign the user out | Security may reject unauthenticated or unauthorized calls before the controller |
 | Booking decisions | Polls customer bookings every 30 seconds only while the page is visible and reports accepted or rejected transitions | Persists booking state and owner note; returns scoped booking DTOs |
 | Notification inbox | Connected inbox, bell, polling, unread count, and read controls | Persists recipient-scoped booking events and exposes paginated inbox, unread-count, and read-state APIs |
@@ -274,7 +310,7 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 
 | Capability | Frontend | Backend | Connection state |
 | --- | --- | --- | --- |
-| Auth and unified career profile | Implemented | Implemented | Connected |
+| Auth and unified career profile | Registration, verification, login, recovery, and profile pages implemented | Verification codes, reset authorization, JWT invalidation, and unified profile implemented | Connected end to end |
 | Public salons and service catalogs | Implemented | Implemented | Connected |
 | Salon request and owner management | Implemented | Implemented | Connected |
 | Hiring discovery, application, and decisions | Implemented | Implemented | Connected for current UI actions; edit, reopen, and cancel-join APIs have no current page control |
@@ -323,6 +359,20 @@ The use case view separates customer, career user, salon owner, employee, and ad
 Requests cross explicit boundaries from the React feature adapter to Spring Security, thin controllers, domain services, repositories, and the database. DTOs and the `ApiResponse<T>` envelope protect the API boundary.
 
 [[DIAGRAM:components]]
+
+### Frontend action, error, and navigation feedback
+
+The following view shows how routes, API operations, backend response messages, and the two loading presentations cooperate without placing workflow-specific behavior in page components.
+
+[[DIAGRAM:frontend-feedback]]
+
+[[PAGEBREAK]]
+
+### Account verification and password recovery sequence
+
+The authentication sequence shows verified registration, server-generated short-lived codes, resend throttling, one-time reset authorization, BCrypt password replacement, and invalidation of JWTs issued before the credential change. Codes and reset tokens are never persisted in plaintext.
+
+[[DIAGRAM:auth-sequence]]
 
 [[PAGEBREAK]]
 
@@ -402,7 +452,13 @@ A user stores identity and account information: first name, last name, email, us
 
 The product exposes one unified profile. Registration fields appear automatically in it. Career mode enriches that profile instead of creating a second account or profile. Career skills and preferred locations use collection tables so users may provide multiple values.
 
+`emailVerified` prevents newly registered accounts from signing in before ownership is confirmed. `credentialsUpdatedAt` records the latest password change and invalidates earlier JWTs while preserving the stateless authentication model. Legacy accounts with a null verification flag remain compatible and are treated as verified.
+
 User status values are `Active`, `Blocked`, and `Deleted`.
+
+### Authentication verification code
+
+The authentication verification record stores the normalized email, purpose, hashed code, expiry, failed-attempt count, consumption time, and optional hashed reset-token authorization. Verification codes expire after 10 minutes, resend is throttled for 60 seconds, five failed attempts consume the code, and reset authorization is one-time and short lived. Raw codes and reset tokens are delivered to the user but are never stored in the database.
 
 ### Salon
 
@@ -541,20 +597,30 @@ Known identity fields including name, username, email, phone number, role, and u
 
 ### Registration and login
 
-Registration validates names, username format, supported email domains, Jordanian phone formats, password strength, and uniqueness of username, email, and phone number. New accounts receive the `USER` role and `Active` status. Passwords are stored as BCrypt hashes.
+Registration validates names, username format, supported email domains, Jordanian phone formats, password strength, and uniqueness of username, email, and phone number. New accounts receive the `USER` role and `Active` status, are marked unverified, and receive a six-digit email code. Passwords are stored as BCrypt hashes. The registration response tells the frontend that verification is required, that the code lasts 10 minutes, and that resend becomes available after 60 seconds.
 
-Login verifies account status and password, then returns a bearer JWT valid for 24 hours. Logout blacklists the presented token in application memory until its expiration time.
+Email verification compares a secret-backed hash, limits failed attempts, consumes the code after success, and marks the account verified. Login rejects unverified accounts, verifies account status and password, then returns a bearer JWT valid for 24 hours. Logout blacklists the presented token in application memory until its expiration time.
+
+Forgot-password requests return the same success response whether or not an account exists, preventing account enumeration. A valid six-digit recovery code produces a one-time reset token. Reset requires matching new and confirmation passwords, applies the shared password policy, replaces the BCrypt hash, consumes the authorization, and records `credentialsUpdatedAt` so older JWTs stop working immediately.
 
 ### End-to-end user journey
 
 1. A visitor registers with first name, last name, username, email, phone number, and password.
-2. Registration validates identity fields, uniqueness, supported formats, and password strength, then creates an active `USER` account.
-3. The user logs in and receives a JWT whose subject is the immutable database user ID. The authenticated principal also exposes email and role without accepting identity from the client.
+2. Registration validates identity fields, uniqueness, supported formats, and password strength, then creates an active but email-unverified `USER` account and sends a short-lived verification code.
+3. The user verifies the registered email, then logs in and receives a JWT whose subject is the immutable database user ID. The authenticated principal also exposes email and role without accepting identity from the client.
 4. `GET /api/profile` returns one unified profile populated with the identity information already collected during registration.
 5. The user may keep the normal profile or select the client action represented by "Make your profile career."
 6. `PUT /api/profile/career` validates and stores the career section, then enables career mode on the same profile.
 7. The hiring feed loads open, unexpired posts from accepted salons with available positions. Career users receive personalized labels and ordering; normal-profile users receive the standard filtered feed plus a prompt to enable career mode.
 8. A career user applies with only an optional application note. The backend obtains identity and career data from the database and stores an application snapshot.
+
+### Owner dashboard journey
+
+An authenticated owner opens `/owner/dashboard`. The route guard requires an active session and the `OWNER` role before rendering the page; backend authorization remains authoritative for every requested resource. The dashboard resolves the owner's salon from authenticated identity and composes scoped salon data, employees and their service capabilities, customers with completed bookings, booking revenue values, verified salon ratings, and operational totals. Employee performance combines completed booking count, services delivered, and received ratings so the owner can identify strong performance without exposing another salon's data. Non-owners are redirected away from the workspace and cannot obtain its protected data through direct API calls.
+
+### Shared interaction-feedback journey
+
+When a user starts a foreground operation, the relevant feature hook supplies an action-specific message to the shared loading service. The Signature Snip overlay appears only when the operation lasts beyond the short delay, keeps the underlying page visually present but de-emphasized, and remains active until all overlapping operations finish. On success, the page updates and a success message may be shown. On failure, the client displays the exact useful backend reason from `ApiResponse`; transport-only failures receive a clear network, timeout, authentication, authorization, not-found, or server message. Navigation uses the separate Salon Hup brand loader and covers declarative links, redirects, programmatic navigation, and browser history movement.
 9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
 10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
 
@@ -906,6 +972,11 @@ The current product decision is to represent business outcomes through `ApiRespo
 | POST | `/api/auth/register` | Create a user account |
 | POST | `/api/auth/rigester` | Backward-compatible alias for the original registration route |
 | POST | `/api/auth/login` | Authenticate and receive a JWT |
+| POST | `/api/auth/email/verify` | Verify a registered email with its current six-digit code |
+| POST | `/api/auth/email/resend` | Invalidate the previous code and send a replacement after the cooldown |
+| POST | `/api/auth/password/forgot` | Request a password-recovery code without exposing account existence |
+| POST | `/api/auth/password/verify-code` | Exchange a valid recovery code for a short-lived one-time reset token |
+| POST | `/api/auth/password/reset` | Replace the password with a valid reset token and invalidate older JWTs |
 | POST | `/api/auth/logout` | Blacklist the current JWT |
 
 ### Unified user profile
@@ -1048,9 +1119,14 @@ For controller and business validation failures, the API uses `{ "success": fals
 
 | Endpoint | Access | Request data | Success data | Main errors shown in `message` |
 | --- | --- | --- | --- | --- |
-| `POST /api/auth/register` | Public | Body: `firstName`, `lastName`, `userName`, `email`, `phoneNumber`, `password` | Registered user identity DTO | Required or duplicate identity data, invalid values |
+| `POST /api/auth/register` | Public | Body: `firstName`, `lastName`, `userName`, `email`, `phoneNumber`, `password` | Registered user identity plus `emailVerificationRequired`, `verificationCodeExpiresInSeconds`, and `resendAvailableInSeconds` | Required or duplicate identity data, invalid values |
 | `POST /api/auth/rigester` | Public legacy alias | Same registration body | Same registration response | Same registration errors |
-| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `token`, `userRole`, `email` | Invalid credentials or blocked account |
+| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `token`, `userRole`, `email` | Invalid credentials, unverified email, or blocked account |
+| `POST /api/auth/email/verify` | Public | Body: `email`, six-digit `code` | Verification confirmation | Missing/invalid input, expired or consumed code, attempt limit reached |
+| `POST /api/auth/email/resend` | Public | Body: `email` | Generic delivery confirmation | Missing email or active 60-second cooldown |
+| `POST /api/auth/password/forgot` | Public | Body: `email` | Generic response regardless of account existence | Missing/invalid email or active cooldown for an existing account |
+| `POST /api/auth/password/verify-code` | Public | Body: `email`, six-digit `code` | `resetToken`, `expiresInSeconds` | Invalid, expired, consumed, or attempt-limited code |
+| `POST /api/auth/password/reset` | Public | Body: `resetToken`, `newPassword`, `confirmPassword` | Password-reset confirmation | Invalid/expired/used token, mismatched passwords, or password-policy failure |
 | `POST /api/auth/logout` | Authenticated | Bearer token; body is ignored | `null` with logout message | Invalid/expired token is still treated as logout |
 | `GET /api/profile` | Authenticated user | None | Unified identity plus career-mode profile DTO | User/profile not found or blocked session |
 | `PUT /api/profile/career` | Authenticated user | Body: `dateOfBirth`, `yearsOfExperience`, `skills[]`, `preferredWorkLocations[]`, optional PDF `resumeUrl`, optional HTTP(S) `portfolioUrl`, `professionalBio` | Updated unified profile DTO with career mode enabled | Invalid age, experience, URLs, resume type, or profile data |
@@ -1195,11 +1271,13 @@ The frontend presents the error `message` to the user through the shared notific
 
 ## Security model
 
-Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, verifies that the account is still active, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt. Tokens issued before this subject change require a new login.
+Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, verifies that the account is still active, rejects tokens issued before `credentialsUpdatedAt`, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt.
 
 The authentication filter does not log authorization headers or bearer-token values. Employment and leave controllers derive caller identity from `@AuthenticationPrincipal` and return response DTOs.
 
-Public routes include login, registration, password-recovery placeholders, dashboard login, API documentation routes, and selected search routes. Dashboard salon and user routes and every user-directory route require the `ADMIN` role. Blocked administrators cannot obtain a dashboard token. Other routes require authentication unless explicitly allowed.
+Public routes include login, registration, email verification and resend, the three password-recovery operations, dashboard login, API documentation routes, and selected search routes. The frontend never attaches a stored JWT to public authentication requests. Dashboard salon and user routes and every user-directory route require the `ADMIN` role. Blocked administrators cannot obtain a dashboard token. Other routes require authentication unless explicitly allowed.
+
+Verification codes are six digits, stored only as a secret-backed hash, expire after 10 minutes, allow at most five failures, and are replaced on resend. Reset tokens are high-entropy, stored only as a hash, short lived, and consumed in the same transaction as the password change. Forgot-password responses are deliberately non-enumerating. SMTP sender identity uses `MAIL_FROM`; verification hashing uses the separately configurable `AUTH_CODE_SECRET`.
 
 Database, SMTP, and JWT secrets are supplied through environment variables and are absent from the current source configuration. The repository includes a safe `.env.example` contract, while real `.env` variants are ignored by Git. Credentials that existed in earlier repository history must still be rotated before deployment.
 
@@ -1287,7 +1365,7 @@ The frontend currently builds into a static `dist/` bundle and the backend packa
 
 ### Current automated evidence
 
-The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle, overlap prevention, reassignment rules, notification ownership and read state, notification deduplication and booking-event creation, verified salon reviews, and URL validation. It runs against an isolated H2 test database. At document version 1.2.2, the latest verified backend suite contains 83 passing tests with no failures or errors. The frontend includes Vitest and Testing Library coverage for active routes, login redirects, authentication subscriptions, 401/403 behavior, stale request cancellation, response-envelope handling, and salon payload contracts; its previous lint and production build verification passed, and a combined frontend/backend staging acceptance run remains required.
+The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, verified-registration behavior, verification expiry and attempt limits, non-enumerating password recovery, one-time reset authorization, old-JWT invalidation, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle, overlap prevention, reassignment rules, notification ownership and read state, notification deduplication and booking-event creation, verified salon reviews, URL validation, and non-empty `ApiResponse.error` reasons. It runs against an isolated H2 test database. The complete backend suite contains 109 passing tests; the final focused authentication run contains nine passing tests. The frontend includes Vitest and Testing Library coverage for all active routes including the four new public auth routes, login redirects, authentication subscriptions, public-auth JWT exclusion, auth action loading messages, 401/403 behavior, stale request cancellation, response-envelope handling, salon payload contracts, action-loading state, and route/navigation loading. The final frontend run contains 63 passing tests; lint and the production build pass. A combined staging acceptance run with real SMTP remains required.
 
 ### Required test layers
 
@@ -1337,9 +1415,13 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Registration and login | Implemented | Core validation, BCrypt, JWT, and immutable-ID authenticated principal available |
-| React application shell | Implemented | Lazy routes, shared layout, protected navigation, loading/not-found/render-error fallbacks, and responsive feature pages are available |
-| Frontend API integration | Implemented for core journeys | Shared Axios client, JWT attachment, timeout, stale-request cancellation, `ApiResponse` parsing, field normalization, and toast feedback connect active screens to the API |
+| Registration and login | Implemented | Core validation, BCrypt, verified email, resend cooldown, login gating, JWT, and immutable-ID authenticated principal available |
+| Password recovery | Implemented | Non-enumerating request, short-lived verification code, one-time reset token, shared password policy, and old-JWT invalidation are connected to the React recovery pages |
+| React application shell | Implemented | Lazy routes, shared layout, protected navigation, branded route-transition loading, not-found/render-error fallbacks, light/dark themes, and responsive feature pages are available |
+| Frontend API integration | Implemented for core journeys | Shared Axios client, JWT attachment, timeout, stale-request cancellation, `ApiResponse` parsing, field normalization, clear error reasons, contextual loading, and toast feedback connect active screens to the API |
+| Owner dashboard | Implemented | OWNER-only route and backend-scoped data present salon, staff, customers, bookings, revenue, ratings, and employee-performance insights |
+| Design system and branding | Implemented | Plum/gold semantic tokens, accessible dark surfaces, restrained hover treatment, one normal-page header brand, and theme-aware feedback components are shared across the application |
+| Interactive prototype | Implemented | `/prototype` demonstrates customer, owner, employee, hiring, booking, invitation, status, schedule, and dashboard states with interactive sample data |
 | Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
 | Logout | Implemented | In-memory blacklist; not durable across restarts |
 | Salon onboarding | Implemented | Admin approval, persisted rejection reason, correction, and three explicit resubmissions available |
@@ -1360,8 +1442,8 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 | Verified salon reviews | Implemented | Completed-booking ownership, one-review constraint, public list and summary, customer list, deletion, and blocked-user filtering are available |
 | Salon media | Partial | Frontend page and API adapter exist; backend entity, persistence, service, and controller are not implemented |
 | Interactive API documentation | Partial | The `Live API Test` address and security allowlist exist; Springdoc/OpenAPI dependency and generated runtime UI are not yet enabled |
-| Automated tests | Active | 98 tests cover application startup and selected JWT, moderation, employment, hiring, salon, services, employee capabilities, schedules, generated availability, slot revalidation, reschedule ownership and decisions, booking overlap and transitions, notification ownership/events, reassignment explanations, reviews, directory, and URL-validation behavior against isolated H2; broader integration, database contention, and performance coverage remains required |
-| Secret configuration | Implemented | Database, SMTP, and JWT secrets use environment variables with a safe example contract |
+| Automated tests | Active | Backend suite has 109 passing tests and focused auth verification has nine; frontend has 63 passing tests plus clean lint and production build. Broader staging, SMTP, contention, accessibility, and performance coverage remains required |
+| Secret configuration | Implemented | Database, SMTP, sender, auth-code hashing, and JWT secrets use environment variables with a safe example contract |
 | Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
 
 ## Known technical risks
@@ -1382,7 +1464,8 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 | R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
 | R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
 | R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
-| R-13 | Spring Security 401/403 responses may bypass the application `ApiResponse` envelope | Medium | High | Add compatible security entry-point handling within the approved response convention |
+| R-13 | Spring Security 401/403 responses may bypass the application `ApiResponse` envelope | Medium | High | Preserve clear client-side status mapping now; add compatible security entry-point handling within the approved response convention |
+| R-14 | Dashboard financial values are operational summaries rather than settled payment records | High | High | Label them as booking revenue estimates until payment capture, refunds, fees, and reconciliation are implemented |
 
 ### Entity exposure
 
@@ -1402,7 +1485,7 @@ Hiring-post position reservation, post lifecycle changes, linked transfer cancel
 
 ### Error and validation consistency
 
-The approved API contract represents business outcomes through the existing `ApiResponse<T>` envelope and its `success` and `error` factories. Future validation work must keep this response structure and must not introduce a new HTTP-status strategy or centralized exception handler. Consistency work should standardize messages, field validation, and DTO usage within this contract.
+The approved API contract represents business outcomes through the existing `ApiResponse<T>` envelope and its `success` and `error` factories. `ApiResponse.error` now prevents blank reasons, and the frontend preserves useful response and transport details through one shared normalizer. Future validation work must keep this response structure and must not introduce a new HTTP-status strategy or centralized exception handler. Remaining consistency work should standardize field validation and security-filter responses within this contract.
 
 ### Schema lifecycle
 
@@ -1514,6 +1597,8 @@ Document versions use three numeric positions: `major.minor.patch`.
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.4.0 | 27 October 2026 | Added verified registration, email-code lifecycle and resend cooldown, non-enumerating password recovery, one-time reset authorization, credential-change JWT invalidation, four connected React auth pages, action and navigation loading integration, public-auth token policy, complete API contracts, security model, auth sequence diagram, and final backend/frontend verification evidence |
+| 1.3.0 | 26 October 2026 | Rethemed the full publication to the Salon Hup plum-and-gold design system; documented the owner dashboard, interactive prototype, light/dark behavior, accessible hover treatment, single-header branding, Signature Snip action loading, branded route-transition loading, concurrent loader lifecycle, centralized frontend error display, backend error-message fallback, and new frontend feedback diagram and verification evidence |
 | 1.2.4 | 18 October 2026 | Added customer-approved booking rescheduling, trusted reschedule availability, proposal history and decisions, acceptance-time revalidation, concurrency locks, durable proposal notifications, connected owner and customer interfaces, a reschedule sequence diagram, four API contracts, and 98-test verification evidence |
 | 1.2.3 | 18 October 2026 | Added server-calculated 15-minute booking availability, qualified-employee slot details, 30-minute same-day notice, accepted-conflict filtering, booking-creation revalidation, connected frontend slot selection, updated booking diagrams and API contracts, and 89-test verification evidence |
 | 1.2.2 | 13 October 2026 | Added persistent recipient-scoped booking notifications, authenticated paginated inbox and read APIs, atomic and idempotent event creation, frontend polling contract, accepted-booking overlap prevention, notification sequence diagram, API tables, authorization rules, and 83-test verification evidence |
