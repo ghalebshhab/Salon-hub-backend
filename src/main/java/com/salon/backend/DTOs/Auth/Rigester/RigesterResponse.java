@@ -15,5 +15,8 @@ public class RigesterResponse {
     private String userName;
     private String email;
     private String phoneNumber;
+    private boolean emailVerificationRequired;
+    private long verificationCodeExpiresInSeconds;
+    private long resendAvailableInSeconds;
 
 }

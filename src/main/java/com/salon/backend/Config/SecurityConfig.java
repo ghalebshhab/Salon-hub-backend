@@ -44,6 +44,11 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/rigester",
+                                "/api/auth/email/verify",
+                                "/api/auth/email/resend",
+                                "/api/auth/password/forgot",
+                                "/api/auth/password/verify-code",
+                                "/api/auth/password/reset",
                                 "/api/dashboard/login")
                         .permitAll()
                         .requestMatchers("/api/dashboard/salons/**", "/api/dashboard/users/**").hasRole("ADMIN")

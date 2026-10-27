@@ -17,6 +17,11 @@ boolean existsByemail(String email);
 boolean existsByphoneNumber(String phoneNumber);
 User findByuserName(String username);
 User findByemail(String email);
+
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("SELECT user FROM User user WHERE user.email = :email")
+java.util.Optional<User> findByEmailForUpdate(@Param("email") String email);
+
 List<User> findByStatus(UserStatus status);
 List<User> findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
         Long salonId,

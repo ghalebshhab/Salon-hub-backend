@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.time.Instant;
 
 public final class AuthenticatedUser implements UserDetails {
 
@@ -16,18 +17,21 @@ public final class AuthenticatedUser implements UserDetails {
     private final String password;
     private final List<GrantedAuthority> authorities;
     private final boolean enabled;
+    private final Instant credentialsUpdatedAt;
 
     private AuthenticatedUser(
             Long id,
             String email,
             String password,
             List<GrantedAuthority> authorities,
-            boolean enabled) {
+            boolean enabled,
+            Instant credentialsUpdatedAt) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
         this.enabled = enabled;
+        this.credentialsUpdatedAt = credentialsUpdatedAt;
     }
 
     public static AuthenticatedUser from(User user) {
@@ -36,7 +40,8 @@ public final class AuthenticatedUser implements UserDetails {
                 user.getEmail(),
                 user.getPassword(),
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())),
-                user.getStatus() == UserStatus.Active
+                user.getStatus() == UserStatus.Active,
+                user.getCredentialsUpdatedAt()
         );
     }
 
@@ -46,6 +51,10 @@ public final class AuthenticatedUser implements UserDetails {
 
     public String getEmail() {
         return email;
+    }
+
+    public Instant getCredentialsUpdatedAt() {
+        return credentialsUpdatedAt;
     }
 
     @Override

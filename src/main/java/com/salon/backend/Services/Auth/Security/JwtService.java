@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
+import java.time.Instant;
 
 @Service
 
@@ -49,9 +50,29 @@ public class JwtService {
         return extractAllClaims(token).getExpiration();
     }
 
+    public Instant extractIssuedAt(String token) {
+        Date issuedAt = extractAllClaims(token).getIssuedAt();
+        return issuedAt == null ? null : issuedAt.toInstant();
+    }
+
 
     public boolean isTokenValid(String token, Long userId) {
         return extractUserId(token).equals(userId) && !isTokenExpired(token);
+    }
+
+    public boolean isTokenValid(
+            String token,
+            Long userId,
+            Instant credentialsUpdatedAt
+    ) {
+        if (!isTokenValid(token, userId)) {
+            return false;
+        }
+        if (credentialsUpdatedAt == null) {
+            return true;
+        }
+        Instant issuedAt = extractIssuedAt(token);
+        return issuedAt != null && !issuedAt.isBefore(credentialsUpdatedAt);
     }
 
     private boolean isTokenExpired(String token) {

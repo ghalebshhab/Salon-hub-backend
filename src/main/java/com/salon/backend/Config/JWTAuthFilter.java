@@ -37,9 +37,13 @@ public class JWTAuthFilter extends OncePerRequestFilter {
 
         // skip only public auth endpoints
         if (path.equals("/api/auth/login") ||
+                path.equals("/api/auth/register") ||
                 path.equals("/api/auth/rigester") ||
-                path.equals("/api/auth/forgot-password") ||
-                path.equals("/api/auth/reset-password")) {
+                path.equals("/api/auth/email/verify") ||
+                path.equals("/api/auth/email/resend") ||
+                path.equals("/api/auth/password/forgot") ||
+                path.equals("/api/auth/password/verify-code") ||
+                path.equals("/api/auth/password/reset")) {
 
             filterChain.doFilter(request, response);
             return;
@@ -64,7 +68,10 @@ public class JWTAuthFilter extends OncePerRequestFilter {
                 var userDetails = userDetailsService.loadById(userId);
 
                 if (userDetails.isEnabled()
-                        && jwtService.isTokenValid(jwt, userDetails.getId())) {
+                        && jwtService.isTokenValid(
+                        jwt,
+                        userDetails.getId(),
+                        userDetails.getCredentialsUpdatedAt())) {
 
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(

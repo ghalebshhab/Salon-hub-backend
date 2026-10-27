@@ -10,6 +10,8 @@ import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
+import com.salon.backend.Utils.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,6 +29,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final UserRepo userRepo;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
+    private final AccountVerificationService accountVerificationService;
 
     private static final List<String> ALLOWED_EMAIL_DOMAINS = List.of(
             "gmail.com",
@@ -156,11 +159,10 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        if (!request.getPassword().matches(
-                "^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$")) {
+        if (!PasswordPolicy.isValid(request.getPassword())) {
 
             return ApiResponse.error(
-                    "Password must contain at least 8 characters, one uppercase letter, one number, and one special character."
+                    PasswordPolicy.REQUIREMENTS_MESSAGE
             );
         }
 
@@ -220,6 +222,7 @@ public class AuthServiceImpl implements AuthService {
         );
 
         newUser.setPhoneNumber(normalizedPhoneNumber);
+        newUser.setEmailVerified(false);
 
         newUser.setRole(UserRole.USER);
         newUser.setStatus(UserStatus.Active);
@@ -231,6 +234,8 @@ public class AuthServiceImpl implements AuthService {
         // -----------------------------------------------------
 
         userRepo.save(newUser);
+        boolean verificationEmailDelivered =
+                accountVerificationService.issueRegistrationVerification(newUser);
 
 
         // -----------------------------------------------------
@@ -245,12 +250,16 @@ public class AuthServiceImpl implements AuthService {
         response.setUserName(newUser.getUserName());
         response.setId(newUser.getId());
         response.setPhoneNumber(newUser.getPhoneNumber());
+        response.setEmailVerificationRequired(true);
+        response.setVerificationCodeExpiresInSeconds(600);
+        response.setResendAvailableInSeconds(60);
 
 
-        return ApiResponse.success(
-                "Registered successfully. Go to login.",
-                response
-        );
+        String message = verificationEmailDelivered
+                ? "Registered successfully. Check your email for the verification code."
+                : "Registered successfully, but the verification email could not be delivered. Use resend verification to try again.";
+
+        return ApiResponse.success(message, response);
     }
 
     private void initializeDefaultProfile(User user) {
@@ -335,6 +344,12 @@ public class AuthServiceImpl implements AuthService {
 
             return ApiResponse.error(
                     "Incorrect password. Please try again."
+            );
+        }
+
+        if (Boolean.FALSE.equals(user.getEmailVerified())) {
+            return ApiResponse.error(
+                    "Email verification is required before signing in."
             );
         }
 

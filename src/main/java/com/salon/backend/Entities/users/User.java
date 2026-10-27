@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +35,11 @@ public class User {
     private String password;
 
     private String phoneNumber;
+
+    // Null is treated as verified for accounts created before email verification existed.
+    private Boolean emailVerified = Boolean.TRUE;
+
+    private Instant credentialsUpdatedAt;
 
     private UserRole role;
 
