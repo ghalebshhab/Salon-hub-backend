@@ -4,6 +4,7 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.EmployeeRequestResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.JoinSalonRequest;
 import com.salon.backend.DTOs.Salon.Employment.Join.RejectRequest;
+import com.salon.backend.DTOs.Salon.Employment.Join.SentInvitation;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.employment.EmploymentRequest;
@@ -13,6 +14,7 @@ import com.salon.backend.Entities.salons.employment.LeaveRequestStatus;
 import com.salon.backend.Entities.salons.employment.RequestType;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
+import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
@@ -26,8 +28,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
+import java.util.List;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -146,12 +152,85 @@ class EmploymentServiceImplTest {
         verify(scheduleRepo).deleteByEmployeeId(employee.getId());
     }
 
+    @Test
+    void employmentInboxOnlyQueriesRequestsRelatedToTheAuthenticatedUser() {
+        User owner = user(1L, "owner@example.com", "owner", UserRole.OWNER);
+        User applicant = user(2L, "applicant@example.com", "applicant", UserRole.USER);
+        Salon salon = salon(10L, owner);
+        EmploymentRequest request = new EmploymentRequest();
+        request.setId(21L);
+        request.setSalon(salon);
+        request.setSender(applicant);
+        request.setReceiver(owner);
+        request.setRequestType(RequestType.User_Request);
+        request.setStatus(EmploymentRequestStatus.Requested);
+        request.setCreatedAt(LocalDateTime.now());
+
+        when(userRepo.existsById(applicant.getId())).thenReturn(true);
+        when(employmentRepo.findBySenderIdOrReceiverId(
+                eq(applicant.getId()),
+                eq(applicant.getId()),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(
+                List.of(request),
+                PageRequest.of(0, 20),
+                1
+        ));
+
+        var response = service.getMyEmploymentRequests(applicant.getId(), 0, 20);
+
+        assertTrue(response.isSuccess());
+        assertEquals(1, response.getData().content().size());
+        assertEquals(request.getId(), response.getData().content().get(0).requestId());
+    }
+
+    @Test
+    void nonOwnerCannotReadAnotherSalonsEmploymentWorkspace() {
+        User user = user(4L, "user@example.com", "user", UserRole.USER);
+        when(userRepo.findById(user.getId())).thenReturn(Optional.of(user));
+
+        var response = service.getOwnedSalonEmploymentRequests(user.getId(), 0, 20);
+
+        assertFalse(response.isSuccess());
+        assertEquals("An active salon owned by you is required.", response.getMessage());
+        verify(employmentRepo, never()).findBySalonId(anyLong(), any());
+    }
+
+    @Test
+    void ownerCannotInviteAUserWithoutAnEnabledCareerProfile() {
+        User owner = user(1000L, "owner@example.com", "owner", UserRole.OWNER);
+        User candidate = user(1001L, "candidate@example.com", "candidate", UserRole.USER);
+        candidate.setCareerProfileEnabled(false);
+        Salon salon = salon(1010L, owner);
+
+        when(salonRepo.findById(salon.getId())).thenReturn(Optional.of(salon));
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
+        when(userRepo.findById(candidate.getId())).thenReturn(Optional.of(candidate));
+
+        var response = service.sentInvitation(
+                new SentInvitation(candidate.getId()),
+                salon.getId(),
+                owner.getId()
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(
+                "This user must enable their career profile before they can be invited.",
+                response.getMessage()
+        );
+        verify(employmentRepo, never()).save(any());
+    }
+
     private User user(long id, String email, String username, UserRole role) {
         User user = new User();
         user.setId(id);
         user.setEmail(email);
+        user.setFirstName(username);
+        user.setLastName("Test");
         user.setUserName(username);
         user.setRole(role);
+        user.setStatus(UserStatus.Active);
+        user.setCareerProfileEnabled(true);
         return user;
     }
 
