@@ -3,6 +3,8 @@ package com.salon.backend.Services.Auth.Security;
 import com.salon.backend.Entities.users.User;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class JwtServiceTest {
@@ -24,5 +26,18 @@ class JwtServiceTest {
         assertEquals("user@example.com", jwtService.extractEmail(token));
         assertTrue(jwtService.isTokenValid(token, 42L));
         assertFalse(jwtService.isTokenValid(token, 43L));
+    }
+
+    @Test
+    void credentialChangeInvalidatesTokensIssuedBeforeIt() {
+        User user = new User();
+        user.setId(42L);
+        user.setEmail("user@example.com");
+
+        String token = jwtService.generateToken(user);
+        Instant issuedAt = jwtService.extractIssuedAt(token);
+
+        assertTrue(jwtService.isTokenValid(token, 42L, issuedAt));
+        assertFalse(jwtService.isTokenValid(token, 42L, issuedAt.plusSeconds(1)));
     }
 }

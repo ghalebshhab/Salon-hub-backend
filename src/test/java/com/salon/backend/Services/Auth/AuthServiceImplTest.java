@@ -3,11 +3,13 @@ package com.salon.backend.Services.Auth;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterRequest;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterResponse;
+import com.salon.backend.DTOs.Auth.Login.LoginRequest;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
@@ -31,6 +34,7 @@ class AuthServiceImplTest {
     @Mock private JwtService jwtService;
     @Mock private UserRepo userRepo;
     @Mock private BCryptPasswordEncoder passwordEncoder;
+    @Mock private AccountVerificationService accountVerificationService;
     @InjectMocks private AuthServiceImpl service;
 
     @Test
@@ -45,6 +49,8 @@ class AuthServiceImplTest {
         );
 
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(accountVerificationService.issueRegistrationVerification(any(User.class)))
+                .thenReturn(true);
         when(userRepo.save(any(User.class))).thenAnswer(invocation -> {
             User savedUser = invocation.getArgument(0);
             savedUser.setId(25L);
@@ -60,6 +66,9 @@ class AuthServiceImplTest {
         assertEquals("maya.ahmad", response.getData().getUserName());
         assertEquals("maya@gmail.com", response.getData().getEmail());
         assertEquals("0791234567", response.getData().getPhoneNumber());
+        assertTrue(response.getData().isEmailVerificationRequired());
+        assertEquals(600, response.getData().getVerificationCodeExpiresInSeconds());
+        assertEquals(60, response.getData().getResendAvailableInSeconds());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepo).save(userCaptor.capture());
@@ -73,6 +82,7 @@ class AuthServiceImplTest {
         assertEquals("encoded-password", savedUser.getPassword());
         assertEquals(UserRole.USER, savedUser.getRole());
         assertEquals(UserStatus.Active, savedUser.getStatus());
+        assertFalse(savedUser.getEmailVerified());
         assertFalse(savedUser.isCareerProfileEnabled());
         assertNotNull(savedUser.getCareerSkills());
         assertTrue(savedUser.getCareerSkills().isEmpty());
@@ -83,5 +93,28 @@ class AuthServiceImplTest {
         assertNull(savedUser.getResumeUrl());
         assertNull(savedUser.getPortfolioUrl());
         assertNull(savedUser.getProfessionalBio());
+        verify(accountVerificationService).issueRegistrationVerification(savedUser);
+    }
+
+    @Test
+    void loginRequiresEmailVerificationAfterValidCredentials() {
+        User user = new User();
+        user.setEmail("maya@gmail.com");
+        user.setPassword("encoded-password");
+        user.setStatus(UserStatus.Active);
+        user.setEmailVerified(false);
+        when(userRepo.findByemail("maya@gmail.com")).thenReturn(user);
+        when(passwordEncoder.matches("Password1!", "encoded-password")).thenReturn(true);
+
+        ApiResponse<?> response = service.Login(
+                new LoginRequest("maya@gmail.com", "Password1!")
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(
+                "Email verification is required before signing in.",
+                response.getMessage()
+        );
+        verify(jwtService, never()).generateToken(any(User.class));
     }
 }
