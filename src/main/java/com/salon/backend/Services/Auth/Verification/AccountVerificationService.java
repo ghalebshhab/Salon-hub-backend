@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Auth.Verification;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Auth.Verification.ChangePasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.EmailAddressRequest;
 import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationResponse;
 import com.salon.backend.DTOs.Auth.Verification.ResetPasswordRequest;
@@ -22,4 +23,6 @@ public interface AccountVerificationService {
     );
 
     ApiResponse<String> resetPassword(ResetPasswordRequest request);
+
+    ApiResponse<String> changePassword(Long userId, ChangePasswordRequest request);
 }
