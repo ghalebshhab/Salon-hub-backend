@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Auth.Verification;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Auth.Verification.ChangePasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.EmailAddressRequest;
 import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationResponse;
 import com.salon.backend.DTOs.Auth.Verification.ResetPasswordRequest;
@@ -262,6 +263,45 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         verificationCodeRepo.save(verification);
         return ApiResponse.success(
                 "Password reset successfully. Please sign in with your new password.",
+                null
+        );
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<String> changePassword(
+            Long userId,
+            ChangePasswordRequest request
+    ) {
+        if (userId == null) {
+            return ApiResponse.error("An authenticated account is required.");
+        }
+        if (request == null || request.currentPassword() == null
+                || request.currentPassword().isBlank()) {
+            return ApiResponse.error("Your current password is required.");
+        }
+        if (!PasswordPolicy.isValid(request.newPassword())) {
+            return ApiResponse.error(PasswordPolicy.REQUIREMENTS_MESSAGE);
+        }
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            return ApiResponse.error("Password confirmation does not match the new password.");
+        }
+
+        User user = userRepo.findByIdForUpdate(userId).orElse(null);
+        if (user == null || user.getStatus() != UserStatus.Active) {
+            return ApiResponse.error("The authenticated account is not available.");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            return ApiResponse.error("The current password is incorrect.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setCredentialsUpdatedAt(
+                Instant.now(clock).truncatedTo(ChronoUnit.SECONDS)
+        );
+        userRepo.save(user);
+        return ApiResponse.success(
+                "Password changed successfully. Please sign in again on your devices.",
                 null
         );
     }

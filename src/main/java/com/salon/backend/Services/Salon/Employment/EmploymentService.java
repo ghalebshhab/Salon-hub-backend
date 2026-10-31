@@ -4,6 +4,7 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
 import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestResponse;
+import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestPageResponse;
 
 public interface EmploymentService {
 ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId);
@@ -37,6 +38,37 @@ ApiResponse<EmployeeRequestResponse> sentInvitation(SentInvitation sentInvitatio
             Long requestId,
             Long currentUserId,
             String reason
+    );
+
+    ApiResponse<EmploymentRequestPageResponse> getMyEmploymentRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    );
+
+    ApiResponse<EmploymentRequestPageResponse> getOwnedSalonEmploymentRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    );
+
+    ApiResponse<LeaveRequestPageResponse> getMyLeaveRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    );
+
+    ApiResponse<LeaveRequestPageResponse> getOwnedSalonLeaveRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    );
+
+    ApiResponse<EmploymentCandidatePageResponse> searchEmploymentCandidates(
+            Long currentUserId,
+            String search,
+            Integer page,
+            Integer size
     );
 
 

@@ -3,6 +3,7 @@ package com.salon.backend.Services.Salon.Employment;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
+import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestPageResponse;
 import com.salon.backend.DTOs.Salon.Employment.Leave.LeaveRequestResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
@@ -12,6 +13,7 @@ import com.salon.backend.Entities.salons.hiringposts.HiringPostStatus;
 import com.salon.backend.Entities.salons.hiringposts.HiringPostClosureReason;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
+import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
@@ -22,14 +24,21 @@ import com.salon.backend.Repositories.User.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.List;
 
 
 @Service
 @RequiredArgsConstructor
 public class EmploymentServiceImpl implements EmploymentService {
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 100;
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final EmploymentRepo employmentRepo;
@@ -167,7 +176,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     if (employmentRequest.getRequestType()
             == RequestType.User_Request) {
 
-        if (targetSalon.getOwner().getId() != currentUser.getId()) {
+        if (!Objects.equals(targetSalon.getOwner().getId(), currentUser.getId())) {
 
             return ApiResponse.error(
                     "Only the salon owner can accept this request"
@@ -193,7 +202,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     else if (employmentRequest.getRequestType()
             == RequestType.Owner_Invite) {
 
-        if (employmentRequest.getReceiver().getId() != currentUser.getId()) {
+        if (!Objects.equals(employmentRequest.getReceiver().getId(), currentUser.getId())) {
 
             return ApiResponse.error(
                     "Only the invited user can accept this invitation"
@@ -370,14 +379,31 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
          return ApiResponse.error("Salon is not active.");
      }
 
-        if (salon.getOwner().getId()!= sender.getId()) {
+        if (!Objects.equals(salon.getOwner().getId(), sender.getId())) {
             return ApiResponse.error(
                     "You are not the owner of this salon"
             );
         }
 
-     if(sender.getId()==receiver.getId()){
+     if (Objects.equals(sender.getId(), receiver.getId())) {
          return ApiResponse.error("You can not invite yourself");
+     }
+
+     if (receiver.getStatus() != UserStatus.Active) {
+         return ApiResponse.error("Only active users can be invited to a salon.");
+     }
+
+     if (!receiver.isCareerProfileEnabled()) {
+         return ApiResponse.error("This user must enable their career profile before they can be invited.");
+     }
+
+     if (receiver.getRole() != UserRole.USER && receiver.getRole() != UserRole.Employee) {
+         return ApiResponse.error("Only career users or employees can be invited to a salon.");
+     }
+
+     if (receiver.getSalon() != null
+             && Objects.equals(receiver.getSalon().getId(), salon.getId())) {
+         return ApiResponse.error("This user already works at your salon.");
      }
 
         Optional<EmploymentRequest> existingRequest =
@@ -485,7 +511,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
         if (employmentRequest.getRequestType()
                 == RequestType.User_Request) {
 
-            if (salon.getOwner().getId() != currentUser.getId()) {
+            if (!Objects.equals(salon.getOwner().getId(), currentUser.getId())) {
 
                 return ApiResponse.error(
                         "Only the salon owner can reject this request"
@@ -506,7 +532,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
         else if (employmentRequest.getRequestType()
                 == RequestType.Owner_Invite) {
 
-            if (receiver.getId() != currentUser.getId()) {
+            if (!Objects.equals(receiver.getId(), currentUser.getId())) {
 
                 return ApiResponse.error(
                         "Only the invited user can reject this invitation"
@@ -563,7 +589,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
             return ApiResponse.error("This Employment Request is no longer pending");
         }
         User sender = employmentRequest.getSender();
-        if (sender.getId() != currentUser.getId()) {
+        if (!Objects.equals(sender.getId(), currentUser.getId())) {
             return ApiResponse.error("You are not the sender of this request");
         }
         employmentRequest.setStatus(EmploymentRequestStatus.Cancelled);
@@ -657,7 +683,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
 
         Salon currentSalon = leaveRequest.getCurrentSalon();
 
-        if (currentSalon.getOwner().getId() != currentUser.getId()) {
+        if (!Objects.equals(currentSalon.getOwner().getId(), currentUser.getId())) {
             return ApiResponse.error(
                     "Only the salon owner can accept this leave request"
             );
@@ -796,7 +822,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
 
         User employee = leaveRequest.getEmployee();
 
-        if (employee.getId() != currentUser.getId()) {
+        if (!Objects.equals(employee.getId(), currentUser.getId())) {
             return ApiResponse.error(
                     "Only the employee that sent this leave request can cancel it"
             );
@@ -898,7 +924,7 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
 
         User receiver = employmentRequest.getReceiver();
 
-        if (receiver.getId() != currentUser.getId()) {
+        if (!Objects.equals(receiver.getId(), currentUser.getId())) {
             return ApiResponse.error(
                     "You are not allowed to accept this invitation"
             );
@@ -992,6 +1018,239 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
         return ApiResponse.success(
                 "Invitation accepted. A leave request has been sent to your current salon owner.",
                 mapEmploymentRequest(employmentRequest)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<EmploymentRequestPageResponse> getMyEmploymentRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    ) {
+        String validation = validatePage(page, size);
+        if (validation != null) {
+            return ApiResponse.error(validation);
+        }
+        if (!userRepo.existsById(currentUserId)) {
+            return ApiResponse.error("Authenticated user was not found.");
+        }
+
+        Page<EmploymentRequest> requests = employmentRepo.findBySenderIdOrReceiverId(
+                currentUserId,
+                currentUserId,
+                pageRequest(page, size)
+        );
+        return ApiResponse.success(
+                "Employment requests fetched successfully.",
+                mapEmploymentPage(requests)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<EmploymentRequestPageResponse> getOwnedSalonEmploymentRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    ) {
+        String validation = validatePage(page, size);
+        if (validation != null) {
+            return ApiResponse.error(validation);
+        }
+        Salon salon = findActiveOwnedSalon(currentUserId);
+        if (salon == null) {
+            return ApiResponse.error("An active salon owned by you is required.");
+        }
+
+        Page<EmploymentRequest> requests = employmentRepo.findBySalonId(
+                salon.getId(),
+                pageRequest(page, size)
+        );
+        return ApiResponse.success(
+                "Salon employment requests fetched successfully.",
+                mapEmploymentPage(requests)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<LeaveRequestPageResponse> getMyLeaveRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    ) {
+        String validation = validatePage(page, size);
+        if (validation != null) {
+            return ApiResponse.error(validation);
+        }
+        if (!userRepo.existsById(currentUserId)) {
+            return ApiResponse.error("Authenticated user was not found.");
+        }
+
+        Page<LeaveRequest> requests = leaveRequestRepo.findByEmployeeId(
+                currentUserId,
+                pageRequest(page, size)
+        );
+        return ApiResponse.success(
+                "Leave requests fetched successfully.",
+                mapLeavePage(requests)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<LeaveRequestPageResponse> getOwnedSalonLeaveRequests(
+            Long currentUserId,
+            Integer page,
+            Integer size
+    ) {
+        String validation = validatePage(page, size);
+        if (validation != null) {
+            return ApiResponse.error(validation);
+        }
+        Salon salon = findActiveOwnedSalon(currentUserId);
+        if (salon == null) {
+            return ApiResponse.error("An active salon owned by you is required.");
+        }
+
+        Page<LeaveRequest> requests = leaveRequestRepo.findByCurrentSalonId(
+                salon.getId(),
+                pageRequest(page, size)
+        );
+        return ApiResponse.success(
+                "Salon leave requests fetched successfully.",
+                mapLeavePage(requests)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<EmploymentCandidatePageResponse> searchEmploymentCandidates(
+            Long currentUserId,
+            String search,
+            Integer page,
+            Integer size
+    ) {
+        String validation = validatePage(page, size);
+        if (validation != null) {
+            return ApiResponse.error(validation);
+        }
+        Salon salon = findActiveOwnedSalon(currentUserId);
+        if (salon == null) {
+            return ApiResponse.error("An active salon owned by you is required.");
+        }
+
+        String normalizedSearch = search == null ? "" : search.trim();
+        if (normalizedSearch.length() > 100) {
+            return ApiResponse.error("Candidate search cannot exceed 100 characters.");
+        }
+
+        Page<User> candidates = userRepo.searchCareerCandidates(
+                currentUserId,
+                salon.getId(),
+                UserStatus.Active,
+                List.of(UserRole.USER, UserRole.Employee),
+                normalizedSearch,
+                PageRequest.of(
+                        page == null ? 0 : page,
+                        size == null ? DEFAULT_PAGE_SIZE : size,
+                        Sort.by(
+                                Sort.Order.asc("firstName"),
+                                Sort.Order.asc("lastName"),
+                                Sort.Order.asc("id")
+                        )
+                )
+        );
+        return ApiResponse.success(
+                "Career candidates fetched successfully.",
+                new EmploymentCandidatePageResponse(
+                        candidates.getContent().stream()
+                                .map(this::mapCandidate)
+                                .toList(),
+                        candidates.getNumber(),
+                        candidates.getSize(),
+                        candidates.getTotalElements(),
+                        candidates.getTotalPages(),
+                        candidates.isFirst(),
+                        candidates.isLast()
+                )
+        );
+    }
+
+    private Salon findActiveOwnedSalon(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        User owner = userRepo.findById(currentUserId).orElse(null);
+        if (owner == null || owner.getRole() != UserRole.OWNER) {
+            return null;
+        }
+        Salon salon = salonRepo.findByOwnerId(currentUserId);
+        return salon != null && salon.getStatus() == SalonStatus.Accepted ? salon : null;
+    }
+
+    private String validatePage(Integer page, Integer size) {
+        int pageNumber = page == null ? 0 : page;
+        int pageSize = size == null ? DEFAULT_PAGE_SIZE : size;
+        if (pageNumber < 0) {
+            return "Page cannot be negative.";
+        }
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            return "Page size must be between 1 and 100.";
+        }
+        return null;
+    }
+
+    private PageRequest pageRequest(Integer page, Integer size) {
+        return PageRequest.of(
+                page == null ? 0 : page,
+                size == null ? DEFAULT_PAGE_SIZE : size,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+        );
+    }
+
+    private EmploymentRequestPageResponse mapEmploymentPage(
+            Page<EmploymentRequest> requests
+    ) {
+        return new EmploymentRequestPageResponse(
+                requests.getContent().stream().map(this::mapEmploymentRequest).toList(),
+                requests.getNumber(),
+                requests.getSize(),
+                requests.getTotalElements(),
+                requests.getTotalPages(),
+                requests.isFirst(),
+                requests.isLast()
+        );
+    }
+
+    private LeaveRequestPageResponse mapLeavePage(Page<LeaveRequest> requests) {
+        return new LeaveRequestPageResponse(
+                requests.getContent().stream().map(this::mapLeaveRequest).toList(),
+                requests.getNumber(),
+                requests.getSize(),
+                requests.getTotalElements(),
+                requests.getTotalPages(),
+                requests.isFirst(),
+                requests.isLast()
+        );
+    }
+
+    private EmploymentCandidateResponse mapCandidate(User user) {
+        Salon currentSalon = user.getSalon();
+        return new EmploymentCandidateResponse(
+                user.getId(),
+                (user.getFirstName() + " " + user.getLastName()).trim(),
+                user.getUserName(),
+                user.getYearsOfExperience(),
+                List.copyOf(user.getCareerSkills()),
+                List.copyOf(user.getPreferredWorkLocations()),
+                user.getProfessionalBio(),
+                user.getResumeUrl(),
+                user.getResumeUrl() != null && !user.getResumeUrl().isBlank(),
+                user.getPortfolioUrl(),
+                currentSalon == null ? null : currentSalon.getId(),
+                currentSalon == null ? null : currentSalon.getName()
         );
     }
 

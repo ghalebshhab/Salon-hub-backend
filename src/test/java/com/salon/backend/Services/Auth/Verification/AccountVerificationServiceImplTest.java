@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Auth.Verification;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Auth.Verification.ChangePasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.EmailAddressRequest;
 import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationResponse;
 import com.salon.backend.DTOs.Auth.Verification.ResetPasswordRequest;
@@ -261,6 +262,52 @@ class AccountVerificationServiceImplTest {
         assertEquals(NOW, user.getCredentialsUpdatedAt());
         assertNull(verification.getResetTokenHash());
         assertNull(verification.getResetTokenExpiresAt());
+    }
+
+    @Test
+    void changePasswordRejectsAnIncorrectCurrentPassword() {
+        User user = user(11L, true);
+        when(userRepo.findByIdForUpdate(user.getId())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("WrongPassword1!", user.getPassword()))
+                .thenReturn(false);
+
+        ApiResponse<String> response = service.changePassword(
+                user.getId(),
+                new ChangePasswordRequest(
+                        "WrongPassword1!",
+                        "NewPassword2!",
+                        "NewPassword2!"
+                )
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals("The current password is incorrect.", response.getMessage());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userRepo, never()).save(any(User.class));
+    }
+
+    @Test
+    void changePasswordReplacesTheHashAndInvalidatesExistingTokens() {
+        User user = user(12L, true);
+        when(userRepo.findByIdForUpdate(user.getId())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("CurrentPassword1!", user.getPassword()))
+                .thenReturn(true);
+        when(passwordEncoder.encode("NewPassword2!"))
+                .thenReturn("new-password-hash");
+
+        ApiResponse<String> response = service.changePassword(
+                user.getId(),
+                new ChangePasswordRequest(
+                        "CurrentPassword1!",
+                        "NewPassword2!",
+                        "NewPassword2!"
+                )
+        );
+
+        assertTrue(response.isSuccess());
+        assertEquals("new-password-hash", user.getPassword());
+        assertEquals(NOW, user.getCredentialsUpdatedAt());
+        verify(userRepo).save(user);
     }
 
     private User user(long id, boolean emailVerified) {

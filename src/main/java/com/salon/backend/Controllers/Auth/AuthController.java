@@ -6,16 +6,19 @@ import com.salon.backend.DTOs.Auth.Login.LoginRequest;
 import com.salon.backend.DTOs.Auth.Login.LoginResponse;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterRequest;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterResponse;
+import com.salon.backend.DTOs.Auth.Verification.ChangePasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.EmailAddressRequest;
 import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationResponse;
 import com.salon.backend.DTOs.Auth.Verification.ResetPasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.VerifyCodeRequest;
 import com.salon.backend.Services.Auth.AuthService;
 import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Auth.Security.TokenBlacklistService;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,6 +69,17 @@ public class AuthController {
     @PostMapping("/password/reset")
     public ApiResponse<String> resetPassword(@RequestBody ResetPasswordRequest request) {
         return accountVerificationService.resetPassword(request);
+    }
+
+    @PostMapping("/password/change")
+    public ApiResponse<String> changePassword(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestBody ChangePasswordRequest request
+    ) {
+        return accountVerificationService.changePassword(
+                user == null ? null : user.getId(),
+                request
+        );
     }
 
     @PostMapping("/logout")
