@@ -55,6 +55,9 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     @Value("${app.auth.code-secret:${jwt.secret}}")
     private String codeSecret;
 
+    @Value("${app.auth.fixed-code:}")
+    private String fixedCode;
+
     @Override
     @Transactional
     public boolean issueRegistrationVerification(User user) {
@@ -313,7 +316,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         Instant now = Instant.now(clock);
         AuthVerificationCode verification = verificationCodeRepo.findForUpdate(user.getId(), purpose)
                 .orElseGet(AuthVerificationCode::new);
-        String plainCode = String.format(Locale.ROOT, "%06d", secureRandom.nextInt(1_000_000));
+        String plainCode = generateVerificationCode();
 
         verification.setUser(user);
         verification.setPurpose(purpose);
@@ -329,6 +332,13 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         }
         verificationCodeRepo.save(verification);
         return new IssuedCode(plainCode, verification);
+    }
+
+    private String generateVerificationCode() {
+        if (fixedCode != null && fixedCode.matches("^\\d{6}$")) {
+            return fixedCode;
+        }
+        return String.format(Locale.ROOT, "%06d", secureRandom.nextInt(1_000_000));
     }
 
     private void allowImmediateRetryAfterDeliveryFailure(

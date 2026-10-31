@@ -114,6 +114,29 @@ class AccountVerificationServiceImplTest {
     }
 
     @Test
+    void configuredFixedCodeIsUsedForLocalDevelopment() {
+        User user = user(13L, false);
+        ReflectionTestUtils.setField(service, "fixedCode", "123456");
+        when(verificationCodeRepo.findForUpdate(
+                user.getId(),
+                VerificationPurpose.EMAIL_VERIFICATION
+        )).thenReturn(Optional.empty());
+        when(emailService.sendEmailVerificationCode(
+                user.getEmail(),
+                user.getFirstName(),
+                "123456"
+        )).thenReturn(true);
+
+        assertTrue(service.issueRegistrationVerification(user));
+
+        verify(emailService).sendEmailVerificationCode(
+                user.getEmail(),
+                user.getFirstName(),
+                "123456"
+        );
+    }
+
+    @Test
     void resendEnforcesTheSixtySecondCooldown() {
         User user = user(8L, false);
         AuthVerificationCode verification = new AuthVerificationCode();
