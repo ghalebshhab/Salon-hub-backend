@@ -23,12 +23,13 @@ public interface SalonReviewRepo extends JpaRepository<SalonReview, Long> {
     Optional<SalonReview> findByIdAndCustomerId(Long reviewId, Long customerId);
 
     @Query("""
-            SELECT AVG(review.rating), COUNT(review)
+            SELECT AVG(review.rating) AS averageRating,
+                   COUNT(review) AS totalReviews
             FROM SalonReview review
             WHERE review.salon.id = :salonId
               AND review.customer.status = :customerStatus
             """)
-    Object[] summarizeSalonReviews(
+    SalonReviewSummaryProjection summarizeSalonReviews(
             @Param("salonId") Long salonId,
             @Param("customerStatus") UserStatus customerStatus
     );

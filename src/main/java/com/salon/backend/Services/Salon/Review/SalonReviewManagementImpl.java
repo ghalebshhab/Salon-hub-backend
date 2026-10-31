@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonReviewRepo;
+import com.salon.backend.Repositories.Salon.SalonReviewSummaryProjection;
 import com.salon.backend.Repositories.User.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -106,9 +107,14 @@ public class SalonReviewManagementImpl implements SalonReviewManagement {
             return ApiResponse.error("Active salon not found");
         }
 
-        Object[] summary = salonReviewRepo.summarizeSalonReviews(salonId, UserStatus.Active);
-        double averageRating = summary[0] == null ? 0.0 : ((Number) summary[0]).doubleValue();
-        long totalReviews = ((Number) summary[1]).longValue();
+        SalonReviewSummaryProjection summary =
+                salonReviewRepo.summarizeSalonReviews(salonId, UserStatus.Active);
+        double averageRating = summary == null || summary.getAverageRating() == null
+                ? 0.0
+                : summary.getAverageRating();
+        long totalReviews = summary == null || summary.getTotalReviews() == null
+                ? 0L
+                : summary.getTotalReviews();
 
         return ApiResponse.success(
                 "Salon review summary fetched successfully",

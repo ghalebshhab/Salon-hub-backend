@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonReviewRepo;
+import com.salon.backend.Repositories.Salon.SalonReviewSummaryProjection;
 import com.salon.backend.Repositories.User.UserRepo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,9 +133,12 @@ class SalonReviewManagementImplTest {
     @Test
     void returnsPublicSummaryForActiveCustomerReviews() {
         Salon salon = activeSalon(2L);
+        SalonReviewSummaryProjection summary = mock(SalonReviewSummaryProjection.class);
         when(salonRepo.findById(2L)).thenReturn(Optional.of(salon));
+        when(summary.getAverageRating()).thenReturn(4.25);
+        when(summary.getTotalReviews()).thenReturn(8L);
         when(salonReviewRepo.summarizeSalonReviews(2L, UserStatus.Active))
-                .thenReturn(new Object[]{4.25, 8L});
+                .thenReturn(summary);
 
         ApiResponse<SalonReviewSummaryResponse> response = service.getSalonReviewSummary(2L);
 
