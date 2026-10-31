@@ -4,6 +4,9 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.User.Profile.CareerProfileRequest;
 import com.salon.backend.DTOs.User.Profile.UserProfileResponse;
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Entities.salons.Salon;
+import com.salon.backend.Entities.salons.SalonStatus;
+import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Utils.UrlValidationUtils;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ import java.util.Map;
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepo userRepo;
+    private final SalonRepo salonRepo;
 
     @Override
     @Transactional(readOnly = true)
@@ -145,6 +149,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private UserProfileResponse mapToResponse(User user) {
+        Salon ownedSalon = salonRepo.findByOwnerId(user.getId());
+        boolean hasOwnedSalon = ownedSalon != null
+                && ownedSalon.getStatus() != SalonStatus.DELETED;
         return new UserProfileResponse(
                 user.getId(),
                 user.getFirstName(),
@@ -156,6 +163,9 @@ public class UserProfileServiceImpl implements UserProfileService {
                 user.getStatus(),
                 user.getSalon() == null ? null : user.getSalon().getId(),
                 user.getSalon() == null ? null : user.getSalon().getName(),
+                hasOwnedSalon ? ownedSalon.getId() : null,
+                hasOwnedSalon ? ownedSalon.getName() : null,
+                hasOwnedSalon ? ownedSalon.getStatus() : null,
                 user.isCareerProfileEnabled(),
                 user.getDateOfBirth(),
                 user.getYearsOfExperience(),

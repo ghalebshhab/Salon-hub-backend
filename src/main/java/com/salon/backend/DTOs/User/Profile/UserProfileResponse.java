@@ -2,6 +2,7 @@ package com.salon.backend.DTOs.User.Profile;
 
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
+import com.salon.backend.Entities.salons.SalonStatus;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -17,6 +18,9 @@ public record UserProfileResponse(
         UserStatus status,
         Long salonId,
         String salonName,
+        Long ownedSalonId,
+        String ownedSalonName,
+        SalonStatus ownedSalonStatus,
         boolean careerProfileEnabled,
         LocalDate dateOfBirth,
         Integer yearsOfExperience,

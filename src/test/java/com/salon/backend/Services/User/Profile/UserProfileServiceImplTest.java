@@ -5,7 +5,10 @@ import com.salon.backend.DTOs.User.Profile.UserProfileResponse;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
+import com.salon.backend.Entities.salons.Salon;
+import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Repositories.Salon.SalonRepo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +29,9 @@ class UserProfileServiceImplTest {
     @Mock
     private UserRepo userRepo;
 
+    @Mock
+    private SalonRepo salonRepo;
+
     @InjectMocks
     private UserProfileServiceImpl service;
 
@@ -45,6 +51,34 @@ class UserProfileServiceImplTest {
         assertEquals(user.getId(), response.getData().id());
         assertEquals(user.getEmail(), response.getData().email());
         verify(userRepo).findById(user.getId());
-        verifyNoMoreInteractions(userRepo);
+        verify(salonRepo).findByOwnerId(user.getId());
+        verifyNoMoreInteractions(userRepo, salonRepo);
+    }
+
+    @Test
+    void profileSeparatesOwnedSalonFromEmploymentSalon() {
+        User user = new User();
+        user.setId(21L);
+        user.setRole(UserRole.USER);
+        user.setStatus(UserStatus.Active);
+
+        Salon employmentSalon = new Salon();
+        employmentSalon.setId(4L);
+        employmentSalon.setName("Employer salon");
+        user.setSalon(employmentSalon);
+
+        Salon ownedSalon = new Salon();
+        ownedSalon.setId(9L);
+        ownedSalon.setName("Owned salon");
+        ownedSalon.setStatus(SalonStatus.Requested);
+
+        when(userRepo.findById(user.getId())).thenReturn(Optional.of(user));
+        when(salonRepo.findByOwnerId(user.getId())).thenReturn(ownedSalon);
+
+        UserProfileResponse profile = service.getProfile(user.getId()).getData();
+
+        assertEquals(4L, profile.salonId());
+        assertEquals(9L, profile.ownedSalonId());
+        assertEquals(SalonStatus.Requested, profile.ownedSalonStatus());
     }
 }
