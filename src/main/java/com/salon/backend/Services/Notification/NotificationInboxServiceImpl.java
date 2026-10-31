@@ -120,7 +120,8 @@ public class NotificationInboxServiceImpl implements NotificationInboxService {
     private NotificationResponse mapToResponse(UserNotification notification) {
         return new NotificationResponse(
                 notification.getId(),
-                notification.getBooking().getId(),
+                notification.getDomain(),
+                notification.getBooking() == null ? null : notification.getBooking().getId(),
                 notification.getSalonId(),
                 notification.getSalonName(),
                 notification.getEventType(),
@@ -130,6 +131,7 @@ public class NotificationInboxServiceImpl implements NotificationInboxService {
                 notification.getSuggestedDate(),
                 notification.getSuggestedTime(),
                 notification.getBookingStatus(),
+                notification.getReason(),
                 notification.getTargetPath(),
                 notification.getCreatedAt(),
                 notification.getReadAt(),

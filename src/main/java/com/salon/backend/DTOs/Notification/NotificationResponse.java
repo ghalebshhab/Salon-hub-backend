@@ -1,6 +1,7 @@
 package com.salon.backend.DTOs.Notification;
 
 import com.salon.backend.Entities.notifications.NotificationEventType;
+import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 
 import java.time.LocalDate;
@@ -9,6 +10,7 @@ import java.time.LocalTime;
 
 public record NotificationResponse(
         Long id,
+        NotificationDomain domain,
         Long bookingId,
         Long salonId,
         String salonName,
@@ -19,6 +21,7 @@ public record NotificationResponse(
         LocalDate suggestedDate,
         LocalTime suggestedTime,
         BookingStatus bookingStatus,
+        String reason,
         String targetPath,
         LocalDateTime createdAt,
         LocalDateTime readAt,

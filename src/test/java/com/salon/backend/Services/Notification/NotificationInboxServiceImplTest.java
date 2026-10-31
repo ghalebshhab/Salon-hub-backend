@@ -4,6 +4,7 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Notification.NotificationPageResponse;
 import com.salon.backend.DTOs.Notification.NotificationResponse;
 import com.salon.backend.Entities.notifications.NotificationEventType;
+import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.notifications.UserNotification;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.bookings.Booking;
@@ -107,6 +108,7 @@ class NotificationInboxServiceImplTest {
         notification.setId(notificationId);
         notification.setRecipient(recipient);
         notification.setBooking(booking);
+        notification.setDomain(NotificationDomain.BOOKING);
         notification.setSalonId(3L);
         notification.setSalonName("Salon Test");
         notification.setEventType(NotificationEventType.BOOKING_ACCEPTED);

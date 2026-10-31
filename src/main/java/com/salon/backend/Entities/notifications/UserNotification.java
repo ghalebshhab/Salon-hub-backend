@@ -59,9 +59,13 @@ public class UserNotification {
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booking_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
     private Booking booking;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private NotificationDomain domain;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
@@ -79,10 +83,10 @@ public class UserNotification {
     @Column(nullable = false, length = 255)
     private String salonName;
 
-    @Column(nullable = false)
+    @Column
     private LocalDate bookingDate;
 
-    @Column(nullable = false)
+    @Column
     private LocalTime bookingTime;
 
     private LocalTime suggestedTime;
@@ -90,8 +94,11 @@ public class UserNotification {
     private LocalDate suggestedDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private BookingStatus bookingStatus;
+
+    @Column(length = 1000)
+    private String reason;
 
     @Column(nullable = false, length = 255)
     private String targetPath;

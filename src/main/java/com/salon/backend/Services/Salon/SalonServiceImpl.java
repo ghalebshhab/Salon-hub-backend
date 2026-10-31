@@ -12,6 +12,7 @@ import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
+import com.salon.backend.Services.Notification.SalonNotificationService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +30,14 @@ public class SalonServiceImpl implements SalonService {
     private final SalonRepo salonRepo;
     private  final UserRepo userRepo;
     private final AdminAuthorizationService adminAuthorizationService;
+    private final SalonNotificationService salonNotificationService;
     private final List<String> JordanCities = List.of(
             "Amman", "Zarqa", "Irbid", "Aqaba", "Jerash",
             "Madaba", "Ajloun", "As-Salt", "Al-Karak",
             "Ma'an", "Tafilah", "Mafraq"
     );
     @Override
+    @Transactional
     public ApiResponse<CreateSalonResponse> createSalon(CreateSalonRequest createSalonRequest,Long id) {
         Optional<User> user = userRepo.findById(id);
         if(user.isEmpty()) {
@@ -113,6 +116,7 @@ public class SalonServiceImpl implements SalonService {
         salon.setResubmissionCount(0);
         salon.setRejectionReason(null);
         salonRepo.save(salon);
+        salonNotificationService.notifyRequestSubmitted(salon);
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
                 salon.getId(),
@@ -334,6 +338,7 @@ public class SalonServiceImpl implements SalonService {
         salon.setRejectionReason(null);
         salon.setStatus(SalonStatus.Requested);
         salonRepo.save(salon);
+        salonNotificationService.notifyRequestResubmitted(salon);
 
         return ApiResponse.success("Salon resubmitted successfully", mapSalonResponse(salon));
     }

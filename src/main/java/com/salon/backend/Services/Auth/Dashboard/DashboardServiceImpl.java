@@ -14,6 +14,7 @@ import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Salon.SalonService;
+import com.salon.backend.Services.Notification.SalonNotificationService;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -32,6 +33,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SalonRepo salonRepo;
     private final SalonService salonService;
     private final AdminAuthorizationService adminAuthorizationService;
+    private final SalonNotificationService salonNotificationService;
     @Override
     public ApiResponse<DashboardLoginResponse> DashboardLogin(
             DashboardLoginRequest dashboardLoginRequest) {
@@ -94,6 +96,7 @@ public class DashboardServiceImpl implements DashboardService {
         User owner = salon.getOwner();
         owner.setRole(UserRole.OWNER);
         userRepo.save(owner);
+        salonNotificationService.notifyRequestAccepted(salon);
 
         ApiResponse<SalonResponse> salonResponse =
                 salonService.getSalonByOwnerId(owner.getId());
@@ -132,6 +135,7 @@ public class DashboardServiceImpl implements DashboardService {
         salon.setStatus(SalonStatus.Rejected);
         salon.setRejectionReason(rejectionReason.trim());
         salonRepo.save(salon);
+        salonNotificationService.notifyRequestRejected(salon, salon.getRejectionReason());
 
         ApiResponse<SalonResponse> salonResponse =
                 salonService.getSalonByOwnerId(salon.getOwner().getId());
@@ -258,6 +262,7 @@ public class DashboardServiceImpl implements DashboardService {
             }
         }
         salonRepo.save(salon);
+        salonNotificationService.notifySalonBlocked(salon);
         return ApiResponse.success("Salon Blocked", null);
     }
 
@@ -299,6 +304,7 @@ public class DashboardServiceImpl implements DashboardService {
         }
         restoreSalonWhenFullyUnblocked(salon);
         salonRepo.save(salon);
+        salonNotificationService.notifySalonUnblocked(salon);
         return ApiResponse.success("Salon Unblocked", null);
     }
 

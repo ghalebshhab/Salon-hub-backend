@@ -8,6 +8,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
+import com.salon.backend.Services.Notification.SalonNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +27,7 @@ class SalonServiceImplTest {
     @Mock private SalonRepo salonRepo;
     @Mock private UserRepo userRepo;
     @Mock private AdminAuthorizationService adminAuthorizationService;
+    @Mock private SalonNotificationService salonNotificationService;
     @InjectMocks private SalonServiceImpl service;
 
     @Test
@@ -104,6 +106,7 @@ class SalonServiceImplTest {
         assertEquals(0, response.getData().remainingResubmissions());
         assertNull(salon.getRejectionReason());
         verify(salonRepo).save(salon);
+        verify(salonNotificationService).notifyRequestResubmitted(salon);
     }
 
     @Test

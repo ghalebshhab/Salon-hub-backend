@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Notification;
 
 import com.salon.backend.Entities.notifications.NotificationEventType;
+import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.notifications.UserNotification;
 import com.salon.backend.Entities.salons.bookings.Booking;
 import com.salon.backend.Entities.salons.bookings.BookingRescheduleProposal;
@@ -228,6 +229,7 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         UserNotification notification = new UserNotification();
         notification.setRecipient(recipient);
         notification.setBooking(booking);
+        notification.setDomain(NotificationDomain.BOOKING);
         notification.setEventType(eventType);
         notification.setMessage(message);
         notification.setEventKey(eventKey);

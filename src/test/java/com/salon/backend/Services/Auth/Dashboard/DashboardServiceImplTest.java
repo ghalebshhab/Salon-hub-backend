@@ -14,6 +14,7 @@ import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import org.junit.jupiter.api.BeforeEach;
 import com.salon.backend.Services.Salon.SalonService;
+import com.salon.backend.Services.Notification.SalonNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +38,7 @@ class DashboardServiceImplTest {
     @Mock private SalonRepo salonRepo;
     @Mock private SalonService salonService;
     @Mock private AdminAuthorizationService adminAuthorizationService;
+    @Mock private SalonNotificationService salonNotificationService;
     @InjectMocks private DashboardServiceImpl service;
 
     @BeforeEach
@@ -86,6 +88,7 @@ class DashboardServiceImplTest {
         assertEquals(SalonStatus.Rejected, salon.getStatus());
         assertEquals("Missing license", salon.getRejectionReason());
         verify(salonRepo).save(salon);
+        verify(salonNotificationService).notifyRequestRejected(salon, "Missing license");
     }
 
     @Test
