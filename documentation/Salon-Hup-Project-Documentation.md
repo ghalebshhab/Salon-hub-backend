@@ -3,8 +3,8 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.4.0
-**Last updated:** 27 October 2026
+**Document version:** 1.4.1
+**Last updated:** 31 October 2026
 **Status:** Active development
 
 ## Document purpose
@@ -1113,7 +1113,7 @@ The authenticated user for every route above comes from the JWT principal. No ro
 
 This reference lists every implemented controller route. `Body` names JSON fields, `path` and `query` identify URL inputs, and `none` means the caller sends no application data beyond authentication. Every success value below is placed in `ApiResponse.data`.
 
-For controller and business validation failures, the API uses `{ "success": false, "message": "...", "data": null }`. The frontend reads this envelope with `requireData` and displays the server `message` in an error toast or page error. Success uses `{ "success": true, "message": "...", "data": ... }`. Spring Security can reject a request before it reaches a controller; current HTTP 401 and 403 transport failures are handled by Axios, and only a matching 401 clears the saved session. Standardizing pre-controller security errors into the same envelope remains a release-hardening task.
+For controller and business validation failures, the API uses `{ "success": false, "message": "...", "data": null }`. The frontend reads this envelope with `requireData` and displays the server `message` in an error toast or page error. Success uses `{ "success": true, "message": "...", "data": ... }`. Spring Security failures before the controller use the same error envelope and `application/json`: unauthenticated protected requests return HTTP 401 with `Your session is missing or expired. Please sign in and try again.`, and authenticated requests lacking the required role return HTTP 403 with `Your account does not have permission to perform this action.` The registered `ApiAuthenticationEntryPoint` and `ApiAccessDeniedHandler` serialize `ApiResponse.error(...)` using the application's Jackson mapper. Endpoint permissions and roles remain unchanged. Axios displays the server message; only a 401 matching the current token clears the saved session, while a 403 preserves it.
 
 ### Authentication and profile contracts
 
@@ -1365,7 +1365,7 @@ The frontend currently builds into a static `dist/` bundle and the backend packa
 
 ### Current automated evidence
 
-The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, verified-registration behavior, verification expiry and attempt limits, non-enumerating password recovery, one-time reset authorization, old-JWT invalidation, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle, overlap prevention, reassignment rules, notification ownership and read state, notification deduplication and booking-event creation, verified salon reviews, URL validation, and non-empty `ApiResponse.error` reasons. It runs against an isolated H2 test database. The complete backend suite contains 109 passing tests; the final focused authentication run contains nine passing tests. The frontend includes Vitest and Testing Library coverage for all active routes including the four new public auth routes, login redirects, authentication subscriptions, public-auth JWT exclusion, auth action loading messages, 401/403 behavior, stale request cancellation, response-envelope handling, salon payload contracts, action-loading state, and route/navigation loading. The final frontend run contains 63 passing tests; lint and the production build pass. A combined staging acceptance run with real SMTP remains required.
+The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, verified-registration behavior, verification expiry and attempt limits, non-enumerating password recovery, one-time reset authorization, old-JWT invalidation, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle, overlap prevention, reassignment rules, notification ownership and read state, notification deduplication and booking-event creation, verified salon reviews, URL validation, and non-empty `ApiResponse.error` reasons. It runs against an isolated H2 test database. On 31 October 2026 the complete backend suite passed 123 tests, including nine new security-filter integration tests. Those tests use the production `SecurityConfig`, JWT filter, JWT service, blacklist, Jackson mapper, and response handlers with a mocked user lookup and probe controllers, isolating filter authorization from controller business logic. They verify missing, malformed, blacklisted, and blocked-account authentication; anonymous admin requests; authenticated non-admin denial; permitted user/admin requests; and public endpoint access. The frontend includes Vitest and Testing Library coverage for all active routes including the four new public auth routes, login redirects, authentication subscriptions, public-auth JWT exclusion, auth action loading messages, 401/403 behavior, stale request cancellation, response-envelope handling, salon payload contracts, action-loading state, and route/navigation loading. The 31 October frontend run passed all 66 tests, lint, and the production build without frontend source changes. A combined staging acceptance run with real SMTP remains required.
 
 ### Required test layers
 
@@ -1464,7 +1464,7 @@ The backend suite covers Spring application startup, immutable JWT identity, blo
 | R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
 | R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
 | R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
-| R-13 | Spring Security 401/403 responses may bypass the application `ApiResponse` envelope | Medium | High | Preserve clear client-side status mapping now; add compatible security entry-point handling within the approved response convention |
+| R-13 | Resolved: Spring Security 401/403 responses use the application `ApiResponse` envelope | Medium | Resolved | Custom authentication entry point and access-denied handler preserve status codes and clear messages; nine filter-chain integration tests cover rejected and permitted requests |
 | R-14 | Dashboard financial values are operational summaries rather than settled payment records | High | High | Label them as booking revenue estimates until payment capture, refunds, fees, and reconciliation are implemented |
 
 ### Entity exposure
@@ -1597,6 +1597,7 @@ Document versions use three numeric positions: `major.minor.patch`.
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 1.4.1 | 31 October 2026 | Standardized security-filter 401/403 responses through `ApiResponse.error`, preserved endpoint permissions and frontend session behavior, resolved R-13, and added nine filter-chain integration tests plus current verification evidence |
 | 1.4.0 | 27 October 2026 | Added verified registration, email-code lifecycle and resend cooldown, non-enumerating password recovery, one-time reset authorization, credential-change JWT invalidation, four connected React auth pages, action and navigation loading integration, public-auth token policy, complete API contracts, security model, auth sequence diagram, and final backend/frontend verification evidence |
 | 1.3.0 | 26 October 2026 | Rethemed the full publication to the Salon Hup plum-and-gold design system; documented the owner dashboard, interactive prototype, light/dark behavior, accessible hover treatment, single-header branding, Signature Snip action loading, branded route-transition loading, concurrent loader lifecycle, centralized frontend error display, backend error-message fallback, and new frontend feedback diagram and verification evidence |
 | 1.2.4 | 18 October 2026 | Added customer-approved booking rescheduling, trusted reschedule availability, proposal history and decisions, acceptance-time revalidation, concurrency locks, durable proposal notifications, connected owner and customer interfaces, a reschedule sequence diagram, four API contracts, and 98-test verification evidence |
