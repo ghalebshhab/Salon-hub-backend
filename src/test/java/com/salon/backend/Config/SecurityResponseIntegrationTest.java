@@ -116,7 +116,11 @@ class SecurityResponseIntegrationTest {
 
     @Test
     void publicEndpointsRemainAccessibleWithoutAuthentication() throws Exception {
-        for (String path : new String[]{"/api/auth/login", "/api/salons/active"}) {
+        for (String path : new String[]{
+                "/api/auth/login",
+                "/api/salons/active",
+                "/api/reviews/salon/1",
+                "/api/reviews/salon/1/summary"}) {
             mockMvc.perform(get(path))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
@@ -147,7 +151,13 @@ class SecurityResponseIntegrationTest {
     // Probe responses isolate the production filter chain from controller business logic.
     @RestController
     static class ProbeController {
-        @GetMapping({"/api/salons/mine", "/api/dashboard/users", "/api/auth/login", "/api/salons/active"})
+        @GetMapping({
+                "/api/salons/mine",
+                "/api/dashboard/users",
+                "/api/auth/login",
+                "/api/salons/active",
+                "/api/reviews/salon/1",
+                "/api/reviews/salon/1/summary"})
         ApiResponse<Void> allowed() {
             return ApiResponse.success("Request allowed.", null);
         }
