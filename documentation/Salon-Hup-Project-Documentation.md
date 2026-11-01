@@ -3,8 +3,8 @@
 **Document type:** Product and engineering specification
 **Project:** Salon Hup
 **Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.4.1
-**Last updated:** 31 October 2026
+**Document version:** 1.4.2
+**Last updated:** 1 November 2026
 **Status:** Active development
 
 ## Document purpose
@@ -38,7 +38,7 @@ The booking workflow now calculates appointment slots on the server from salon h
 | Verified salon reviews | Implemented | A customer can review a completed owned booking once; public lists and aggregate summaries exclude blocked customers |
 | Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, reviews, and an owner-only dashboard in a consistent light/dark theme |
 | Interaction feedback | Implemented | Contextual Signature Snip action loader, branded route-transition loader, stable overlapping-request handling, and clear server-error messages are shared across active journeys |
-| Frontend/API integration | Partial | Core journeys use shared Axios and `ApiResponse`; media calls lack backend routes and Swagger UI lacks its runtime dependency |
+| Frontend/API integration | Implemented | Core journeys use shared Axios and `ApiResponse`; salon cover and employee portfolio media use authenticated backend Cloudinary routes |
 | Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
 
 ## Product scope
@@ -74,6 +74,23 @@ The current backend release supports authentication, salon approval, career prof
 - **Qualified assignment:** an assigned employee must be active in the salon, qualified for every selected service, and available for the complete appointment interval.
 - **Verified feedback:** salon ratings originate only from completed bookings owned by the reviewing customer.
 - **Safe evolution:** implemented behavior, planned behavior, and known production gaps remain visibly separated.
+
+### Salon location and media delivery
+
+Salon creation and editing accept an optional full HTTPS Google Maps URL together with latitude and longitude. The backend requires the three values together, accepts Google Maps hosts only, and validates the coordinates against Jordan's geographic bounds. Public salon pages present the city as a separate, readable link that opens the saved map location without allowing it to collide with the salon name.
+
+Salon cover images and employee portfolio media use a backend `MediaStorageService` abstraction implemented with Cloudinary's authenticated upload API. Cloudinary credentials remain backend environment variables. React never receives the API secret. Device files are selected through native image/video inputs, previewed locally, validated again by the server, uploaded to Cloudinary, and persisted as HTTPS delivery URLs plus provider public IDs. Public image delivery adds automatic format, quality, crop, and size transformations. Replacing a salon cover removes the previous managed Cloudinary asset; deleting employee media requires that the authenticated employee owns the database record.
+
+The public employee directory uses a dedicated privacy-safe DTO. It may show name, specialty, career skills, experience, professional biography, and assigned public services. It does not return employee email, phone number, or private schedule data. Active employees may publish photos or supported videos only for their current accepted salon. Public gallery reads are paginated and ordered newest first.
+
+| Method | Endpoint | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/media/salon-cover` | Authenticated salon owner/request owner | Upload and replace the owned salon cover from a multipart device file |
+| `POST` | `/api/media/salon-cover/drive` | Authenticated salon owner/request owner | Import a publicly shared Google Drive media URL as the owned salon cover |
+| `POST` | `/api/media/work` | Active employee | Publish a multipart work photo or video to the employee's current salon |
+| `POST` | `/api/media/work/drive` | Active employee | Import publicly shared Drive work media into Cloudinary |
+| `GET` | `/api/media/salons/{salonId}/work` | Public | Return the accepted salon's paginated public work gallery |
+| `DELETE` | `/api/media/work/{mediaId}` | Publishing employee | Remove an owned gallery record and its managed Cloudinary asset |
 
 ## Product goals
 
@@ -214,7 +231,7 @@ The frontend is a React 19 single-page application built by Vite. It is organize
 | `features/employees` | Owner workforce directory and employee setup | Service capabilities and weekly schedules |
 | `features/bookings` | Customer request, owner queue, employee view, and status monitoring | Qualified employee filtering, lifecycle actions, 30-second polling |
 | `features/reviews` | Verified salon ratings and comments | Review modal, public list, summary, own deletion |
-| `features/media` | Salon media forms and API adapters | Frontend foundation only; backend contract is pending |
+| `features/media` | Reusable device/Drive selection, Cloudinary delivery optimization, salon covers, and employee work gallery | Connected to authenticated backend media routes |
 | `shared` | Cross-feature transport, auth storage, feedback, loading, and UI primitives | Axios interceptors, `requireData`, error normalization, toast helpers, persistent loader state, branded overlays |
 
 Dependencies flow from `app` to `features` to `shared`. Pages use hooks rather than importing transport code directly. Pure model functions remain independent of React and HTTP; for example, booking employee filtering checks that one employee supports every selected service.
@@ -323,7 +340,7 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 | Verified salon reviews | Implemented | Implemented | Connected |
 | Direct employment, leave, transfer | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
 | Administration dashboard | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
-| Salon media | API adapter and create page foundation | Not implemented | Blocked until backend persistence and routes exist |
+| Salon media | Device/Drive picker, previews, owner cover editor, public gallery, employee publisher | Cloudinary storage abstraction, signed server uploads, asset metadata and deletion | Connected; requires Cloudinary environment credentials |
 | Swagger interactive testing | Link and allowed security path | Dependency absent | Enable Springdoc/OpenAPI before using Live API Test |
 
 [[PAGEBREAK]]
@@ -1013,7 +1030,7 @@ The current product decision is to represent business outcomes through `ApiRespo
 
 | Method | Route | Purpose | Access |
 | --- | --- | --- | --- |
-| GET | `/api/salon-employees/salon/{salonId}` | List active employees and service capabilities for an accepted, unblocked salon | Authenticated user |
+| GET | `/api/salon-employees/salon/{salonId}` | List privacy-safe active employee profiles and service capabilities for an accepted, unblocked salon | Public |
 | GET | `/api/salon-employees/my-salon` | List the authenticated owner's active employees | Accepted salon owner |
 | GET | `/api/salon-employees/{employeeId}/services` | Read one owned employee's current service capabilities | Accepted salon owner |
 | PUT | `/api/salon-employees/{employeeId}/services` | Replace one owned employee's validated service-capability set | Accepted salon owner |
@@ -1164,7 +1181,7 @@ For controller and business validation failures, the API uses `{ "success": fals
 | `GET /api/salon-services/my-salon` | Accepted salon owner | None | Owned service DTO list including inactive items | No accepted owned salon |
 | `PUT /api/salon-services/{serviceId}` | Accepted salon owner | Path: `serviceId`; body: name, description, price, duration, optional `isActive` | Updated service DTO | Not owner, missing service, invalid values |
 | `DELETE /api/salon-services/{serviceId}` | Accepted salon owner | Path: `serviceId` | Disabled service DTO/message | Not owner, missing service, already inactive |
-| `GET /api/salon-employees/salon/{salonId}` | Authenticated | Path: `salonId` | Active employee DTO list with service IDs | Salon unavailable |
+| `GET /api/salon-employees/salon/{salonId}` | Public | Path: `salonId` | Privacy-safe employee DTO list with career and service details | Salon unavailable |
 | `GET /api/salon-employees/my-salon` | Accepted salon owner | None | Owned active employee DTO list | No accepted owned salon |
 | `GET /api/salon-employees/{employeeId}/services` | Accepted salon owner | Path: `employeeId` | Employee capability DTO | Employee not in owned salon |
 | `PUT /api/salon-employees/{employeeId}/services` | Accepted salon owner | Path: `employeeId`; body: `serviceIds[]` | Replaced capability DTO | Employee/service mismatch, inactive service, duplicates |
