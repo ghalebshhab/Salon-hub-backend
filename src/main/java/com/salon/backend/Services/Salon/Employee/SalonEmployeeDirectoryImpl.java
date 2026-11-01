@@ -2,6 +2,7 @@ package com.salon.backend.Services.Salon.Employee;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
+import com.salon.backend.DTOs.Salon.Employee.PublicSalonEmployeeResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.services.EmployeeServiceCapability;
@@ -29,12 +30,15 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
 
     @Override
     @Transactional(readOnly = true)
-    public ApiResponse<List<SalonEmployeeResponse>> getSalonEmployees(Long salonId) {
+    public ApiResponse<List<PublicSalonEmployeeResponse>> getSalonEmployees(Long salonId) {
         Salon salon = salonId == null ? null : salonRepo.findById(salonId).orElse(null);
         if (!isActiveSalon(salon)) {
             return ApiResponse.error("Active salon not found");
         }
-        return ApiResponse.success("Salon employees fetched successfully", findEmployees(salon));
+        return ApiResponse.success(
+                "Salon employees fetched successfully",
+                loadDirectory(salon).publicResponses()
+        );
     }
 
     @Override
@@ -44,17 +48,17 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
         if (!isActiveSalon(salon)) {
             return ApiResponse.error("An active, approved salon owned by you is required");
         }
-        return ApiResponse.success("Salon employees fetched successfully", findEmployees(salon));
+        return ApiResponse.success("Salon employees fetched successfully", loadDirectory(salon).ownerResponses());
     }
 
-    private List<SalonEmployeeResponse> findEmployees(Salon salon) {
+    private DirectoryResponses loadDirectory(Salon salon) {
         List<User> employees = userRepo.findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
                         salon.getId(),
                         UserRole.Employee,
                         UserStatus.Active
                 );
         if (employees.isEmpty()) {
-            return List.of();
+            return new DirectoryResponses(List.of(), List.of());
         }
 
         List<Long> employeeIds = employees.stream().map(User::getId).toList();
@@ -65,13 +69,15 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
                 .filter(capability -> capability.getService().getSalon().getId().equals(salon.getId()))
                 .collect(Collectors.groupingBy(capability -> capability.getEmployee().getId()));
 
-        return employees.stream()
-                .map(employee -> mapEmployee(
-                        employee,
-                        salon,
-                        capabilitiesByEmployee.getOrDefault(employee.getId(), List.of())
-                ))
+        List<SalonEmployeeResponse> ownerResponses = employees.stream()
+                .map(employee -> mapEmployee(employee, salon,
+                        capabilitiesByEmployee.getOrDefault(employee.getId(), List.of())))
                 .toList();
+        List<PublicSalonEmployeeResponse> publicResponses = employees.stream()
+                .map(employee -> mapPublicEmployee(employee,
+                        capabilitiesByEmployee.getOrDefault(employee.getId(), List.of())))
+                .toList();
+        return new DirectoryResponses(ownerResponses, publicResponses);
     }
 
     private SalonEmployeeResponse mapEmployee(
@@ -109,6 +115,34 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
                         .toList()
         );
     }
+
+    private PublicSalonEmployeeResponse mapPublicEmployee(
+            User employee,
+            List<EmployeeServiceCapability> capabilities) {
+        String firstName = employee.getFirstName() == null ? "" : employee.getFirstName().trim();
+        String lastName = employee.getLastName() == null ? "" : employee.getLastName().trim();
+        String fullName = (firstName + " " + lastName).trim();
+        if (fullName.isEmpty()) fullName = employee.getUserName();
+        List<String> skills = employee.getCareerSkills() == null
+                ? List.of()
+                : List.copyOf(employee.getCareerSkills());
+        return new PublicSalonEmployeeResponse(
+                employee.getId(),
+                fullName,
+                skills.isEmpty() ? null : skills.get(0),
+                null,
+                employee.getYearsOfExperience(),
+                skills,
+                employee.getProfessionalBio(),
+                capabilities.stream().map(capability -> capability.getService().getId()).sorted().toList(),
+                capabilities.stream().map(capability -> capability.getService().getName())
+                        .sorted(String.CASE_INSENSITIVE_ORDER).toList()
+        );
+    }
+
+    private record DirectoryResponses(
+            List<SalonEmployeeResponse> ownerResponses,
+            List<PublicSalonEmployeeResponse> publicResponses) {}
 
     private boolean isActiveSalon(Salon salon) {
         return salon != null

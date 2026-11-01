@@ -2,6 +2,7 @@ package com.salon.backend.Controllers.Salons;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
+import com.salon.backend.DTOs.Salon.Employee.PublicSalonEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeCapabilitiesResponse;
 import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeServicesRequest;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeScheduleResponse;
@@ -31,7 +32,7 @@ public class SalonEmployeeController {
     private final EmployeeScheduleManagement employeeScheduleManagement;
 
     @GetMapping("/salon/{salonId}")
-    public ApiResponse<List<SalonEmployeeResponse>> getSalonEmployees(
+    public ApiResponse<List<PublicSalonEmployeeResponse>> getSalonEmployees(
             @PathVariable Long salonId) {
         return salonEmployeeDirectory.getSalonEmployees(salonId);
     }

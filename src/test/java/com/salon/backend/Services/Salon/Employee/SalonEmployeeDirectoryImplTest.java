@@ -1,7 +1,7 @@
 package com.salon.backend.Services.Salon.Employee;
 
 import com.salon.backend.DTOs.ApiResponse;
-import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
+import com.salon.backend.DTOs.Salon.Employee.PublicSalonEmployeeResponse;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.salons.services.EmployeeServiceCapability;
@@ -54,7 +54,7 @@ class SalonEmployeeDirectoryImplTest {
                 new EmployeeServiceCapability(2L, employee, retired, LocalDateTime.now())
         ));
 
-        ApiResponse<List<SalonEmployeeResponse>> response = directory.getSalonEmployees(10L);
+        ApiResponse<List<PublicSalonEmployeeResponse>> response = directory.getSalonEmployees(10L);
 
         assertTrue(response.isSuccess());
         assertEquals(List.of(20L), response.getData().get(0).serviceIds());
@@ -67,7 +67,7 @@ class SalonEmployeeDirectoryImplTest {
         salon.setBlockedByAdmin(true);
         when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
 
-        ApiResponse<List<SalonEmployeeResponse>> response = directory.getSalonEmployees(10L);
+        ApiResponse<List<PublicSalonEmployeeResponse>> response = directory.getSalonEmployees(10L);
 
         assertFalse(response.isSuccess());
         verifyNoInteractions(userRepo, capabilityRepo);
