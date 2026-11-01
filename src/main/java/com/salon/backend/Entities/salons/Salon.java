@@ -36,6 +36,13 @@ public class Salon {
     private String email;
 
     private String location;
+
+    @Column(length = 1000)
+    private String googleMapsUrl;
+
+    private Double latitude;
+
+    private Double longitude;
     // as a salon services description  , about the salon .
     private String description;
 
@@ -56,6 +63,8 @@ public class Salon {
     private LocalTime closingTime;
 
     private String profilePictureUrl;
+
+    private String profilePicturePublicId;
 
     private SalonStatus status;
 

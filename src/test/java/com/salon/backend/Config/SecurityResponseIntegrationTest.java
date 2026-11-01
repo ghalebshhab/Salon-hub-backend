@@ -119,6 +119,8 @@ class SecurityResponseIntegrationTest {
         for (String path : new String[]{
                 "/api/auth/login",
                 "/api/salons/active",
+                "/api/salon-employees/salon/1",
+                "/api/media/salons/1/work",
                 "/api/reviews/salon/1",
                 "/api/reviews/salon/1/summary"}) {
             mockMvc.perform(get(path))
@@ -156,6 +158,8 @@ class SecurityResponseIntegrationTest {
                 "/api/dashboard/users",
                 "/api/auth/login",
                 "/api/salons/active",
+                "/api/salon-employees/salon/1",
+                "/api/media/salons/1/work",
                 "/api/reviews/salon/1",
                 "/api/reviews/salon/1/summary"})
         ApiResponse<Void> allowed() {
