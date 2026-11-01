@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -99,15 +101,27 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("Max number of employees is required and must be greater than 0");
 
         }
+        String locationError = validateMapLocation(
+                createSalonRequest.getGoogleMapsUrl(),
+                createSalonRequest.getLatitude(),
+                createSalonRequest.getLongitude()
+        );
+        if (locationError != null) {
+            return ApiResponse.error(locationError);
+        }
         Salon salon=new Salon();
         salon.setEmail(createSalonRequest.getSalonEmail());
         salon.setOpeningTime(createSalonRequest.getOpeningTime());
         salon.setClosingTime(createSalonRequest.getClosingTime());
         salon.setLocation(createSalonRequest.getSalonCity());
+        salon.setGoogleMapsUrl(normalize(createSalonRequest.getGoogleMapsUrl()));
+        salon.setLatitude(createSalonRequest.getLatitude());
+        salon.setLongitude(createSalonRequest.getLongitude());
         salon.setDescription(createSalonRequest.getSalonDescription());
         salon.setMaxEmployeesNumber(createSalonRequest.getMaxNumberOfEmployees());
         salon.setSalonPhoneNumber(createSalonRequest.getSalonPhoneNumber());
-        salon.setProfilePictureUrl(createSalonRequest.getProfilePictureUrl());
+        // Profile media is attached only through the authenticated Cloudinary route.
+        salon.setProfilePictureUrl(null);
         salon.setOwner(newUser);
         salon.setOwnerPhoneNumber(newUser.getPhoneNumber());
         salon.setStatus(SalonStatus.Requested);
@@ -217,6 +231,17 @@ public class SalonServiceImpl implements SalonService {
         else{
             return ApiResponse.error("Max number of employees is required and must be greater than 0");
         }
+        String locationError = validateMapLocation(
+                updateSalonRequest.getGoogleMapsUrl(),
+                updateSalonRequest.getLatitude(),
+                updateSalonRequest.getLongitude()
+        );
+        if (locationError != null) {
+            return ApiResponse.error(locationError);
+        }
+        salon.setGoogleMapsUrl(normalize(updateSalonRequest.getGoogleMapsUrl()));
+        salon.setLatitude(updateSalonRequest.getLatitude());
+        salon.setLongitude(updateSalonRequest.getLongitude());
         salonRepo.save(salon);
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
@@ -351,6 +376,9 @@ public class SalonServiceImpl implements SalonService {
                 salon.getSalonPhoneNumber(),
                 salon.getEmail(),
                 salon.getLocation(),
+                salon.getGoogleMapsUrl(),
+                salon.getLatitude(),
+                salon.getLongitude(),
                 salon.getDescription(),
                 owner == null ? null : owner.getId(),
                 owner == null ? null : owner.getUserName(),
@@ -367,5 +395,38 @@ public class SalonServiceImpl implements SalonService {
                 salon.getResubmissionCount(),
                 Math.max(0, MAX_RESUBMISSIONS - salon.getResubmissionCount())
         );
+    }
+
+    private String validateMapLocation(String mapsUrl, Double latitude, Double longitude) {
+        boolean hasUrl = mapsUrl != null && !mapsUrl.isBlank();
+        boolean hasLatitude = latitude != null;
+        boolean hasLongitude = longitude != null;
+        if (!hasUrl && !hasLatitude && !hasLongitude) return null;
+        if (!hasUrl || !hasLatitude || !hasLongitude) {
+            return "Google Maps URL, latitude, and longitude must be provided together";
+        }
+        if (!isGoogleMapsUrl(mapsUrl)) {
+            return "Enter a valid HTTPS Google Maps location URL";
+        }
+        if (latitude < 29.0 || latitude > 33.5 || longitude < 34.8 || longitude > 39.4) {
+            return "The selected salon location must be inside Jordan";
+        }
+        return null;
+    }
+
+    private boolean isGoogleMapsUrl(String value) {
+        try {
+            URI uri = URI.create(value.trim());
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) return false;
+            String host = uri.getHost().toLowerCase(Locale.ROOT);
+            return host.equals("google.com") || host.endsWith(".google.com")
+                    || host.equals("goo.gl") || host.endsWith(".goo.gl");
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

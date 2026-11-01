@@ -16,6 +16,9 @@ public class CreateSalonRequest {
     private String salonPhoneNumber;
     private String salonEmail;
     private String salonCity;
+    private String googleMapsUrl;
+    private Double latitude;
+    private Double longitude;
     private Long ownerId;
     private Long maxNumberOfEmployees;
     private LocalTime openingTime;

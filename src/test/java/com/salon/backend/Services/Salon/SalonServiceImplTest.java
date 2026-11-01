@@ -2,9 +2,11 @@ package com.salon.backend.Services.Salon;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.SalonResponse;
+import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
@@ -17,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -173,6 +176,34 @@ class SalonServiceImplTest {
         ApiResponse<Void> response = service.deleteSalon(salon.getId(), 99L);
 
         assertFalse(response.isSuccess());
+        verify(salonRepo, never()).save(any());
+    }
+
+    @Test
+    void salonCreationRejectsMapCoordinatesOutsideJordan() {
+        User owner = new User();
+        owner.setId(4L);
+        owner.setRole(UserRole.USER);
+        owner.setPhoneNumber("0791111111");
+        CreateSalonRequest request = new CreateSalonRequest();
+        request.setSalonName("Plum Studio");
+        request.setSalonDescription("A complete salon description");
+        request.setSalonPhoneNumber("0792222222");
+        request.setSalonEmail("studio@example.com");
+        request.setSalonCity("Amman");
+        request.setMaxNumberOfEmployees(5L);
+        request.setOpeningTime(LocalTime.of(9, 0));
+        request.setClosingTime(LocalTime.of(18, 0));
+        request.setGoogleMapsUrl("https://www.google.com/maps/@25.2048,55.2708,17z");
+        request.setLatitude(25.2048);
+        request.setLongitude(55.2708);
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
+        when(salonRepo.findByOwnerId(owner.getId())).thenReturn(null);
+
+        ApiResponse<?> response = service.createSalon(request, owner.getId());
+
+        assertFalse(response.isSuccess());
+        assertEquals("The selected salon location must be inside Jordan", response.getMessage());
         verify(salonRepo, never()).save(any());
     }
 }

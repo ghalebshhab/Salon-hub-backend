@@ -68,7 +68,7 @@ class DashboardServiceImplTest {
         salon.setStatus(SalonStatus.Requested);
 
         SalonResponse mappedResponse = new SalonResponse(
-                salon.getId(), null, null, null, null, null,
+                salon.getId(), null, null, null, null, null, null, null, null,
                 owner.getId(), null, null, null, null, null,
                 null, null, null, SalonStatus.Rejected, null,
                 "Missing license", 0, 3
