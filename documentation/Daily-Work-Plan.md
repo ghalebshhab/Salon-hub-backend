@@ -3,7 +3,7 @@
 **Plan status:** Approved  
 **Approved on:** 28 October 2026  
 **Execution branch:** `daily-work-automated`  
-**Next execution date:** No remaining approved item; a new ordered plan needs user approval
+**Next execution date:** Continue approved item 2; see its remaining work and checkout blocker
 
 This file is the ordered source of truth for the Daily SalonHub Improvement automation. The automation must execute only the first uncompleted approved item, complete its verification, update this file, and stop. It must not infer extra work from the broader product roadmap.
 
@@ -53,4 +53,28 @@ Ensure authentication and authorization failures produced by the Spring Security
 - **Frontend verification:** `npm.cmd run check` in `C:\My Work\salon-community-frontend` — ESLint passed with zero warnings, all 66 tests passed, production build passed.
 - **Documentation:** Updated the maintained product specification to 1.4.1 with the security error contract, R-13 resolution, and current test evidence.
 - **Review focus:** Confirm that unauthenticated protected requests return 401, authenticated non-admin requests to admin routes return 403, both carry `success: false`, the documented stable message, and explicit `data: null`; public routes and permitted authenticated requests remain accessible. Tests isolate filter behavior from controller business logic.
-- **Next action:** No further approved item remains. Approve and record a new ordered daily/weekly plan before another implementation run.
+- **Next action at completion of item 1:** No further item had been approved at that time. The subsequent user instruction approves item 2 below.
+
+## Approved item 2 — Public salon profile, owner media and Jordan location
+
+**Status:** In progress — user-approved November 1 priority; continued November 2, 2026.
+
+The automation instruction approves the coordinated public employees, Cloudinary storage,
+owner cover selection, owner-specific join action, Jordan Maps location, employee portfolio,
+and My Salon v0 prompt work. It supersedes the previous exhausted-plan status.
+
+Much of the initial implementation already exists in backend commits `2b973d3`, `f27a41c`,
+`3a1c81c`, `684a02a` and frontend commits `dec1eeb`, `3f07a06`. Do not duplicate those
+commits or treat their existence as complete acceptance of this priority.
+
+November 2 continuation fixes public gallery membership filtering before pagination and
+adds real database regression coverage. Inactive, departed, transferred, and non-employee
+publishers are excluded. Equal creation times use descending record ID for stable ordering.
+
+The frontend checkout contains pending user changes to salon form/location controls and
+shared styles. Preserve these; do not stage or rewrite them as automation work. Backend
+gallery filtering is independent and does not require changing the frontend API contract.
+
+See [the acceptance status and remaining work](Salon-Public-Profile-Media-Status.md).
+Keep this priority in progress until its remaining acceptance criteria are verified; only
+then return to another uncompleted user-approved plan item.
