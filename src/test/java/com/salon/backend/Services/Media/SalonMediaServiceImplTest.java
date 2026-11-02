@@ -20,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.Optional;
 
@@ -34,6 +36,32 @@ class SalonMediaServiceImplTest {
     @Mock private UserRepo userRepo;
     @Mock private EmployeeWorkMediaRepo workMediaRepo;
     @InjectMocks private SalonMediaServiceImpl service;
+
+    @Test
+    void publicGalleryUsesCurrentActiveEmployeesAndClampsPagination() {
+        Salon salon = salon(3L, user(7L, UserRole.OWNER));
+        when(salonRepo.findById(3L)).thenReturn(Optional.of(salon));
+        when(workMediaRepo.findPublicSalonWork(3L, UserRole.Employee, UserStatus.Active,
+                PageRequest.of(0, 24))).thenReturn(new PageImpl<>(java.util.List.of(), PageRequest.of(0, 24), 0));
+
+        var response = service.getSalonWorkMedia(3L, -1, 100);
+
+        assertTrue(response.isSuccess());
+        verify(workMediaRepo).findPublicSalonWork(3L, UserRole.Employee, UserStatus.Active,
+                PageRequest.of(0, 24));
+    }
+
+    @Test
+    void blockedSalonCannotExposePublicGallery() {
+        Salon salon = salon(3L, user(7L, UserRole.OWNER));
+        salon.setBlockedByOwner(true);
+        when(salonRepo.findById(3L)).thenReturn(Optional.of(salon));
+
+        var response = service.getSalonWorkMedia(3L, 0, 24);
+
+        assertFalse(response.isSuccess());
+        verifyNoInteractions(workMediaRepo);
+    }
 
     @Test
     void ownerCoverReplacementStoresCloudinaryMetadataAndDeletesThePreviousAsset() {
