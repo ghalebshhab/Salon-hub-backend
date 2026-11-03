@@ -79,8 +79,8 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         }
         int safePage = Math.max(0, page);
         int safeSize = Math.min(24, Math.max(1, size));
-        var mediaPage = workMediaRepo.findBySalonIdOrderByCreatedAtDesc(
-                salonId, PageRequest.of(safePage, safeSize));
+        var mediaPage = workMediaRepo.findPublicSalonWork(
+                salonId, UserRole.Employee, UserStatus.Active, PageRequest.of(safePage, safeSize));
         return ApiResponse.success("Salon work media fetched successfully", new EmployeeWorkMediaPageResponse(
                 mediaPage.getContent().stream().map(this::mapWorkMedia).toList(),
                 mediaPage.getNumber(),
