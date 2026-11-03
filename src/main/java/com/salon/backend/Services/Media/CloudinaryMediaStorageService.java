@@ -3,6 +3,7 @@ package com.salon.backend.Services.Media;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.Entities.media.MediaResourceType;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -34,15 +35,22 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             "googleusercontent.com");
     private static final Pattern DRIVE_FILE_PATH = Pattern.compile("/file/d/([A-Za-z0-9_-]+)");
 
-    private final RestClient restClient = RestClient.builder().build();
+    private final RestClient restClient;
     private final String cloudName;
     private final String apiKey;
     private final String apiSecret;
 
+    @Autowired
     public CloudinaryMediaStorageService(
             @Value("${cloudinary.cloud-name:}") String cloudName,
             @Value("${cloudinary.api-key:}") String apiKey,
             @Value("${cloudinary.api-secret:}") String apiSecret) {
+        this(cloudName, apiKey, apiSecret, RestClient.builder());
+    }
+
+    CloudinaryMediaStorageService(String cloudName, String apiKey, String apiSecret,
+                                 RestClient.Builder clientBuilder) {
+        this.restClient = clientBuilder.build();
         this.cloudName = cloudName == null ? "" : cloudName.trim();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.apiSecret = apiSecret == null ? "" : apiSecret.trim();
@@ -86,10 +94,16 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
 
     @Override
     public ApiResponse<Void> delete(String publicId, String resourceType) {
-        if (publicId == null || publicId.isBlank() || !isConfigured()) {
-            return ApiResponse.success("No remote asset needed deletion", null);
+        if (!isConfigured()) {
+            return ApiResponse.error("Media deletion is not configured. Add the Cloudinary environment credentials and retry.");
         }
-        String normalizedType = "video".equalsIgnoreCase(resourceType) ? "video" : "image";
+        if (publicId == null || publicId.isBlank()) {
+            return ApiResponse.error("The stored media asset identifier is missing.");
+        }
+        if (!"image".equalsIgnoreCase(resourceType) && !"video".equalsIgnoreCase(resourceType)) {
+            return ApiResponse.error("The stored media resource type is not supported.");
+        }
+        String normalizedType = resourceType.toLowerCase(Locale.ROOT);
         long timestamp = Instant.now().getEpochSecond();
         String parameters = "invalidate=true&public_id=" + publicId + "&timestamp=" + timestamp;
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
@@ -99,12 +113,16 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
         body.add("api_key", apiKey);
         body.add("signature", sha1(parameters + apiSecret));
         try {
-            restClient.post()
+            Map<?, ?> response = restClient.post()
                     .uri("https://api.cloudinary.com/v1_1/{cloud}/{type}/destroy", cloudName, normalizedType)
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body(body)
                     .retrieve()
-                    .toBodilessEntity();
+                    .body(Map.class);
+            if (response == null || !("ok".equals(response.get("result"))
+                    || "not found".equals(response.get("result")))) {
+                return ApiResponse.error("Cloudinary did not confirm deletion of the stored media. Please retry.");
+            }
             return ApiResponse.success("Media deleted", null);
         } catch (Exception exception) {
             return ApiResponse.error("The stored media could not be deleted from Cloudinary.");
@@ -168,7 +186,10 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             return image ? "Images must be 8 MB or smaller." : "Videos must be 40 MB or smaller.";
         }
         try {
-            byte[] header = file.getInputStream().readNBytes(16);
+            byte[] header;
+            try (var input = file.getInputStream()) {
+                header = input.readNBytes(16);
+            }
             if (!matchesSignature(header, contentType)) {
                 return "The selected file contents do not match its declared media type.";
             }

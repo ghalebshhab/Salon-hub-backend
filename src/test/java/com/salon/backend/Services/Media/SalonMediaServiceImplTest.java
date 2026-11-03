@@ -125,6 +125,23 @@ class SalonMediaServiceImplTest {
     }
 
     @Test
+    void failedProviderDeletionPreservesTheDatabaseRecordForRetry() {
+        EmployeeWorkMedia media = new EmployeeWorkMedia();
+        media.setPublicId("salonhub/work");
+        media.setResourceType(MediaResourceType.IMAGE);
+        when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.of(media));
+        when(storageService.delete("salonhub/work", "image"))
+                .thenReturn(ApiResponse.error("Media deletion is not configured."));
+
+        var response = service.deleteWorkMedia(11L, 55L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Media deletion is not configured.", response.getMessage());
+        verify(workMediaRepo, never()).delete(any());
+        assertEquals("salonhub/work", media.getPublicId());
+    }
+
+    @Test
     void employeeCannotDeleteAnotherEmployeesMedia() {
         when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.empty());
 
