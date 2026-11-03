@@ -31,16 +31,17 @@ These remain part of the approved priority, not a claim that the feature is comp
 
 - Public employee DTOs and gallery responses still contain internal employee IDs; remove
   these from public contracts and adapt rendering keys without exposing private data.
-- Cloudinary provider HTTP behavior has no dedicated mocked-provider test suite. Existing
-  media-service tests mock the abstraction, not the provider's signatures/requests/responses.
+- Cloudinary HTTP request signing and response/error handling now have mocked-provider
+  coverage (November 3). Live-provider acceptance still requires real backend credentials.
 - The provider enforces byte limits and signatures but lacks image dimension and video
   duration limits. Remote imports bypass local byte/signature validation and need equivalent
   verified metadata/format limits with cleanup for rejected assets.
 - Remote URL validation allows broad Google-host subdomains and arbitrary ports. Restrict
   inputs and verify SSRF/redirect handling before treating Drive imports as production-ready.
 - Cover replacement ignores failure when removing the previous asset. Durable cleanup and
-  transaction-failure/orphan handling remain necessary; unconfigured deletion currently
-  reports success and must not lose the information needed for later cleanup.
+  transaction-failure/orphan handling remain necessary. Unconfigured or unconfirmed deletion
+  now reports an error; explicit gallery deletion retains the record for retry. Replacement
+  currently ignores that error, so durable replacement cleanup is still an open gap.
 - Cover persistence stores URL and public ID only; complete the required cover metadata and
   video duration persistence. No versioned migration framework currently exists; the project
   uses Hibernate schema update, so document schema changes and deployment requirements.
@@ -101,3 +102,51 @@ frontend branch alone. The existing v0 prompt was inspected and retained.
   elevated execution. No tests or assertions were weakened.
 - Changed source and documentation were reviewed for secrets and generated artifacts;
   verification logs and build outputs are excluded from commits.
+
+## November 3 continuation — provider deletion correctness
+
+Implementation commit: `b95d6146f43ed05bfd77036a10b30e4a7a6e6fde`.
+
+The provider no longer reports deletion success when credentials are unavailable, the
+stored public ID is missing, the resource type is unsupported, or the provider response
+is empty, malformed or unconfirmed. Only `ok` and `not found` destroy results permit
+success; the latter makes retries safe if an earlier request deleted the remote asset
+but the database record remained. HTTP errors return clear ApiResponse messages without
+provider response details. Upload signature inspection now closes the file input stream.
+No endpoint permission, schema or frontend contract changes were needed.
+
+The implementation follows the signed destroy/upload request contracts in the
+[Cloudinary Upload API reference](https://cloudinary.com/documentation/image_upload_api_reference).
+The production constructor retains environment-based configuration. A package-visible
+constructor accepts a RestClient builder so tests intercept HTTP without live credentials.
+
+Changed files in this continuation:
+
+- `src/main/java/com/salon/backend/Services/Media/CloudinaryMediaStorageService.java`
+- `src/test/java/com/salon/backend/Services/Media/CloudinaryMediaStorageServiceTest.java`
+- `src/test/java/com/salon/backend/Services/Media/SalonMediaServiceImplTest.java`
+- `documentation/Daily-Work-Plan.md`
+- This status document.
+
+Verification: focused provider/service tests passed 20/20; full `mvn.cmd verify` passed
+150 tests with no failures/errors/skips and packaged the executable JAR. Provider tests
+exercise multipart and form signing, image/video metadata mapping, Drive normalization,
+invalid inputs, provider HTTP failures and ambiguous deletion responses. A service test
+proves failed deletion retains the database record and public ID for retry.
+
+Frontend `npm.cmd run check` also passed ESLint with zero warnings, all 75 tests, and
+the production build. This includes preserved pending user edits, not a clean-commit
+reproducibility claim. No backend lint command is configured. `git diff --check` passed;
+credential-pattern and artifact review excluded secrets, local configuration and outputs.
+
+Review/setup: configure the three backend Cloudinary variables documented above and
+restart the backend. Publish an employee work item in staging, temporarily remove provider
+configuration, and confirm deletion fails while preserving the entry. Restore configuration
+and retry; confirm the entry and remote asset are removed. Never commit credential values.
+No Cloudinary assignments were found in process environment, local `.env`, or local backend
+properties during this run, so no live upload or deletion was claimed. No Google credentials
+were added or picker integration verified; the existing external Maps/Drive fallback remains.
+
+The user's overlapping frontend edits remain untouched. Continue the remaining acceptance
+gaps above, particularly durable replacement cleanup and remote-import validation, on the
+same persistent branches. The overall coordinated priority remains in progress.

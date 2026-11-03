@@ -57,7 +57,7 @@ Ensure authentication and authorization failures produced by the Spring Security
 
 ## Approved item 2 — Public salon profile, owner media and Jordan location
 
-**Status:** In progress — user-approved November 1 priority; continued November 2, 2026.
+**Status:** In progress — user-approved November 1 priority; continued November 3, 2026.
 
 The automation instruction approves the coordinated public employees, Cloudinary storage,
 owner cover selection, owner-specific join action, Jordan Maps location, employee portfolio,
@@ -76,5 +76,12 @@ shared styles. Preserve these; do not stage or rewrite them as automation work. 
 gallery filtering is independent and does not require changing the frontend API contract.
 
 See [the acceptance status and remaining work](Salon-Public-Profile-Media-Status.md).
+
+November 3 continuation adds mocked HTTP coverage for the Cloudinary provider's signed
+upload and destroy requests. Deletion now requires configuration, a stored identifier,
+a supported resource type, and a confirmed provider result. Failed deletion preserves
+employee gallery records for retry. Replacement cleanup and the other listed acceptance
+gaps remain open; this continuation does not mark the coordinated feature complete.
+
 Keep this priority in progress until its remaining acceptance criteria are verified; only
 then return to another uncompleted user-approved plan item.
