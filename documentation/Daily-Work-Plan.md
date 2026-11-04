@@ -57,7 +57,7 @@ Ensure authentication and authorization failures produced by the Spring Security
 
 ## Approved item 2 — Public salon profile, owner media and Jordan location
 
-**Status:** In progress — user-approved November 1 priority; continued November 3, 2026.
+**Status:** In progress — user-approved November 1 priority; continued November 4, 2026.
 
 The automation instruction approves the coordinated public employees, Cloudinary storage,
 owner cover selection, owner-specific join action, Jordan Maps location, employee portfolio,
@@ -85,3 +85,10 @@ gaps remain open; this continuation does not mark the coordinated feature comple
 
 Keep this priority in progress until its remaining acceptance criteria are verified; only
 then return to another uncompleted user-approved plan item.
+
+November 4 continuation restricts remote imports to recognized HTTPS Drive file share
+links and canonicalizes them to a fixed download endpoint. Arbitrary Google-host paths,
+subdomains, ports, redirect targets and ambiguous IDs no longer reach Cloudinary.
+Pending dashboard edits now exist in both original checkouts on their default branches.
+They remain untouched; backend automation uses the existing `daily-work-automated`
+branch in an isolated worktree, with no new branch or default-branch merge.

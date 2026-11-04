@@ -36,8 +36,9 @@ These remain part of the approved priority, not a claim that the feature is comp
 - The provider enforces byte limits and signatures but lacks image dimension and video
   duration limits. Remote imports bypass local byte/signature validation and need equivalent
   verified metadata/format limits with cleanup for rejected assets.
-- Remote URL validation allows broad Google-host subdomains and arbitrary ports. Restrict
-  inputs and verify SSRF/redirect handling before treating Drive imports as production-ready.
+- Remote URL input restrictions were tightened on November 4 (see below). Provider-side
+  redirect behavior and imported asset metadata/limits still require acceptance before
+  treating Drive imports as production-ready.
 - Cover replacement ignores failure when removing the previous asset. Durable cleanup and
   transaction-failure/orphan handling remain necessary. Unconfigured or unconfirmed deletion
   now reports an error; explicit gallery deletion retains the record for retry. Replacement
@@ -150,3 +151,56 @@ were added or picker integration verified; the existing external Maps/Drive fall
 The user's overlapping frontend edits remain untouched. Continue the remaining acceptance
 gaps above, particularly durable replacement cleanup and remote-import validation, on the
 same persistent branches. The overall coordinated priority remains in progress.
+
+## November 4 continuation — canonical Drive file imports
+
+The provider accepts only HTTPS `drive.google.com` and `docs.google.com` file links:
+`/file/d/{id}` (optional view/preview/edit suffix), `/open?id={id}`, or `/uc?id={id}`.
+Only the default HTTPS port or explicit 443 is accepted. Every accepted input becomes
+`https://drive.google.com/uc?export=download&id={id}` with an ASCII file identifier.
+Caller-supplied sharing parameters and redirect targets are discarded. Arbitrary paths,
+Google subdomains, raw googleusercontent URLs, embedded credentials, fragments, encoded
+path separators and duplicate query IDs are rejected through the existing ApiResponse
+error convention. Device uploads, authorization and schema are unchanged.
+
+This limits the caller-controlled fetch destination; it does not establish provider-side
+redirect or content validation. Cloudinary performs the remote fetch, and its actual
+Drive redirect behavior remains unverified without credentials. Imported format, byte,
+dimension and duration limits and durable rejected-asset cleanup remain open.
+
+Changed files:
+
+- `src/main/java/com/salon/backend/Services/Media/CloudinaryMediaStorageService.java`
+- `src/test/java/com/salon/backend/Services/Media/CloudinaryMediaStorageServiceTest.java`
+- `documentation/Daily-Work-Plan.md`
+- This status document.
+
+The 27 new parameterized cases assert exact normalized multipart input for supported
+links and zero provider requests for rejected links.
+
+Implementation commit: `8e7e76c` (`fix(media): canonicalize and restrict Google Drive import URLs`).
+Verification: `mvn.cmd verify` passed 177 tests with zero failures/errors/skips and
+packaged the executable JAR. Frontend `npm.cmd run check` passed ESLint with zero
+warnings, 82 tests and the production build. No backend lint command is configured.
+`git diff --check` passed. Reviewed the exact source/test diff and credential fixtures;
+no real credentials, local configuration, logs or generated outputs are committed.
+
+Both origins were fetched. The backend persistent daily branch was clean and already
+aligned; it was checked out in `C:/My Work/SalonBookingv2/daily-backend` using a linked
+worktree. The frontend daily branch was also aligned. Original backend/master and
+frontend/main checkouts contain pending owner-dashboard/navigation/auth work and remain
+untouched. No new branch, default-branch merge, reset, rebase or history rewriting.
+Frontend validation includes the pending user edits and cannot establish committed-branch
+reproducibility. No frontend source or configuration is included in automation commits.
+
+No process Cloudinary variables or matching assignments in the original backend local
+configuration were found; no live upload was attempted. No Google credentials were added
+or verified; the committed frontend now includes the user's Maps picker, whose live
+credential setup remains unverified. No official Drive picker was added.
+
+Review/setup: configure the three backend Cloudinary variables in the deployment
+environment and restart. In staging, test a public Drive file share URL, `open?id` and
+`uc?id`; confirm successful imports retain a Cloudinary delivery URL. Try a subdomain,
+nonstandard port or Google redirect path and confirm an ApiResponse error before any
+provider call. Review remaining gaps above before accepting the coordinated feature.
+Keep the existing My Salon v0 prompt for user review before final redesign integration.
