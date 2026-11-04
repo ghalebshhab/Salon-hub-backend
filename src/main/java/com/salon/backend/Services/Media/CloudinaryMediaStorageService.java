@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -31,9 +32,8 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             "image/jpeg", "image/png", "image/webp", "image/gif");
     private static final Set<String> VIDEO_TYPES = Set.of("video/mp4", "video/webm");
     private static final Set<String> REMOTE_HOSTS = Set.of(
-            "drive.google.com", "docs.google.com", "lh3.googleusercontent.com",
-            "googleusercontent.com");
-    private static final Pattern DRIVE_FILE_PATH = Pattern.compile("/file/d/([A-Za-z0-9_-]+)");
+            "drive.google.com", "docs.google.com");
+    private static final Pattern DRIVE_FILE_PATH = Pattern.compile("/file/d/([A-Za-z0-9_-]+)(?:/(?:view|preview|edit))?/?");
 
     private final RestClient restClient;
     private final String cloudName;
@@ -81,7 +81,7 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
         }
         String normalized = normalizeRemoteUrl(url);
         if (normalized == null) {
-            return ApiResponse.error("Enter a valid public HTTPS Google Drive image or video link.");
+            return ApiResponse.error("Enter a public HTTPS Google Drive file share link (file/d, open?id, or uc?id).");
         }
         try {
             MultiValueMap<String, Object> body = signedBody(folder);
@@ -212,17 +212,31 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
     private String normalizeRemoteUrl(String value) {
         try {
             URI uri = URI.create(value == null ? "" : value.trim());
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null) return null;
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null
+                    || (uri.getPort() != -1 && uri.getPort() != 443)
+                    || uri.getRawFragment() != null) return null;
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            boolean allowed = REMOTE_HOSTS.stream().anyMatch(allowedHost -> host.equals(allowedHost) || host.endsWith("." + allowedHost));
-            if (!allowed) return null;
-            if (host.equals("drive.google.com")) {
-                Matcher matcher = DRIVE_FILE_PATH.matcher(uri.getPath() == null ? "" : uri.getPath());
-                if (matcher.find()) {
-                    return "https://drive.google.com/uc?export=download&id=" + matcher.group(1);
+            if (!REMOTE_HOSTS.contains(host)) return null;
+
+            // Never forward a caller-controlled path, query or redirect target to the provider.
+            // Share URLs identify a file only; all accepted forms become this fixed endpoint.
+            String fileId = null;
+            Matcher matcher = DRIVE_FILE_PATH.matcher(uri.getRawPath() == null ? "" : uri.getRawPath());
+            if (matcher.matches()) {
+                fileId = matcher.group(1);
+            } else if ("/open".equals(uri.getRawPath()) || "/uc".equals(uri.getRawPath())) {
+                String query = uri.getRawQuery();
+                if (query == null) return null;
+                for (String parameter : query.split("&", -1)) {
+                    String[] pair = parameter.split("=", 2);
+                    if ("id".equals(URLDecoder.decode(pair[0], StandardCharsets.UTF_8))) {
+                        if (fileId != null || pair.length != 2) return null;
+                        fileId = URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
+                    }
                 }
             }
-            return uri.toASCIIString();
+            if (fileId == null || !fileId.matches("[A-Za-z0-9_-]+")) return null;
+            return "https://drive.google.com/uc?export=download&id=" + fileId;
         } catch (Exception exception) {
             return null;
         }

@@ -187,6 +187,60 @@ class CloudinaryMediaStorageServiceTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://drive.google.com/file/d/abc_123/view?usp=sharing",
+            "https://docs.google.com/file/d/abc_123/preview",
+            "https://DRIVE.GOOGLE.COM:443/file/d/abc_123/",
+            "https://drive.google.com/open?id=abc_123&redirect=https%3A%2F%2F127.0.0.1",
+            "https://drive.google.com/uc?export=download&id=abc_123&confirm=anything"
+    })
+    void acceptedDriveLinksDiscardUntrustedUrlComponents(String url) {
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andExpect(request -> assertEquals("https://drive.google.com/uc?export=download&id=abc_123",
+                        multipartField(((MockClientHttpRequest) request).getBodyAsString(), "file")))
+                .andRespond(withSuccess("""
+                        {"secure_url":"https://res.cloudinary.com/test-cloud/image/upload/work.png",
+                         "public_id":"salonhub/work", "resource_type":"image"}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertTrue(service.uploadRemote(url, "salonhub").isSuccess());
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://drive.google.com:8443/file/d/abc/view",
+            "https://drive.google.com:0/file/d/abc/view",
+            "https://user:password@drive.google.com/file/d/abc/view",
+            "https://drive.google.com.evil.example/file/d/abc/view",
+            "https://evil.drive.google.com/file/d/abc/view",
+            "https://lh3.googleusercontent.com/arbitrary",
+            "https://googleusercontent.com/arbitrary",
+            "https://drive.google.com/url?url=http://127.0.0.1",
+            "https://docs.google.com/document/d/abc/edit",
+            "https://drive.google.com/file/d/abc/view/extra",
+            "https://drive.google.com/prefix/file/d/abc/view",
+            "https://drive.google.com/file/d/abc/view#fragment",
+            "https://drive.google.com/file/d/abc%2Fdef/view",
+            "https://drive.google.com/open?id=abc&id=def",
+            "https://drive.google.com/open?id=abc&%69d=def",
+            "https://drive.google.com/open?id=",
+            "https://drive.google.com/open?id=abc%26url%3Dhttp%3A%2F%2F127.0.0.1",
+            "https://drive.google.com/uc?export=download",
+            "https://127.0.0.1/file/d/abc/view",
+            "https://[::1]/file/d/abc/view",
+            "file:///etc/passwd",
+            "not a URI"
+    })
+    void unsafeOrUnsupportedRemoteLinksNeverReachProvider(String url) {
+        var response = service.uploadRemote(url, "salonhub");
+        assertFalse(response.isSuccess());
+        assertNull(response.getData());
+        assertTrue(response.getMessage().contains("Google Drive file share link"));
+        server.verify();
+    }
+
     private MockMultipartFile image() {
         return new MockMultipartFile("file", "work.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47});
     }
