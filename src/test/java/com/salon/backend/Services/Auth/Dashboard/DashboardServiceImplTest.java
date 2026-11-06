@@ -92,6 +92,36 @@ class DashboardServiceImplTest {
     }
 
     @Test
+    void acceptingSalonPromotesTheLockedOwnerToOwnerRole() {
+        User owner = new User();
+        owner.setId(12L);
+        owner.setEmail("owner@example.com");
+        owner.setRole(UserRole.USER);
+        owner.setStatus(UserStatus.Active);
+
+        Salon salon = new Salon();
+        salon.setId(9L);
+        salon.setOwner(owner);
+        salon.setStatus(SalonStatus.Requested);
+        salon.setRejectionReason("Previous reason");
+
+        when(salonRepo.findByIdForUpdate(salon.getId())).thenReturn(Optional.of(salon));
+        when(userRepo.findByIdForUpdate(owner.getId())).thenReturn(Optional.of(owner));
+        when(salonService.getSalonByOwnerId(owner.getId()))
+                .thenReturn(ApiResponse.success("Salon fetched", null));
+
+        ApiResponse<SalonResponse> response = service.acceptSalonRequest(salon.getId(), ADMIN_ID);
+
+        assertTrue(response.isSuccess());
+        assertEquals(UserRole.OWNER, owner.getRole());
+        assertEquals(SalonStatus.Accepted, salon.getStatus());
+        assertNull(salon.getRejectionReason());
+        verify(userRepo).saveAndFlush(owner);
+        verify(salonRepo).saveAndFlush(salon);
+        verify(salonNotificationService).notifyRequestAccepted(salon);
+    }
+
+    @Test
     void blockingOwnerTemporarilyDisablesOwnedSalon() {
         User owner = new User();
         owner.setId(15L);

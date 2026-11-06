@@ -90,12 +90,24 @@ public class DashboardServiceImpl implements DashboardService {
         if(salon.getStatus()!=SalonStatus.Requested){
             return ApiResponse.error("Salon not requested");
         }
+
+        User salonOwner = salon.getOwner();
+        if (salonOwner == null || salonOwner.getId() <= 0) {
+            return ApiResponse.error("Salon owner not found");
+        }
+
+        Optional<User> optionalOwner = userRepo.findByIdForUpdate(salonOwner.getId());
+        if (optionalOwner.isEmpty()) {
+            return ApiResponse.error("Salon owner not found");
+        }
+
+        User owner = optionalOwner.get();
         salon.setStatus(SalonStatus.Accepted);
         salon.setRejectionReason(null);
-        salonRepo.save(salon);
-        User owner = salon.getOwner();
         owner.setRole(UserRole.OWNER);
-        userRepo.save(owner);
+
+        userRepo.saveAndFlush(owner);
+        salonRepo.saveAndFlush(salon);
         salonNotificationService.notifyRequestAccepted(salon);
 
         ApiResponse<SalonResponse> salonResponse =
