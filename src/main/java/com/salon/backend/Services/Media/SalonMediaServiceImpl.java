@@ -55,8 +55,12 @@ public class SalonMediaServiceImpl implements SalonMediaService {
             Long employeeId, MultipartFile file, String caption) {
         User employee = activeEmployee(employeeId);
         if (employee == null) return ApiResponse.error("Only an active salon employee can publish work media.");
+        String normalizedCaption = normalizeCaption(caption);
+        if (normalizedCaption != null && normalizedCaption.length() > 300) {
+            return ApiResponse.error("A work-media caption cannot exceed 300 characters.");
+        }
         ApiResponse<MediaUploadResult> uploaded = storageService.upload(file, "salonhub/employee-work");
-        return saveWorkMedia(employee, uploaded, caption);
+        return saveWorkMedia(employee, uploaded, normalizedCaption);
     }
 
     @Override
@@ -65,8 +69,12 @@ public class SalonMediaServiceImpl implements SalonMediaService {
             Long employeeId, String url, String caption) {
         User employee = activeEmployee(employeeId);
         if (employee == null) return ApiResponse.error("Only an active salon employee can publish work media.");
+        String normalizedCaption = normalizeCaption(caption);
+        if (normalizedCaption != null && normalizedCaption.length() > 300) {
+            return ApiResponse.error("A work-media caption cannot exceed 300 characters.");
+        }
         ApiResponse<MediaUploadResult> uploaded = storageService.uploadRemote(url, "salonhub/employee-work");
-        return saveWorkMedia(employee, uploaded, caption);
+        return saveWorkMedia(employee, uploaded, normalizedCaption);
     }
 
     @Override
@@ -122,14 +130,15 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         return ApiResponse.success("Salon profile picture updated", mapUpload(result));
     }
 
+    private String normalizeCaption(String caption) {
+        if (caption == null) return null;
+        String trimmed = caption.trim();
+        return trimmed.isBlank() ? null : trimmed;
+    }
+
     private ApiResponse<EmployeeWorkMediaResponse> saveWorkMedia(
-            User employee, ApiResponse<MediaUploadResult> uploaded, String caption) {
+            User employee, ApiResponse<MediaUploadResult> uploaded, String normalizedCaption) {
         if (!uploaded.isSuccess()) return ApiResponse.error(uploaded.getMessage());
-        String normalizedCaption = caption == null ? null : caption.trim();
-        if (normalizedCaption != null && normalizedCaption.length() > 300) {
-            storageService.delete(uploaded.getData().publicId(), uploaded.getData().resourceType().name().toLowerCase());
-            return ApiResponse.error("A work-media caption cannot exceed 300 characters.");
-        }
         MediaUploadResult result = uploaded.getData();
         EmployeeWorkMedia media = new EmployeeWorkMedia();
         media.setSalon(employee.getSalon());
@@ -137,7 +146,7 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         media.setSecureUrl(result.secureUrl());
         media.setPublicId(result.publicId());
         media.setResourceType(result.resourceType());
-        media.setCaption(normalizedCaption == null || normalizedCaption.isBlank() ? null : normalizedCaption);
+        media.setCaption(normalizedCaption);
         media.setWidth(result.width());
         media.setHeight(result.height());
         media.setBytes(result.bytes());

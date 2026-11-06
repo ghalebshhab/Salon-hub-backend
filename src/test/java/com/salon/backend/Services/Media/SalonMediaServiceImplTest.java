@@ -14,6 +14,11 @@ import com.salon.backend.Repositories.Media.EmployeeWorkMediaRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -150,6 +155,72 @@ class SalonMediaServiceImplTest {
         assertFalse(response.isSuccess());
         verifyNoInteractions(storageService);
         verify(workMediaRepo, never()).delete(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void oversizedCaptionIsRejectedBeforeAnyProviderOperation(boolean drive) {
+        User employee = user(11L, UserRole.Employee);
+        employee.setSalon(salon(3L, user(7L, UserRole.OWNER)));
+        when(userRepo.findById(11L)).thenReturn(Optional.of(employee));
+
+        var response = publish(drive, "  " + "x".repeat(301) + "  ");
+
+        assertFalse(response.isSuccess());
+        assertEquals("A work-media caption cannot exceed 300 characters.", response.getMessage());
+        assertNull(response.getData());
+        verifyNoInteractions(storageService, workMediaRepo);
+    }
+
+    @ParameterizedTest
+    @MethodSource("acceptedCaptions")
+    void acceptedCaptionIsNormalizedAndSavedForBothUploadSources(String caption) {
+        User employee = user(11L, UserRole.Employee);
+        employee.setSalon(salon(3L, user(7L, UserRole.OWNER)));
+        when(userRepo.findById(11L)).thenReturn(Optional.of(employee));
+        MediaUploadResult uploaded = new MediaUploadResult(
+                "https://res.cloudinary.com/demo/image/upload/work.webp",
+                "salonhub/work-1", MediaResourceType.IMAGE, 900, 900, 4500L);
+        when(storageService.upload(any(), eq("salonhub/employee-work")))
+                .thenReturn(ApiResponse.success("Uploaded", uploaded));
+        when(storageService.uploadRemote(anyString(), eq("salonhub/employee-work")))
+                .thenReturn(ApiResponse.success("Uploaded", uploaded));
+
+        assertTrue(publish(false, caption).isSuccess());
+        assertTrue(publish(true, caption).isSuccess());
+
+        ArgumentCaptor<EmployeeWorkMedia> captor = ArgumentCaptor.forClass(EmployeeWorkMedia.class);
+        verify(workMediaRepo, times(2)).save(captor.capture());
+        String expected = caption == null || caption.trim().isBlank() ? null : caption.trim();
+        for (EmployeeWorkMedia saved : captor.getAllValues()) {
+            assertEquals(expected, saved.getCaption());
+            assertEquals(employee, saved.getEmployee());
+            assertEquals(employee.getSalon(), saved.getSalon());
+        }
+        verify(storageService, never()).delete(anyString(), anyString());
+    }
+
+    static Stream<String> acceptedCaptions() {
+        return Stream.of(null, "   ", "  Soft balayage  ", "  " + "x".repeat(300) + "  ");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void unauthorizedPublisherIsRejectedBeforeCaptionValidationOrUpload(boolean drive) {
+        when(userRepo.findById(11L)).thenReturn(Optional.empty());
+
+        var response = publish(drive, "x".repeat(301));
+
+        assertFalse(response.isSuccess());
+        assertEquals("Only an active salon employee can publish work media.", response.getMessage());
+        verifyNoInteractions(storageService, workMediaRepo);
+    }
+
+    private ApiResponse<EmployeeWorkMediaResponse> publish(boolean drive, String caption) {
+        return drive
+                ? service.addWorkMediaFromDrive(11L, "https://drive.google.com/file/d/work/view", caption)
+                : service.addWorkMedia(11L,
+                        new MockMultipartFile("file", "work.webp", "image/webp", new byte[]{1}), caption);
     }
 
     private User user(Long id, UserRole role) {
