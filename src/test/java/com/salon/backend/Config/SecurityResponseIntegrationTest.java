@@ -115,6 +115,24 @@ class SecurityResponseIntegrationTest {
     }
 
     @Test
+    void salonOwnerCanReachOwnerDashboardEndpoint() throws Exception {
+        String token = tokenFor(UserRole.OWNER, UserStatus.Active);
+
+        mockMvc.perform(get("/api/owner/dashboard").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void regularUserCannotReachOwnerDashboardEndpoint() throws Exception {
+        String token = tokenFor(UserRole.USER, UserStatus.Active);
+
+        mockMvc.perform(get("/api/owner/dashboard").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void publicEndpointsRemainAccessibleWithoutAuthentication() throws Exception {
         for (String path : new String[]{
                 "/api/auth/login",
@@ -156,6 +174,7 @@ class SecurityResponseIntegrationTest {
         @GetMapping({
                 "/api/salons/mine",
                 "/api/dashboard/users",
+                "/api/owner/dashboard",
                 "/api/auth/login",
                 "/api/salons/active",
                 "/api/salon-employees/salon/1",

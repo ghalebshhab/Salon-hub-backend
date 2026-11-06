@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/dashboard/salons/**", "/api/dashboard/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/owner/dashboard").hasRole("OWNER")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/bookings/my-salon",
