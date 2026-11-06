@@ -58,7 +58,7 @@ public class SecurityConfig {
                                 "/api/auth/password/reset",
                                 "/api/dashboard/login")
                         .permitAll()
-                        .requestMatchers("/api/dashboard/salons/**", "/api/dashboard/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/owner/dashboard").hasRole("OWNER")
                         .requestMatchers(

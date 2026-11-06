@@ -3,6 +3,7 @@ package com.salon.backend.Controllers.Dashboard;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginRequest;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginResponse;
+import com.salon.backend.DTOs.Auth.Dashboard.DashboardSessionResponse;
 import com.salon.backend.DTOs.Salon.SalonApprovalRequest;
 import com.salon.backend.DTOs.Salon.SalonRejectionRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
@@ -29,6 +30,15 @@ public class DashboardController {
     @PostMapping("/login")
     public ApiResponse<DashboardLoginResponse> login(@RequestBody DashboardLoginRequest dashboardLoginRequest) {
         return dashboardService.DashboardLogin(dashboardLoginRequest);
+    }
+
+    @GetMapping("/session")
+    public ApiResponse<DashboardSessionResponse> session(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return ApiResponse.success(
+                "Admin session active",
+                new DashboardSessionResponse(currentUser.getId(), currentUser.getEmail(), "ADMIN")
+        );
     }
 
     // Salons
