@@ -57,7 +57,7 @@ Ensure authentication and authorization failures produced by the Spring Security
 
 ## Approved item 2 — Public salon profile, owner media and Jordan location
 
-**Status:** In progress — user-approved November 1 priority; continued November 4, 2026.
+**Status:** In progress — user-approved November 1 priority; continued November 6, 2026.
 
 The automation instruction approves the coordinated public employees, Cloudinary storage,
 owner cover selection, owner-specific join action, Jordan Maps location, employee portfolio,
@@ -92,3 +92,17 @@ subdomains, ports, redirect targets and ambiguous IDs no longer reach Cloudinary
 Pending dashboard edits now exist in both original checkouts on their default branches.
 They remain untouched; backend automation uses the existing `daily-work-automated`
 branch in an isolated worktree, with no new branch or default-branch merge.
+
+
+November 6 continuation moves work-media caption normalization and the existing 300-character
+limit before either device upload or Drive import, after employee authorization. Rejected
+captions no longer consume provider uploads or depend on best-effort deletion. No schema
+or HTTP contract change is required. Replacement cleanup and transaction-orphan recovery
+remain open; this is not completion of the coordinated priority.
+
+Both original application checkouts are now clean. Automation reuses the backend daily
+worktree and selected the existing frontend daily branch with an ff-only update. The
+public employee ID gap needs coordinated booking changes: the public employee endpoint
+also feeds customer employee selection, so simply deleting IDs breaks assignment. Gallery
+ownership controls also compare employee IDs. Preserve both behaviors when replacing
+these contracts; do not treat a React key-only change as a privacy fix.

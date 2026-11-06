@@ -204,3 +204,54 @@ environment and restart. In staging, test a public Drive file share URL, `open?i
 nonstandard port or Google redirect path and confirm an ApiResponse error before any
 provider call. Review remaining gaps above before accepting the coordinated feature.
 Keep the existing My Salon v0 prompt for user review before final redesign integration.
+
+
+## November 6 continuation — validate captions before upload
+
+Device and Drive employee-work creation now normalize captions and enforce the existing
+300-character limit after employee authorization but before calling media storage. Previously,
+a rejected caption uploaded an asset first and then attempted deletion without preserving
+a failed cleanup. The new path creates no remote asset and writes no gallery record for
+an oversized caption. Blank captions still store null; surrounding whitespace is trimmed;
+300 normalized characters remain valid. Existing ApiResponse messages are preserved.
+No endpoint, schema, provider configuration, or frontend contract changes are needed.
+
+Regression coverage exercises both sources, no provider/database interactions for rejected
+captions, the trimmed 300-character boundary, null/blank captions, normalization, and
+preserved authorization precedence. Durable replacement/rejected-cover cleanup and database
+transaction orphan recovery remain open and are not solved by this prevention fix.
+
+The public-directory privacy gap remains open: customer booking uses the same public
+employee response IDs for eligibility and assignment. The gallery compares employee IDs
+for delete controls. Remove employee identifiers only with coordinated booking and ownership
+contracts and regression coverage; removing the field alone would break those workflows.
+
+Checkout note superseding previous pending-edit constraints: both original application
+checkouts were clean at inspection (backend master e297c3c; frontend main 92ab732).
+Both origins were fetched. Automation reused the clean backend linked worktree and selected
+the existing frontend daily branch, with safe ff-only updates. No new branch, default-branch
+merge or history rewriting occurred. Frontend daily source remains unchanged.
+
+No Cloudinary environment variables or matching local backend assignments were found; no
+live upload was attempted. No Google credentials were added or verified. Drive share-link
+and external Maps fallbacks remain; official Drive/embedded Maps credential acceptance is
+still unverified. The existing My Salon v0 prompt remains available for review.
+
+Changed files: SalonMediaServiceImpl.java, SalonMediaServiceImplTest.java,
+Daily-Work-Plan.md and this status document.
+
+Review/setup: configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET
+only in the backend environment and restart. As an active employee in staging, submit
+301-character captions to POST /api/media/work and POST /api/media/work/drive. Both should
+return the existing caption error without making a Cloudinary request or saving a gallery
+record. Submit a trimmed 300-character caption and confirm publication succeeds. Full live
+provider and coordinated feature acceptance still require the remaining gaps listed above.
+
+
+Verification: mvn.cmd -B verify passed all 185 tests with zero failures, errors or skips,
+and packaged the executable JAR. The eight new caption regressions passed. Frontend
+npm.cmd run check on the clean, unchanged daily branch passed ESLint with zero warnings,
+75 tests and the production build. No backend lint command is configured. git diff --check
+passed; exact changes were reviewed for secrets and generated artifacts. An initial sandbox
+Maven launch stalled and was cancelled; full verification used elevated execution.
+`nImplementation commit: `b8e972d` â€” fix(media): validate work captions before uploading assets.
