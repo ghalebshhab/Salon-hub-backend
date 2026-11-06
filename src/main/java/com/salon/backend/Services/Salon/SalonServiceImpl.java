@@ -391,6 +391,8 @@ public class SalonServiceImpl implements SalonService {
                 salon.getProfilePictureUrl(),
                 salon.getStatus(),
                 salon.getOpenningStatus(),
+                salon.isBlockedByAdmin(),
+                salon.isBlockedByOwner(),
                 salon.getRejectionReason(),
                 salon.getResubmissionCount(),
                 Math.max(0, MAX_RESUBMISSIONS - salon.getResubmissionCount())

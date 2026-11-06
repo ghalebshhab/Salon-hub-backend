@@ -71,6 +71,7 @@ class DashboardServiceImplTest {
                 salon.getId(), null, null, null, null, null, null, null, null,
                 owner.getId(), null, null, null, null, null,
                 null, null, null, SalonStatus.Rejected, null,
+                false, false,
                 "Missing license", 0, 3
         );
 

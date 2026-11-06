@@ -69,6 +69,8 @@ class OwnerDashboardServiceImplTest {
                 null,
                 null,
                 null,
+                false,
+                false,
                 null,
                 0,
                 3

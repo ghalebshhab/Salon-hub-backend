@@ -27,6 +27,8 @@ public record SalonResponse(
         String profilePictureUrl,
         SalonStatus status,
         SalonOpenningStatus openningStatus,
+        boolean blockedByAdmin,
+        boolean blockedByOwner,
         String rejectionReason,
         int resubmissionCount,
         int remainingResubmissions
