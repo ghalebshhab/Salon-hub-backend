@@ -7,6 +7,7 @@ import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
+import com.salon.backend.Services.User.Profile.UserProfileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +24,7 @@ class UserDirectoryServiceImplTest {
 
     @Mock private UserRepo userRepo;
     @Mock private AdminAuthorizationService adminAuthorizationService;
+    @Mock private UserProfileService userProfileService;
     @InjectMocks private UserDirectoryServiceImpl service;
 
     @Test
@@ -66,5 +68,36 @@ class UserDirectoryServiceImplTest {
         assertFalse(response.isSuccess());
         assertEquals("You are not Admin , Access Denied", response.getMessage());
         verifyNoInteractions(userRepo);
+    }
+
+    @Test
+    void salonTeamIsRestrictedToAuthorizedAdminsAndEmployees() {
+        User admin = new User();
+        admin.setId(1L);
+        User employee = new User();
+        employee.setId(8L);
+        employee.setFirstName("Nour");
+        employee.setRole(UserRole.Employee);
+        employee.setStatus(UserStatus.Active);
+        when(adminAuthorizationService.authorize(1L))
+                .thenReturn(ApiResponse.success("Admin authorized", admin));
+        when(userRepo.findBySalonIdAndRoleOrderByFirstNameAscLastNameAsc(5L, UserRole.Employee))
+                .thenReturn(List.of(employee));
+
+        ApiResponse<List<UserSummaryResponse>> response = service.getSalonTeam(5L, 1L);
+
+        assertTrue(response.isSuccess());
+        assertEquals(8L, response.getData().get(0).id());
+        verify(userRepo).findBySalonIdAndRoleOrderByFirstNameAscLastNameAsc(5L, UserRole.Employee);
+    }
+
+    @Test
+    void profileLookupStopsWhenAdminAuthorizationFails() {
+        when(adminAuthorizationService.authorize(2L)).thenReturn(ApiResponse.error("Access denied"));
+
+        var response = service.getUserProfile(9L, 2L);
+
+        assertFalse(response.isSuccess());
+        verifyNoInteractions(userProfileService);
     }
 }

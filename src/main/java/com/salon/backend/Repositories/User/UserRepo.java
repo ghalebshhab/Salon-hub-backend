@@ -34,6 +34,10 @@ List<User> findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
         com.salon.backend.Entities.users.UserRole role,
         UserStatus status
 );
+List<User> findBySalonIdAndRoleOrderByFirstNameAscLastNameAsc(
+        Long salonId,
+        com.salon.backend.Entities.users.UserRole role
+);
 
 @Lock(LockModeType.PESSIMISTIC_WRITE)
 @Query("SELECT user FROM User user WHERE user.id = :id")
