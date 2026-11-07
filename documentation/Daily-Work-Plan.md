@@ -57,7 +57,7 @@ Ensure authentication and authorization failures produced by the Spring Security
 
 ## Approved item 2 — Public salon profile, owner media and Jordan location
 
-**Status:** In progress — user-approved November 1 priority; continued November 6, 2026.
+**Status:** In progress — user-approved November 1 priority; continued November 7, 2026.
 
 The automation instruction approves the coordinated public employees, Cloudinary storage,
 owner cover selection, owner-specific join action, Jordan Maps location, employee portfolio,
@@ -106,3 +106,10 @@ public employee ID gap needs coordinated booking changes: the public employee en
 also feeds customer employee selection, so simply deleting IDs breaks assignment. Gallery
 ownership controls also compare employee IDs. Preserve both behaviors when replacing
 these contracts; do not treat a React key-only change as a privacy fix.
+
+November 7 continuation adds measured device transfer progress, indeterminate Drive import,
+browser cancellation, server-confirmation waiting, and retryable inline errors to the My
+Salon cover editor. Obsolete responses are ignored on cancellation/navigation. The global
+loading overlay is disabled only for these requests so the cancel control remains usable.
+Cancellation does not roll back backend/provider operations. Creation-form and employee
+gallery upload progress/cancellation remain open alongside the other acceptance gaps.

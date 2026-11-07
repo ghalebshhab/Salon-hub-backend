@@ -255,3 +255,52 @@ npm.cmd run check on the clean, unchanged daily branch passed ESLint with zero w
 passed; exact changes were reviewed for secrets and generated artifacts. An initial sandbox
 Maven launch stalled and was cancelled; full verification used elevated execution.
 `nImplementation commit: `b8e972d` — fix(media): validate work captions before uploading assets.
+
+## November 7 continuation - My Salon cover upload lifecycle
+
+The existing My Salon cover editor now reports device-to-backend byte transfer progress,
+then waits for the backend's successful response before updating the salon. Drive imports
+stay indeterminate: browser request progress cannot measure the provider download. Both
+sources retain authentication, use a two-minute request timeout and avoid the global loading
+overlay so the local cancellation control remains reachable. No backend endpoint or schema
+change is needed.
+
+Source changes and closing the editor are disabled while uploading; a cleared selection
+cannot be submitted. Cancel upload aborts the browser request, resets local busy state and
+explains that the server may still finish saving. Refresh before retrying. Navigation aborts
+the pending request. Late progress, success and error events cannot overwrite newer state or
+notify after navigation. Configuration/network failures retain the selection and show a
+recoverable inline error using existing toast conventions.
+
+This closes the My Salon editing gap only. Creation-form and employee-gallery progress and
+cancellation still need implementation. Durable provider cleanup, transaction orphans,
+remote content validation, image/video limits and metadata, public employee privacy and
+booking contracts, employee error states and exact Jordan boundary checks remain open.
+The coordinated approved feature remains in progress. The saved v0 prompt is retained.
+
+Changed frontend files: mediaApi.js, useSalonCoverEditor.js, SalonCoverEditor.jsx,
+owner-salon.css, useSalonCoverEditor.test.jsx, mediaApi.test.js and README.md. Backend
+changes are limited to this status document and Daily-Work-Plan.md. Existing daily branches
+were fetched and safely checked with ff-only updates; both were already up to date. The
+original backend master checkout and parent repository artifacts remain untouched.
+
+No Cloudinary variables were found in the process or matching assignments in the original
+backend local configuration. No live provider call or successful upload is claimed. No Google
+credentials were added or verified; existing Drive link/Maps fallback limitations remain.
+
+Verification: mvn.cmd -B verify passed 185 tests with zero failures/errors/skips and packaged
+the executable JAR. npm.cmd run check passed ESLint with zero warnings, all 83 tests and the
+production build. Eight new regressions cover lifecycle races, cancellation/navigation,
+configuration/network recovery, selection clearing and authenticated adapter config forwarding.
+The initial lint run rejected an API import in the component-directory integration test;
+the test was relocated beside the media hook to follow existing architecture rules. No rules
+or assertions weakened. No backend lint command configured. git diff --check passed.
+
+Review/setup: configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET
+only in the backend deployment environment and restart. Sign in as an owner and open My
+Salon > Change picture. Throttle the connection and verify Device progress, server-confirmation
+waiting, cancellation and navigation cleanup; test Drive import's indeterminate state. Restore
+configuration after an error and retry the preserved selection. Refresh the salon after
+cancelling to reconcile a possible completed server save before retrying.
+
+Frontend implementation commit: ca3dc09 - feat(media): add cover upload progress and cancellation.
