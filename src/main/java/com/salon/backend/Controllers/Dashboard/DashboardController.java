@@ -4,11 +4,16 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginRequest;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardLoginResponse;
 import com.salon.backend.DTOs.Auth.Dashboard.DashboardSessionResponse;
+import com.salon.backend.DTOs.Auth.Dashboard.AdminAnalyticsResponse;
+import com.salon.backend.DTOs.Auth.Dashboard.UserActivityDashboardResponse;
 import com.salon.backend.DTOs.Salon.SalonApprovalRequest;
 import com.salon.backend.DTOs.Salon.SalonRejectionRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.DTOs.User.UserSummaryResponse;
+import com.salon.backend.DTOs.User.Profile.UserProfileResponse;
 import com.salon.backend.Services.Auth.Dashboard.DashboardService;
+import com.salon.backend.Services.Auth.Dashboard.AdminAnalyticsService;
+import com.salon.backend.Services.Activity.AdminUserActivityService;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.SalonService;
 import com.salon.backend.Services.User.UserDirectoryService;
@@ -25,6 +30,8 @@ public class DashboardController {
     private final DashboardService dashboardService;
     private final SalonService salonService;
     private final UserDirectoryService userService;
+    private final AdminAnalyticsService adminAnalyticsService;
+    private final AdminUserActivityService adminUserActivityService;
 
     // Auth
     @PostMapping("/login")
@@ -39,6 +46,24 @@ public class DashboardController {
                 "Admin session active",
                 new DashboardSessionResponse(currentUser.getId(), currentUser.getEmail(), "ADMIN")
         );
+    }
+
+    @GetMapping("/analytics")
+    public ApiResponse<AdminAnalyticsResponse> analytics(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return adminAnalyticsService.getAnalytics(currentUser.getId());
+    }
+
+    @GetMapping("/activity")
+    public ApiResponse<UserActivityDashboardResponse> activity(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return adminUserActivityService.getUserActivity(currentUser.getId());
+    }
+
+    @GetMapping("/profile")
+    public ApiResponse<UserProfileResponse> profile(
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userService.getUserProfile(currentUser.getId(), currentUser.getId());
     }
 
     // Salons
@@ -57,6 +82,11 @@ public class DashboardController {
     @GetMapping("/salons/active")
     public ApiResponse<List<SalonResponse>> getActiveSalons() {
         return salonService.getActiveSalons();
+    }
+
+    @GetMapping("/salons/{salonId}")
+    public ApiResponse<SalonResponse> getSalon(@PathVariable Long salonId) {
+        return salonService.getSalonById(salonId);
     }
 
     @PostMapping("/salons/requested/accept")
@@ -108,6 +138,20 @@ public class DashboardController {
     public ApiResponse<List<UserSummaryResponse>> getBlockedUsers(
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return userService.getBlockedUsers(currentUser.getId());
+    }
+
+    @GetMapping("/users/{userId}")
+    public ApiResponse<UserProfileResponse> getUserProfile(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userService.getUserProfile(userId, currentUser.getId());
+    }
+
+    @GetMapping("/salons/{salonId}/team")
+    public ApiResponse<List<UserSummaryResponse>> getSalonTeam(
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return userService.getSalonTeam(salonId, currentUser.getId());
     }
 
 
