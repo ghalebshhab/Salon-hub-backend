@@ -26,6 +26,9 @@ User findByemail(String email);
 java.util.Optional<User> findByEmailForUpdate(@Param("email") String email);
 
 List<User> findByStatus(UserStatus status);
+long countByStatus(UserStatus status);
+long countByRole(com.salon.backend.Entities.users.UserRole role);
+long countByCareerProfileEnabledTrue();
 List<User> findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
         Long salonId,
         com.salon.backend.Entities.users.UserRole role,

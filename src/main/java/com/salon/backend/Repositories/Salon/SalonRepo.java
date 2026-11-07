@@ -24,6 +24,11 @@ public interface SalonRepo extends JpaRepository<Salon, Long> {
 
     List<Salon> findByStatus(SalonStatus status);
 
+    long countByStatus(SalonStatus status);
+
+    @Query("SELECT COUNT(salon) FROM Salon salon WHERE salon.blockedByAdmin = true OR salon.blockedByOwner = true")
+    long countBlockedSalons();
+
     List<Salon> findByLocation(String location);
 
     boolean existsBySalonPhoneNumber(String salonPhoneNumber);

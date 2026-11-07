@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,16 @@ public interface BookingRepo extends JpaRepository<Booking, Long> {
             LocalDate bookingDate,
             BookingStatus status
     );
+
+    long countByStatus(BookingStatus status);
+
+    List<Booking> findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(LocalDateTime createdAt);
+
+    @Query("SELECT COALESCE(SUM(booking.totalPrice), 0) FROM Booking booking")
+    BigDecimal sumGrossBookingValue();
+
+    @Query("SELECT COALESCE(SUM(booking.totalPrice), 0) FROM Booking booking WHERE booking.status = :status")
+    BigDecimal sumBookingValueByStatus(@Param("status") BookingStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT booking FROM Booking booking WHERE booking.id = :id")
