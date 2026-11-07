@@ -41,6 +41,13 @@ public class User {
 
     private Instant credentialsUpdatedAt;
 
+    private Instant lastLoginAt;
+
+    private Instant lastActivityAt;
+
+    @Column(nullable = false)
+    private long totalLoginCount;
+
     private UserRole role;
 
     private UserStatus status;

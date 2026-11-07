@@ -11,6 +11,7 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
+import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import com.salon.backend.Utils.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepo userRepo;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final AccountVerificationService accountVerificationService;
+    private final UserActivityTrackingService userActivityTrackingService;
 
     private static final List<String> ALLOWED_EMAIL_DOMAINS = List.of(
             "gmail.com",
@@ -360,6 +362,12 @@ public class AuthServiceImpl implements AuthService {
 
         String token =
                 jwtService.generateToken(user);
+
+        try {
+            userActivityTrackingService.recordSuccessfulLogin(user);
+        } catch (RuntimeException ignored) {
+            // Activity analytics must never prevent a valid user from signing in.
+        }
 
 
         // -----------------------------------------------------

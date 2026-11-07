@@ -15,6 +15,7 @@ import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
 import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Salon.SalonService;
 import com.salon.backend.Services.Notification.SalonNotificationService;
+import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -34,6 +35,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SalonService salonService;
     private final AdminAuthorizationService adminAuthorizationService;
     private final SalonNotificationService salonNotificationService;
+    private final UserActivityTrackingService userActivityTrackingService;
     @Override
     public ApiResponse<DashboardLoginResponse> DashboardLogin(
             DashboardLoginRequest dashboardLoginRequest) {
@@ -58,6 +60,12 @@ public class DashboardServiceImpl implements DashboardService {
 
         String token =
                 jwtService.generateToken(user);
+
+        try {
+            userActivityTrackingService.recordSuccessfulLogin(user);
+        } catch (RuntimeException ignored) {
+            // Activity analytics must never prevent a valid administrator from signing in.
+        }
 
         DashboardLoginResponse response =
                 new DashboardLoginResponse(

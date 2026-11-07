@@ -5,6 +5,7 @@ import com.salon.backend.Entities.users.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -89,5 +90,9 @@ Page<User> searchCareerCandidates(
         @Param("search") String search,
         Pageable pageable
 );
+
+@Modifying
+@Query("UPDATE User user SET user.lastActivityAt = :seenAt WHERE user.id = :userId")
+int updateLastActivityAt(@Param("userId") Long userId, @Param("seenAt") java.time.Instant seenAt);
 
 }

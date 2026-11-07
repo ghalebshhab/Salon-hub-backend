@@ -3,6 +3,7 @@ package com.salon.backend.Config;
 import com.salon.backend.Services.Auth.Security.CustomUserDetailsService;
 import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Auth.Security.TokenBlacklistService;
+import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ public class JWTAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserActivityTrackingService userActivityTrackingService;
 
 
 
@@ -85,6 +87,12 @@ public class JWTAuthFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    try {
+                        userActivityTrackingService.recordAuthenticatedActivity(userId);
+                    } catch (RuntimeException activityError) {
+                        log.debug("User activity tracking failed: {}", activityError.getMessage());
+                    }
 
                 }
             }
