@@ -77,10 +77,10 @@ public class UserNotification {
     @Column(name = "event_key", nullable = false, length = 180)
     private String eventKey;
 
-    @Column(nullable = false)
+    @Column
     private Long salonId;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String salonName;
 
     @Column
