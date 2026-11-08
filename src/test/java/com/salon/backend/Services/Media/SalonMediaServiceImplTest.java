@@ -131,7 +131,9 @@ class SalonMediaServiceImplTest {
 
     @Test
     void failedProviderDeletionPreservesTheDatabaseRecordForRetry() {
+        User employee = currentEmployee();
         EmployeeWorkMedia media = new EmployeeWorkMedia();
+        media.setSalon(employee.getSalon());
         media.setPublicId("salonhub/work");
         media.setResourceType(MediaResourceType.IMAGE);
         when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.of(media));
@@ -148,6 +150,7 @@ class SalonMediaServiceImplTest {
 
     @Test
     void employeeCannotDeleteAnotherEmployeesMedia() {
+        currentEmployee();
         when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.empty());
 
         ApiResponse<Void> response = service.deleteWorkMedia(11L, 55L);
@@ -155,6 +158,87 @@ class SalonMediaServiceImplTest {
         assertFalse(response.isSuccess());
         verifyNoInteractions(storageService);
         verify(workMediaRepo, never()).delete(any());
+    }
+
+    @Test
+    void currentActiveEmployeeCanDeleteTheirOwnCurrentSalonWorkAfterProviderConfirmation() {
+        User employee = currentEmployee();
+        EmployeeWorkMedia media = new EmployeeWorkMedia();
+        media.setSalon(employee.getSalon());
+        media.setPublicId("salonhub/work");
+        media.setResourceType(MediaResourceType.VIDEO);
+        when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.of(media));
+        when(storageService.delete("salonhub/work", "video"))
+                .thenReturn(ApiResponse.success("Deleted", null));
+
+        var response = service.deleteWorkMedia(11L, 55L);
+
+        assertTrue(response.isSuccess());
+        var order = inOrder(storageService, workMediaRepo);
+        order.verify(storageService).delete("salonhub/work", "video");
+        order.verify(workMediaRepo).delete(media);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "blocked", "deleted", "missing-status", "wrong-role", "departed", "deleted-salon",
+            "unaccepted-salon", "owner-blocked", "admin-blocked"})
+    void ineligibleEmployeeCannotLookUpOrDeleteWorkMedia(String scenario) {
+        User employee = user(11L, UserRole.Employee);
+        Salon salon = salon(3L, user(7L, UserRole.OWNER));
+        employee.setSalon(salon);
+        switch (scenario) {
+            case "blocked" -> employee.setStatus(UserStatus.Blocked);
+            case "deleted" -> employee.setStatus(UserStatus.Deleted);
+            case "missing-status" -> employee.setStatus(null);
+            case "wrong-role" -> employee.setRole(UserRole.OWNER);
+            case "departed" -> employee.setSalon(null);
+            case "deleted-salon" -> salon.setStatus(SalonStatus.DELETED);
+            case "unaccepted-salon" -> salon.setStatus(SalonStatus.Requested);
+            case "owner-blocked" -> salon.setBlockedByOwner(true);
+            case "admin-blocked" -> salon.setBlockedByAdmin(true);
+        }
+        when(userRepo.findById(11L)).thenReturn("missing".equals(scenario)
+                ? Optional.empty() : Optional.of(employee));
+
+        var response = service.deleteWorkMedia(11L, 55L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Only an active salon employee can manage work media.", response.getMessage());
+        assertNull(response.getData());
+        verifyNoInteractions(storageService, workMediaRepo);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void transferredEmployeeCannotDeleteWorkFromPreviousSalonOrMissingSalon(boolean missingSalon) {
+        currentEmployee();
+        EmployeeWorkMedia oldWork = new EmployeeWorkMedia();
+        oldWork.setSalon(missingSalon ? null : salon(4L, user(8L, UserRole.OWNER)));
+        when(workMediaRepo.findByIdAndEmployeeId(55L, 11L)).thenReturn(Optional.of(oldWork));
+
+        var response = service.deleteWorkMedia(11L, 55L);
+
+        assertFalse(response.isSuccess());
+        assertTrue(response.getMessage().contains("current salon"));
+        verifyNoInteractions(storageService);
+        verify(workMediaRepo, never()).delete(any());
+    }
+
+    @Test
+    void missingPrincipalOrMediaIdCannotDeleteAnyAsset() {
+        assertFalse(service.deleteWorkMedia(null, 55L).isSuccess());
+        verifyNoInteractions(userRepo, workMediaRepo, storageService);
+
+        currentEmployee();
+        assertFalse(service.deleteWorkMedia(11L, null).isSuccess());
+        verifyNoInteractions(workMediaRepo, storageService);
+    }
+
+    private User currentEmployee() {
+        User employee = user(11L, UserRole.Employee);
+        employee.setSalon(salon(3L, user(7L, UserRole.OWNER)));
+        when(userRepo.findById(11L)).thenReturn(Optional.of(employee));
+        return employee;
     }
 
     @ParameterizedTest

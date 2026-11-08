@@ -101,10 +101,15 @@ public class SalonMediaServiceImpl implements SalonMediaService {
     @Override
     @Transactional
     public ApiResponse<Void> deleteWorkMedia(Long employeeId, Long mediaId) {
+        User employee = activeEmployee(employeeId);
+        if (employee == null) return ApiResponse.error("Only an active salon employee can manage work media.");
         EmployeeWorkMedia media = mediaId == null
                 ? null
                 : workMediaRepo.findByIdAndEmployeeId(mediaId, employeeId).orElse(null);
-        if (media == null) return ApiResponse.error("Work media was not found or does not belong to you.");
+        if (media == null || media.getSalon() == null
+                || !employee.getSalon().getId().equals(media.getSalon().getId())) {
+            return ApiResponse.error("Work media was not found or does not belong to you in your current salon.");
+        }
         ApiResponse<Void> deletion = storageService.delete(
                 media.getPublicId(), media.getResourceType().name().toLowerCase());
         if (!deletion.isSuccess()) return ApiResponse.error(deletion.getMessage());
