@@ -91,6 +91,23 @@ Page<User> searchCareerCandidates(
         Pageable pageable
 );
 
+@Query("""
+        SELECT user FROM User user
+        WHERE user.status = :status
+          AND user.id <> :excludedUserId
+          AND (
+            :search = ''
+            OR LOWER(user.userName) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT('%', :search, '%'))
+          )
+        """)
+Page<User> searchCommunityUsers(
+        @Param("excludedUserId") Long excludedUserId,
+        @Param("status") UserStatus status,
+        @Param("search") String search,
+        Pageable pageable
+);
+
 @Modifying
 @Query("UPDATE User user SET user.lastActivityAt = :seenAt WHERE user.id = :userId")
 int updateLastActivityAt(@Param("userId") Long userId, @Param("seenAt") java.time.Instant seenAt);
