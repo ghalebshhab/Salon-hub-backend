@@ -113,3 +113,11 @@ Salon cover editor. Obsolete responses are ignored on cancellation/navigation. T
 loading overlay is disabled only for these requests so the cancel control remains usable.
 Cancellation does not roll back backend/provider operations. Creation-form and employee
 gallery upload progress/cancellation remain open alongside the other acceptance gaps.
+
+November 8 continuation closes the work-media deletion membership gap: only an active
+employee may delete their own entry in their current accepted, unblocked salon. Transferred,
+departed, blocked/deleted or non-employee callers cannot delete old assets. Rejected requests
+never contact the media provider. Provider failures still preserve records for retry.
+Fourteen new regression cases; backend verify passes all 199 tests and packages the JAR.
+Original backend/frontend community edits remain untouched. Coordinated item 2 remains
+IN PROGRESS; see the status document for remaining acceptance gaps and staging steps.

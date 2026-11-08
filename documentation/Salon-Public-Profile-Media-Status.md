@@ -304,3 +304,53 @@ configuration after an error and retry the preserved selection. Refresh the salo
 cancelling to reconcile a possible completed server save before retrying.
 
 Frontend implementation commit: ca3dc09 - feat(media): add cover upload progress and cancellation.
+
+## November 8 continuation - Current-salon work deletion authorization
+
+Work-media deletion now reuses the active-employee eligibility check used for publication
+before looking up any media. The entry must belong to the authenticated employee AND their
+current salon. Transferred/departed, blocked/deleted and non-employee accounts cannot delete
+old salon assets. Deleted, unaccepted or blocked salons cannot be managed through this route.
+Rejected requests do not call Cloudinary or delete database records. Owner access remains
+view-only. Successful deletion still waits for provider confirmation; provider errors retain
+the record for retry. Authorization uses authenticated identity and database membership,
+never a caller-supplied provider public ID. No schema, DTO or frontend contract change.
+
+Fourteen additional regression cases cover successful video deletion ordering, transferred
+and missing membership, blocked/deleted/missing accounts, wrong role, ineligible salons,
+and missing principal/media IDs. Existing cross-owner and provider-failure tests now supply
+valid membership so they continue testing their intended failure paths.
+
+Changed files: Services/Media/SalonMediaServiceImpl.java and its service test, plus
+Daily-Work-Plan.md and this status document. Backend mvn.cmd -B verify passed 199 tests,
+zero failures/errors/skips, and packaged the executable JAR. No backend lint is configured.
+
+Review: in staging, publish work as an active employee in salon A, retain the media record
+ID, transfer the employee to accepted salon B, and call DELETE /api/media/work/{mediaId}
+with that employee's authenticated session. Expect success:false and no asset/record deletion.
+Repeat for a departed/blocked account and for a different employee. Current-salon authors
+should still delete their own work, with provider failure preserving the record for retry.
+Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET only in the
+backend environment, restart, and verify the allowed live deletion with a disposable asset.
+No Cloudinary credentials were found in the process or original backend local configuration;
+no live upload/deletion is claimed. No Google credentials were added or verified; Drive
+share-link and external Maps fallbacks retain their existing limitations.
+
+Overall approved item 2 remains IN PROGRESS. Durable cleanup/transaction-orphan recovery,
+remote metadata and format/size/dimension/duration enforcement, full cover/video metadata,
+public employee privacy and booking/ownership contracts, remaining creation/gallery upload
+progress/cancellation, employee recoverable errors, and exact Jordan boundaries remain open.
+Original backend and frontend contain pending community work; all preserved. Backend work
+uses the existing daily-backend worktree on daily-work-automated. No new branch or default
+branch merge. The saved My Salon v0 prompt is retained for user review.
+
+Implementation commit: dcf5aaec0f6136bc58ad0af79b5342ed1f18e68b -
+fix(media): require current salon membership for work deletion.
+Frontend verification initially hit a timeout in the successful-login destination test
+(82 passed, one failed). The unchanged route suite then passed all 26 tests in isolation,
+and the unchanged full rerun passed all 83 tests and ESLint with zero warnings. Frontend
+checks include preserved pending community edits, not a clean-commit reproducibility claim.
+No tests or timeouts were weakened. git diff --check passed; staged changes were reviewed
+for secrets and generated artifacts. Verification used elevated execution after fetch
+sandbox restrictions; both origins fetched and ff-only daily updates were already current.
+Frontend production build passed. No frontend automation commit or push was necessary.
