@@ -354,3 +354,48 @@ No tests or timeouts were weakened. git diff --check passed; staged changes were
 for secrets and generated artifacts. Verification used elevated execution after fetch
 sandbox restrictions; both origins fetched and ff-only daily updates were already current.
 Frontend production build passed. No frontend automation commit or push was necessary.
+
+## November 9 continuation - Recoverable public employee directory
+
+Frontend implementation 4e115d0 separates salon loading from employee loading. Slow,
+failed or empty directory requests no longer hide the salon profile. The team section
+has a polite loading announcement, inline alert and keyboard-accessible Retry loading
+team button. API and network errors use existing shared message handling; errors are
+not presented as empty teams. Retry fetches only employees, using local loading without
+the global overlay. Shared useQuery abort/stale-result protection handles navigation,
+retry and unmount. No backend runtime, DTO, schema or public privacy contract change.
+
+Changed frontend files: src/features/salons/hooks/useSalonDetails.js,
+useSalonDetails.test.jsx, components/SalonEmployees.jsx, pages/SalonDetails.jsx and README.md.
+Backend changes are only Daily-Work-Plan.md and this status document. Both repositories
+were clean at inspection; earlier pending community changes are now committed by user
+work. Reused the existing backend daily-backend worktree and selected existing frontend
+daily-work-automated, fetched both origins and checked ff-only updates (already current).
+Original backend/default branches and parent untracked artifacts preserved. No new daily
+branch, default merge, reset, rebase, force push or PR.
+
+Verification: npm.cmd run check passed ESLint zero warnings, 97 tests and production build.
+Six new integration regressions cover independent salon rendering during team loading,
+ApiResponse failure and team-only retry, network failure, successful empty directory,
+late old-salon response after navigation, and unmount cancellation. Backend mvn.cmd -B
+verify passed all 199 tests with zero failures/errors/skips and packaged the JAR.
+No backend lint configured. git diff --check and staged secret/artifact review passed.
+
+Review: on a public salon page throttle/fail only /salon-employees/salon/{salonId}; salon
+information must stay visible while team loading/error is local. Restore the endpoint,
+activate Retry loading team by keyboard and confirm only the directory is requested.
+Check an empty team, navigation while pending, mobile wrapping, and light/dark themes.
+Automated checks use mocked APIs; visual/live staging acceptance remains to be performed.
+
+No Cloudinary process variables or matching assignments in original .env/application-local
+configuration were present. No live media request or successful upload is claimed. Configure
+CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET only in the backend deployment
+environment and restart for live acceptance. No Google credentials added or verified;
+existing Drive links and external Maps fallback limitations remain. Saved My Salon v0 prompt
+retained for review.
+
+Overall approved item 2 stays IN PROGRESS: durable replacement/rejected-asset cleanup and
+transaction orphans; remote metadata/format/byte/dimension/duration validation; full cover/
+video metadata; public employee privacy with booking/ownership contract dependencies;
+creation/gallery upload progress/cancellation; exact Jordan boundary/link consistency.
+Do not repeat this team recovery fix or mark the coordinated priority complete.

@@ -121,3 +121,12 @@ never contact the media provider. Provider failures still preserve records for r
 Fourteen new regression cases; backend verify passes all 199 tests and packages the JAR.
 Original backend/frontend community edits remain untouched. Coordinated item 2 remains
 IN PROGRESS; see the status document for remaining acceptance gaps and staging steps.
+
+November 9 continuation closes the public team loading/recovery gap. Frontend 4e115d0
+loads salon and employees independently; team failures show a local retryable alert,
+loading is announced, and successful empty responses retain the empty state. Retry
+fetches only employees; navigation/unmount ignore stale results. Six new regressions;
+frontend check passes lint, 97 tests and production build. Backend verify passes 199 tests.
+No runtime backend/schema changes. Prior pending community work is now user-committed;
+both daily checkouts began clean. Approved item 2 remains IN PROGRESS with the remaining
+media/privacy/location gaps documented in Salon-Public-Profile-Media-Status.md.
