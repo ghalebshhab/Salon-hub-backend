@@ -54,10 +54,32 @@ class CommunityServiceImplTest {
         assertTrue(liked.isSuccess());
         assertTrue(likedAgain.getData().likedByMe());
         assertEquals(1, likeRepo.countByPostId(created.getData().id()));
+        var likes = service.getPostLikes(created.getData().id(), author.getId());
+        assertTrue(likes.isSuccess());
+        assertEquals(visitor.getId(), likes.getData().get(0).user().id());
 
         var comment = service.addComment(created.getData().id(), new CreateCommentRequest(" Looks beautiful! "), visitor.getId());
         assertTrue(comment.isSuccess());
         assertEquals("Looks beautiful!", comment.getData().content());
+    }
+
+    @Test
+    void exposesASafeCommunityProfileWithRelationshipContext() {
+        User viewer = user("profile-viewer");
+        User professional = user("profile-professional");
+        professional.setCareerProfileEnabled(true);
+        professional.setYearsOfExperience(6);
+        professional.setCareerSkills(new java.util.ArrayList<>(java.util.List.of("Color", "Styling")));
+        professional.setProfessionalBio("Color specialist");
+        userRepo.save(professional);
+
+        var profile = service.getCommunityProfile(professional.getId(), viewer.getId());
+
+        assertTrue(profile.isSuccess());
+        assertEquals(professional.getId(), profile.getData().member().user().id());
+        assertEquals("NONE", profile.getData().member().relationship());
+        assertEquals(java.util.List.of("Color", "Styling"), profile.getData().skills());
+        assertEquals("Color specialist", profile.getData().professionalBio());
     }
 
     @Test

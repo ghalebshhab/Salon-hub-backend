@@ -38,6 +38,20 @@ public class CommunityController {
         return communityService.getPost(postId, currentUser.getId());
     }
 
+    @GetMapping("/posts/{postId}/likes")
+    public ApiResponse<List<CommunityPostLikeResponse>> getPostLikes(
+            @PathVariable Long postId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return communityService.getPostLikes(postId, currentUser.getId());
+    }
+
+    @GetMapping("/people/{userId}")
+    public ApiResponse<CommunityProfileResponse> getCommunityProfile(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return communityService.getCommunityProfile(userId, currentUser.getId());
+    }
+
     @PostMapping("/posts")
     public ApiResponse<CommunityPostResponse> createPost(@RequestBody CreatePostRequest request, @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return communityService.createPost(request, currentUser.getId());

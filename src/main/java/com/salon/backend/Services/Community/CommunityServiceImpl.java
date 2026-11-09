@@ -84,6 +84,40 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<List<CommunityPostLikeResponse>> getPostLikes(Long postId, Long userId) {
+        if (findActiveUser(userId) == null) return ApiResponse.error("Active user not found");
+        if (findVisiblePost(postId) == null) return ApiResponse.error("Community post not found");
+        List<CommunityPostLikeResponse> likes = likeRepo
+                .findByPostIdAndUserStatusOrderByCreatedAtDesc(postId, UserStatus.Active)
+                .stream()
+                .map(like -> new CommunityPostLikeResponse(mapAuthor(like.getUser()), like.getCreatedAt()))
+                .toList();
+        return ApiResponse.success("Post likes fetched successfully", likes);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<CommunityProfileResponse> getCommunityProfile(Long profileUserId, Long userId) {
+        if (findActiveUser(userId) == null) return ApiResponse.error("Active user not found");
+        User profileUser = findActiveUser(profileUserId);
+        if (profileUser == null) return ApiResponse.error("Community profile not found");
+        Salon salon = profileUser.getSalon() != null ? profileUser.getSalon() : salonRepo.findByOwnerId(profileUserId);
+        if (!isActiveSalon(salon)) salon = null;
+        return ApiResponse.success("Community profile fetched successfully", new CommunityProfileResponse(
+                mapMember(profileUser, userId),
+                profileUser.getRole(),
+                profileUser.isCareerProfileEnabled(),
+                profileUser.isCareerProfileEnabled() ? profileUser.getYearsOfExperience() : null,
+                profileUser.isCareerProfileEnabled() ? profileUser.getCareerSkills() : List.of(),
+                profileUser.isCareerProfileEnabled() ? profileUser.getPreferredWorkLocations() : List.of(),
+                profileUser.isCareerProfileEnabled() ? profileUser.getPortfolioUrl() : null,
+                profileUser.isCareerProfileEnabled() ? profileUser.getProfessionalBio() : null,
+                salon == null ? null : salon.getId(),
+                salon == null ? null : salon.getName()));
+    }
+
+    @Override
     @Transactional
     public ApiResponse<CommunityPostResponse> createPost(CreatePostRequest request, Long userId) {
         User author = findActiveUser(userId);
