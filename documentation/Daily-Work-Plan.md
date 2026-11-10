@@ -130,3 +130,11 @@ frontend check passes lint, 97 tests and production build. Backend verify passes
 No runtime backend/schema changes. Prior pending community work is now user-committed;
 both daily checkouts began clean. Approved item 2 remains IN PROGRESS with the remaining
 media/privacy/location gaps documented in Salon-Public-Profile-Media-Status.md.
+
+November 10 continuation validates Cloudinary upload delivery identity before cover/gallery
+persistence: explicit image/video type, usable stored public ID, and HTTPS shared-CDN upload
+URL for the configured cloud and matching resource type. Reject malformed/foreign/local
+URLs using ApiResponse errors without returning provider details. Thirty new HTTP-mocked
+regressions; backend verify passed 229 tests and packaged the JAR. This does not close content
+limits or durable rejected-asset reconciliation. See the status document for review/setup,
+verification and remaining approved work. Item 2 stays IN PROGRESS.

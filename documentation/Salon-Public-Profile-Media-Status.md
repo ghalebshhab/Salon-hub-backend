@@ -399,3 +399,63 @@ transaction orphans; remote metadata/format/byte/dimension/duration validation; 
 video metadata; public employee privacy with booking/ownership contract dependencies;
 creation/gallery upload progress/cancellation; exact Jordan boundary/link consistency.
 Do not repeat this team recovery fix or mark the coordinated priority complete.
+
+## November 10 continuation - Validated provider delivery details
+
+The Cloudinary provider now accepts upload results only when public_id is a nonblank
+string that fits the existing 255-character storage field, contains no control characters,
+and resource_type is explicitly image or video. Missing/unknown types no longer silently
+become images. secure_url must be a string fitting the existing 1000-character media URL
+field and an HTTPS res.cloudinary.com upload-delivery URL for the configured cloud and
+matching resource type. Userinfo, unexpected ports, query/fragment components, empty asset
+paths and literal/encoded path traversal are rejected through the existing ApiResponse
+error convention. Device and canonicalized Drive imports share the validation path.
+Provider URL/identity values are never echoed in errors. Valid versioned and encoded
+filenames are preserved unchanged, and unknown extra provider fields remain compatible.
+
+The current deployment uses Cloudinary's standard shared CDN; custom/private CDN hostnames
+are not configured or accepted by this adapter. Upload response reference:
+https://cloudinary.com/documentation/upload_images#upload_response
+No schema, DTO, endpoint, frontend runtime or authorization change is needed. This validates
+provider delivery identity, not media content, format, byte size, dimensions or duration.
+Malformed responses are not used to issue speculative deletion calls. Durable reconciliation
+of assets created before a rejected response or failed transaction remains OPEN.
+
+Changed implementation files:
+- src/main/java/com/salon/backend/Services/Media/CloudinaryMediaStorageService.java
+- src/test/java/com/salon/backend/Services/Media/CloudinaryMediaStorageServiceTest.java
+Documentation changes: Daily-Work-Plan.md and this status document.
+
+Thirty new mocked HTTP regressions cover unsafe/foreign/mismatched delivery URLs, malformed
+asset identities/types, and forward-compatible valid responses. Backend mvn.cmd -B verify
+passed 229 tests, zero failures/errors/skips, and packaged the executable JAR. No backend
+lint command is configured. No live provider calls were made.
+
+Review/setup: set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET only
+in the backend environment and restart. With disposable staging media, verify Device image
+and employee video uploads plus a public Drive file link return HTTPS URLs under the
+configured cloud and preserve the image/video type. Simulate an HTTP-200 provider response
+with a local/HTTP/foreign-cloud URL, raw or missing type, or malformed ID: expect success:false,
+data:null and no salon/gallery persistence. Existing valid cover and gallery flows should
+continue normally. These are staging acceptance steps, not claims of live verification.
+No Cloudinary variables were present in the process or matching original-backend local
+configuration assignments. No Google credentials were added or verified; Drive share links
+and external Maps selection keep their existing limitations. Saved v0 prompt retained.
+
+Overall item 2 remains IN PROGRESS. Continue durable replacement/rejected-asset cleanup and
+transaction orphan recovery; remote media format/size/dimensions/duration enforcement;
+full cover/video metadata; public IDs with coordinated booking/ownership contracts;
+creation/gallery progress and cancellation; exact Jordan boundary/link consistency.
+Do not repeat provider delivery validation or mark the coordinated feature complete.
+
+Implementation commit: aed37a0b08ced37d248aab59575195857cda8132 -
+fix(media): validate Cloudinary upload delivery details.
+Frontend final npm.cmd run check passed ESLint with zero warnings, all 98 tests and the
+production build. Initial full run had three route timing failures (95 passed); unchanged
+route-only run passed 27 tests, and unchanged full retry passed all 98. No tests or timeouts
+were changed. Frontend validation includes its two pre-existing local commits 3c9730b and
+905191b; these remain untouched and are not pushed by this automation. No frontend files
+were changed. Both origins fetched and ff-only updates were already current; reused existing
+daily branches and backend daily worktree. Original backend master and parent artifacts
+preserved. No new branch, merge, reset, rebase, force push or PR. Exact staged diff reviewed
+for secrets and generated artifacts; git diff --check passed. Own verification logs removed.
