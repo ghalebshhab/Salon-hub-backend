@@ -154,19 +154,47 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
                 .body(body)
                 .retrieve()
                 .body(Map.class);
-        if (response == null || response.get("secure_url") == null || response.get("public_id") == null) {
-            return ApiResponse.error("Cloudinary did not return a usable media URL.");
+        if (response == null
+                || !(response.get("public_id") instanceof String publicId)
+                || publicId.isBlank() || publicId.length() > 255
+                || publicId.chars().anyMatch(Character::isISOControl)
+                || !(response.get("resource_type") instanceof String type)
+                || !("image".equals(type) || "video".equals(type))
+                || !(response.get("secure_url") instanceof String secureUrl)
+                || !isDeliveryUrl(secureUrl, type)) {
+            return ApiResponse.error("Cloudinary did not return valid HTTPS media delivery details. Please retry the upload.");
         }
-        String type = String.valueOf(response.getOrDefault("resource_type", "image"));
         MediaUploadResult result = new MediaUploadResult(
-                String.valueOf(response.get("secure_url")),
-                String.valueOf(response.get("public_id")),
-                "video".equalsIgnoreCase(type) ? MediaResourceType.VIDEO : MediaResourceType.IMAGE,
+                secureUrl,
+                publicId,
+                "video".equals(type) ? MediaResourceType.VIDEO : MediaResourceType.IMAGE,
                 number(response.get("width")),
                 number(response.get("height")),
                 longNumber(response.get("bytes"))
         );
         return ApiResponse.success("Media uploaded successfully", result);
+    }
+
+    private boolean isDeliveryUrl(String value, String resourceType) {
+        try {
+            if (value.length() > 1000) return false;
+            URI uri = URI.create(value);
+            String prefix = "/" + cloudName + "/" + resourceType + "/upload/";
+            String path = uri.getRawPath();
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || !"res.cloudinary.com".equalsIgnoreCase(uri.getHost())
+                    || uri.getUserInfo() != null || (uri.getPort() != -1 && uri.getPort() != 443)
+                    || uri.getRawQuery() != null || uri.getRawFragment() != null
+                    || path == null || !path.startsWith(prefix) || path.length() <= prefix.length()
+                    || path.endsWith("/") || !uri.normalize().equals(uri)) return false;
+            // Reject encoded traversal as well as literal traversal, without rewriting the asset URL.
+            for (String segment : uri.getPath().split("/")) {
+                if (".".equals(segment) || "..".equals(segment) || segment.contains("\\")) return false;
+            }
+            return true;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private String validateFile(MultipartFile file) {

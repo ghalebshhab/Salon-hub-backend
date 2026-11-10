@@ -245,6 +245,81 @@ class CloudinaryMediaStorageServiceTest {
         return new MockMultipartFile("file", "work.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47});
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://res.cloudinary.com/test-cloud/image/upload/work.png",
+            "file:///tmp/work.png", "blob:https://example.com/work", "/images/work.png",
+            "https://example.com/work.png",
+            "https://res.cloudinary.com.evil.example/test-cloud/image/upload/work.png",
+            "https://res.cloudinary.com@evil.example/test-cloud/image/upload/work.png",
+            "https://user@res.cloudinary.com/test-cloud/image/upload/work.png",
+            "https://res.cloudinary.com:8443/test-cloud/image/upload/work.png",
+            "https://res.cloudinary.com/other-cloud/image/upload/work.png",
+            "https://res.cloudinary.com/test-cloud/video/upload/work.png",
+            "https://res.cloudinary.com/test-cloud/image/fetch/work.png",
+            "https://res.cloudinary.com/test-cloud/image/upload/",
+            "https://res.cloudinary.com/test-cloud/image/upload/../work.png",
+            "https://res.cloudinary.com/test-cloud/image/upload/%2e%2e/work.png",
+            "https://res.cloudinary.com/test-cloud/image/upload/work.png?token=private",
+            "https://res.cloudinary.com/test-cloud/image/upload/work.png#fragment",
+            "not a URL", ""
+    })
+    void unsafeDeliveryUrlsNeverBecomeSuccessfulUploads(String url) {
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andRespond(withSuccess("{\"secure_url\":\"" + url
+                        + "\",\"public_id\":\"salonhub/work\",\"resource_type\":\"image\"}", MediaType.APPLICATION_JSON));
+
+        var response = service.upload(image(), "salonhub");
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getData());
+        assertTrue(response.getMessage().contains("HTTPS media delivery details"));
+        assertFalse(response.getMessage().contains(url.isEmpty() ? "private" : url));
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "\"public_id\":null,\"resource_type\":\"image\"",
+            "\"public_id\":123,\"resource_type\":\"image\"",
+            "\"public_id\":{},\"resource_type\":\"image\"",
+            "\"public_id\":\"  \",\"resource_type\":\"image\"",
+            "\"public_id\":\"salonhub/work\\n\",\"resource_type\":\"image\"",
+            "\"public_id\":\"salonhub/work\"",
+            "\"public_id\":\"salonhub/work\",\"resource_type\":null",
+            "\"public_id\":\"salonhub/work\",\"resource_type\":123",
+            "\"public_id\":\"salonhub/work\",\"resource_type\":\"raw\"",
+            "\"public_id\":\"salonhub/work\",\"resource_type\":\"audio\""
+    })
+    void missingOrInvalidAssetIdentityDoesNotDefaultToAnImage(String fields) {
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andRespond(withSuccess("{\"secure_url\":\"https://res.cloudinary.com/test-cloud/image/upload/work.png\","
+                        + fields + "}", MediaType.APPLICATION_JSON));
+
+        var response = service.uploadRemote("https://drive.google.com/file/d/abc/view", "salonhub");
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getData());
+        assertTrue(response.getMessage().contains("HTTPS media delivery details"));
+        server.verify();
+    }
+
+    @Test
+    void validVersionedDeliveryAndUnknownProviderFieldsArePreserved() {
+        String url = "https://res.cloudinary.com/test-cloud/image/upload/v123/salonhub/work%20photo.png";
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andRespond(withSuccess("{\"secure_url\":\"" + url
+                        + "\",\"public_id\":\"salonhub/work photo\",\"resource_type\":\"image\","
+                        + "\"future_provider_field\":{\"enabled\":true}}", MediaType.APPLICATION_JSON));
+
+        var response = service.upload(image(), "salonhub");
+
+        assertTrue(response.isSuccess());
+        assertEquals(url, response.getData().secureUrl());
+        assertEquals("salonhub/work photo", response.getData().publicId());
+        server.verify();
+    }
+
     private String multipartField(String body, String name) {
         var matcher = Pattern.compile("name=\"" + name + "\"[^\\r\\n]*\\r\\n(?:[^\\r\\n]+\\r\\n)*\\r\\n([^\\r\\n]*)").matcher(body);
         assertTrue(matcher.find(), "Missing multipart field " + name);
