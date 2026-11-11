@@ -10,5 +10,7 @@ import java.util.Optional;
 
 public interface CommunityPostRepo extends JpaRepository<CommunityPost, Long> {
     Page<CommunityPost> findByAuthorStatus(UserStatus status, Pageable pageable);
+    Page<CommunityPost> findByAuthorIdAndAuthorStatus(Long authorId, UserStatus status, Pageable pageable);
+    long countByAuthorIdAndAuthorStatus(Long authorId, UserStatus status);
     Optional<CommunityPost> findByIdAndAuthorStatus(Long id, UserStatus status);
 }

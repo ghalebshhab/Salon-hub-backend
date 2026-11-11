@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface SalonFollowRepo extends JpaRepository<SalonFollow, Long> {
     Optional<SalonFollow> findByUserIdAndSalonId(Long userId, Long salonId);
     List<SalonFollow> findByUserIdOrderByCreatedAtDesc(Long userId);
+    long countByUserId(Long userId);
 }

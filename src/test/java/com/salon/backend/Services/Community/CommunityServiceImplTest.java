@@ -83,6 +83,30 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    void exposesOnlyTheRequestedMembersPostsWithCommunityCounts() {
+        User viewer = user("member-post-viewer");
+        User professional = user("member-post-author");
+        service.createPost(new CreatePostRequest("First profile post", null, null), professional.getId());
+        service.createPost(new CreatePostRequest("Second profile post", null, null), professional.getId());
+        service.createPost(new CreatePostRequest("Someone else's post", null, null), viewer.getId());
+        service.sendFriendRequest(professional.getId(), viewer.getId());
+        var request = friendshipRepo.findByLowerUserIdAndHigherUserId(
+                Math.min(viewer.getId(), professional.getId()),
+                Math.max(viewer.getId(), professional.getId())).orElseThrow();
+        service.acceptFriendRequest(request.getId(), professional.getId());
+
+        var posts = service.getMemberPosts(professional.getId(), viewer.getId(), 0, 10);
+        var profile = service.getCommunityProfile(professional.getId(), viewer.getId());
+
+        assertTrue(posts.isSuccess());
+        assertEquals(2, posts.getData().totalElements());
+        assertTrue(posts.getData().content().stream()
+                .allMatch(post -> post.author().id().equals(professional.getId())));
+        assertEquals(2, profile.getData().postCount());
+        assertEquals(1, profile.getData().friendCount());
+    }
+
+    @Test
     void protectsSalonIdentityAndKeepsFollowsIdempotent() {
         User owner = user("owner");
         User visitor = user("visitor");

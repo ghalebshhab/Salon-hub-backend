@@ -14,5 +14,8 @@ public record CommunityProfileResponse(
         String portfolioUrl,
         String professionalBio,
         Long salonId,
-        String salonName
+        String salonName,
+        long postCount,
+        long friendCount,
+        long followedSalonCount
 ) {}

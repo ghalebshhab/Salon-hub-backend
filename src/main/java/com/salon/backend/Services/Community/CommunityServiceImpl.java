@@ -114,7 +114,28 @@ public class CommunityServiceImpl implements CommunityService {
                 profileUser.isCareerProfileEnabled() ? profileUser.getPortfolioUrl() : null,
                 profileUser.isCareerProfileEnabled() ? profileUser.getProfessionalBio() : null,
                 salon == null ? null : salon.getId(),
-                salon == null ? null : salon.getName()));
+                salon == null ? null : salon.getName(),
+                postRepo.countByAuthorIdAndAuthorStatus(profileUserId, UserStatus.Active),
+                friendshipRepo.countByRequesterIdAndStatusOrAddresseeIdAndStatus(
+                        profileUserId, FriendshipStatus.ACCEPTED, profileUserId, FriendshipStatus.ACCEPTED),
+                salonFollowRepo.countByUserId(profileUserId)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<CommunityPostPageResponse> getMemberPosts(Long profileUserId, Long userId, Integer page, Integer size) {
+        if (findActiveUser(userId) == null) return ApiResponse.error("Active user not found");
+        if (findActiveUser(profileUserId) == null) return ApiResponse.error("Community profile not found");
+        PageRequest pageRequest = pageRequest(page, size);
+        if (pageRequest == null) return ApiResponse.error("Page must be non-negative and size must be between 1 and 50");
+
+        Page<CommunityPost> posts = postRepo.findByAuthorIdAndAuthorStatus(profileUserId, UserStatus.Active, pageRequest);
+        Set<Long> likedPostIds = likedPostIds(posts.getContent(), userId);
+        List<CommunityPostResponse> content = posts.getContent().stream()
+                .map(post -> mapPost(post, userId, likedPostIds.contains(post.getId())))
+                .toList();
+        return ApiResponse.success("Community member posts fetched successfully", new CommunityPostPageResponse(
+                content, posts.getNumber(), posts.getSize(), posts.getTotalElements(), posts.getTotalPages(), posts.isFirst(), posts.isLast()));
     }
 
     @Override

@@ -11,6 +11,7 @@ public interface CommunityService {
     ApiResponse<CommunityPostResponse> getPost(Long postId, Long userId);
     ApiResponse<List<CommunityPostLikeResponse>> getPostLikes(Long postId, Long userId);
     ApiResponse<CommunityProfileResponse> getCommunityProfile(Long profileUserId, Long userId);
+    ApiResponse<CommunityPostPageResponse> getMemberPosts(Long profileUserId, Long userId, Integer page, Integer size);
     ApiResponse<CommunityPostResponse> createPost(CreatePostRequest request, Long userId);
     ApiResponse<CommunityPostResponse> updatePost(Long postId, UpdatePostRequest request, Long userId);
     ApiResponse<Void> deletePost(Long postId, Long userId);

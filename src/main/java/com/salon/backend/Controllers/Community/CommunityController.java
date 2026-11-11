@@ -52,6 +52,15 @@ public class CommunityController {
         return communityService.getCommunityProfile(userId, currentUser.getId());
     }
 
+    @GetMapping("/people/{userId}/posts")
+    public ApiResponse<CommunityPostPageResponse> getMemberPosts(
+            @PathVariable Long userId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return communityService.getMemberPosts(userId, currentUser.getId(), page, size);
+    }
+
     @PostMapping("/posts")
     public ApiResponse<CommunityPostResponse> createPost(@RequestBody CreatePostRequest request, @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return communityService.createPost(request, currentUser.getId());
