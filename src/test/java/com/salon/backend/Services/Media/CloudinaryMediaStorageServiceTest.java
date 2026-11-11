@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,6 +19,10 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HashMap;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -242,7 +248,58 @@ class CloudinaryMediaStorageServiceTest {
     }
 
     private MockMultipartFile image() {
-        return new MockMultipartFile("file", "work.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47});
+        return new MockMultipartFile("file", "work.png", "image/png",
+                HexFormat.of().parseHex("89504e470d0a1a0a"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidImageSignatures")
+    void incompleteOrCorruptImageSignaturesNeverReachProvider(String type, byte[] bytes) {
+        var response = service.upload(new MockMultipartFile("file", "work", type, bytes), "salonhub");
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getData());
+        assertTrue(response.getMessage().contains("do not match"));
+        server.verify();
+    }
+
+    private static Stream<Arguments> invalidImageSignatures() {
+        List<Arguments> cases = new ArrayList<>();
+        byte[][] headers = {
+                HexFormat.of().parseHex("89504e470d0a1a0a"),
+                "GIF89a".getBytes(StandardCharsets.US_ASCII),
+                HexFormat.of().parseHex("524946461000000057454250")
+        };
+        String[] types = {"image/png", "image/gif", "image/webp"};
+        for (int format = 0; format < headers.length; format++) {
+            byte[] header = headers[format];
+            for (int length = 4; length < header.length; length++) {
+                cases.add(Arguments.of(types[format], Arrays.copyOf(header, length)));
+            }
+            for (int index = 0; index < header.length; index++) {
+                if (format == 2 && index >= 4 && index <= 7) continue; // RIFF size is variable.
+                byte[] corrupted = header.clone();
+                corrupted[index] ^= 1;
+                cases.add(Arguments.of(types[format], corrupted));
+            }
+        }
+        return cases.stream();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"89504e470d0a1a0a", "474946383761", "474946383961",
+            "524946461000000057454250", "52494646ffffffff57454250"})
+    void completeImageSignaturesAllowProviderInspection(String hex) {
+        byte[] bytes = HexFormat.of().parseHex(hex);
+        String type = hex.startsWith("89") ? "image/png" : hex.startsWith("47") ? "image/gif" : "image/webp";
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andRespond(withSuccess("""
+                        {"secure_url":"https://res.cloudinary.com/test-cloud/image/upload/work",
+                         "public_id":"salonhub/work", "resource_type":"image"}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertTrue(service.upload(new MockMultipartFile("file", "work", type, bytes), "salonhub").isSuccess());
+        server.verify();
     }
 
     @ParameterizedTest

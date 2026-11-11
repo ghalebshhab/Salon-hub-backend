@@ -230,9 +230,15 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
     private boolean matchesSignature(byte[] bytes, String type) {
         if (bytes.length < 4) return false;
         if ("image/jpeg".equals(type)) return unsigned(bytes[0]) == 0xff && unsigned(bytes[1]) == 0xd8 && unsigned(bytes[2]) == 0xff;
-        if ("image/png".equals(type)) return unsigned(bytes[0]) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47;
-        if ("image/gif".equals(type)) return bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F';
-        if ("image/webp".equals(type)) return bytes.length >= 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
+        if ("image/png".equals(type)) return bytes.length >= 8
+                && unsigned(bytes[0]) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
+                && bytes[4] == 0x0d && bytes[5] == 0x0a && bytes[6] == 0x1a && bytes[7] == 0x0a;
+        if ("image/gif".equals(type)) return bytes.length >= 6
+                && bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F'
+                && bytes[3] == '8' && (bytes[4] == '7' || bytes[4] == '9') && bytes[5] == 'a';
+        if ("image/webp".equals(type)) return bytes.length >= 12
+                && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
         if ("video/mp4".equals(type)) return bytes.length >= 8 && bytes[4] == 'f' && bytes[5] == 't' && bytes[6] == 'y' && bytes[7] == 'p';
         return "video/webm".equals(type) && unsigned(bytes[0]) == 0x1a && unsigned(bytes[1]) == 0x45 && unsigned(bytes[2]) == 0xdf && unsigned(bytes[3]) == 0xa3;
     }
