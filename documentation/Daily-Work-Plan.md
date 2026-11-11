@@ -138,3 +138,11 @@ URLs using ApiResponse errors without returning provider details. Thirty new HTT
 regressions; backend verify passed 229 tests and packaged the JAR. This does not close content
 limits or durable rejected-asset reconciliation. See the status document for review/setup,
 verification and remaining approved work. Item 2 stays IN PROGRESS.
+
+November 11 continuation closes incomplete local PNG/GIF/WebP signature checks before
+Cloudinary uploads (implementation c2c38ba). Forty-one new regressions; focused provider
+suite 112 passed; backend verify 270 passed and packaged JAR; frontend lint, 98 tests
+and production build passed. No live credentials or provider calls. Frontend local commits
+remain preserved and unpushed. This is a signature gate, not full media content validation.
+Item 2 remains IN PROGRESS; see the status document for files, review/setup and remaining
+cleanup/content/privacy/location/upload-state acceptance work. Do not repeat this fix.

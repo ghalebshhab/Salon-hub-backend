@@ -459,3 +459,58 @@ were changed. Both origins fetched and ff-only updates were already current; reu
 daily branches and backend daily worktree. Original backend master and parent artifacts
 preserved. No new branch, merge, reset, rebase, force push or PR. Exact staged diff reviewed
 for secrets and generated artifacts; git diff --check passed. Own verification logs removed.
+
+## November 11 continuation - Complete local image signatures
+
+Implementation commit: c2c38ba3f61d91f433ef5594607780a9076670fd.
+Device uploads now require all eight PNG signature bytes, GIF87a or GIF89a headers,
+and both complete RIFF and WEBP markers. Previously four-byte PNG, arbitrary GIF
+versions and malformed RIFF markers could pass the local MIME/signature gate.
+Rejected files return the existing ApiResponse error/data:null before any provider call.
+The existing format allowlist, byte limits, authorization and HTTP contracts are unchanged.
+This is signature validation only: it does not decode an entire image or validate RIFF
+sizes, dimensions, video duration, remote contents, or transaction/cleanup behavior.
+Drive imports continue through their existing validation path; they are not inspected by
+this local file-signature gate. No schema migration or frontend runtime change is needed.
+
+Signature references (no new dependencies):
+- https://www.w3.org/TR/png-3/#5PNG-file-signature
+- https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+- https://developers.google.com/speed/webp/docs/riff_container
+
+Files changed: src/main/java/com/salon/backend/Services/Media/CloudinaryMediaStorageService.java;
+src/test/java/com/salon/backend/Services/Media/CloudinaryMediaStorageServiceTest.java;
+documentation/Daily-Work-Plan.md; documentation/Salon-Public-Profile-Media-Status.md.
+Added 41 regressions: truncated headers, corruption of each fixed signature byte, valid
+PNG/GIF87a/GIF89a/WebP signatures and variable RIFF size bytes. Existing PNG fixture now
+contains its complete signature. HTTP mocks assert rejected files never reach Cloudinary;
+header-only positive fixtures exercise the signature gate, not actual image decoding.
+Focused provider suite: 112 passed. Full mvn.cmd -B verify: 270 passed, zero failures,
+errors or skips; executable JAR packaged. No backend lint is configured. Frontend
+npm.cmd run check: ESLint zero warnings, 98 tests and production build passed first run.
+Frontend verification includes preserved local commits 3c9730b and 905191b; it is not a
+remote-daily-head reproducibility claim. No tests weakened or timeouts changed.
+
+Both origins fetched, existing daily-work-automated branches updated ff-only (already
+current). Reused backend daily worktree; original backend master and parent artifacts
+preserved. Frontend local commits remain unpushed. No new branch, default merge, reset,
+rebase, force push or PR. Reviewed exact source/test diff for secrets/artifacts and ran
+git diff --check. Temporary verification logs removed before final status.
+
+No Cloudinary process variables or matching assignments in checked original/daily backend
+local configuration were present; no live provider calls or upload success claimed.
+No Google credentials added or verified. Drive share links/external Maps fallback keep
+their existing credential limitations. Saved My Salon v0 prompt retained for review.
+
+Review/setup: configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET
+only in the backend deployment environment and restart. Using a disposable staging salon,
+upload real PNG, GIF87a/GIF89a and WebP files through Device. Verify successful cover/gallery
+behavior. Send truncated PNG/GIF headers or a WebP with RIFF replaced by RIFX through the
+same authenticated endpoint: expect success:false, data:null, signature mismatch error,
+and no provider request or database change. Live staging acceptance remains outstanding.
+
+Approved item 2 remains IN PROGRESS. Do not repeat this local signature fix. Remaining:
+durable replacement/rejected-asset cleanup and transaction orphans; remote media format,
+size, dimensions and duration limits; full cover/video metadata; public IDs coordinated
+with booking/ownership; creation/gallery progress/cancellation; exact Jordan boundaries
+and link consistency. Continue independent approved work without merging default branches.
