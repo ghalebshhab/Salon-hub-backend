@@ -57,10 +57,12 @@ java.util.Optional<User> findByIdForUpdate(@Param("id") Long id);
                   AND (user.salon IS NULL OR user.salon.id <> :excludedSalonId)
                   AND (
                     :search = ''
-                    OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(user.userName) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(skill) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(location) LIKE LOWER(CONCAT('%', :search, '%'))
+                    OR LOWER(user.firstName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(user.lastName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(user.userName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(skill) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(location) LIKE LOWER(CONCAT(:search, '%'))
                   )
                 """,
         countQuery = """
@@ -75,10 +77,12 @@ java.util.Optional<User> findByIdForUpdate(@Param("id") Long id);
                   AND (user.salon IS NULL OR user.salon.id <> :excludedSalonId)
                   AND (
                     :search = ''
-                    OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(user.userName) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(skill) LIKE LOWER(CONCAT('%', :search, '%'))
-                    OR LOWER(location) LIKE LOWER(CONCAT('%', :search, '%'))
+                    OR LOWER(user.firstName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(user.lastName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(user.userName) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(skill) LIKE LOWER(CONCAT(:search, '%'))
+                    OR LOWER(location) LIKE LOWER(CONCAT(:search, '%'))
                   )
                 """
 )
