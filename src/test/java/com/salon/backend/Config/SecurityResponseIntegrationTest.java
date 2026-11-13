@@ -2,6 +2,7 @@ package com.salon.backend.Config;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Services.Auth.Security.ApiAccessDeniedHandler;
@@ -48,6 +49,8 @@ class SecurityResponseIntegrationTest {
     @Autowired private JwtService jwtService;
     @Autowired private TokenBlacklistService tokenBlacklistService;
     @MockitoBean private CustomUserDetailsService userDetailsService;
+    // The filter records activity for authenticated requests; persistence is irrelevant here.
+    @MockitoBean private UserActivityTrackingService userActivityTrackingService;
 
     @Test
     void missingAuthenticationReturnsUnauthorizedEnvelope() throws Exception {
