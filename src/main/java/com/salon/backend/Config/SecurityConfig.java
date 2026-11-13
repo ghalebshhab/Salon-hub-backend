@@ -3,6 +3,7 @@ package com.salon.backend.Config;
 import com.salon.backend.Services.Auth.Security.CustomUserDetailsService;
 import com.salon.backend.Services.Auth.Security.ApiAuthenticationEntryPoint;
 import com.salon.backend.Services.Auth.Security.ApiAccessDeniedHandler;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,6 +47,10 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        // Error dispatches only render the original failure; without this, any
+                        // non-business error on a public route was reported to anonymous callers
+                        // as 401 "session expired" instead of its real status.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
