@@ -251,6 +251,10 @@ The application uses an editorial salon identity built around deep plum, warm go
 | Main text | `#292329` | `#F8F3F6` | Readable foreground content |
 | Muted text | `#746B72` | `#B9AFB6` | Secondary labels and supporting copy |
 | Border | `#E8DEDF` | `#423942` | Dividers, input outlines, non-destructive hover feedback |
+| On primary | `#FFFFFF` | `#1D161C` | Text on filled primary and success buttons (WCAG AA in both themes) |
+| Focus outline | `#76546F` | `#D7A8CE` | Solid 2px keyboard focus outline, at least 3:1 against surfaces |
+
+Typography uses two self-hosted variable typefaces: Fraunces (`--font-display`) for editorial headings and Inter (`--font-body`) for interface text. Theme-independent scales live in `src/app/styles/tokens.css`: twelve type sizes (`--text-2xs` 11px to `--text-6xl` 64px), four weights (400, 500, 600, 700), spacing on a 4px grid, radius, elevation, layering, and motion durations. Feature stylesheets consume these tokens instead of literal values. Buttons are defined once in `buttons.css` and rendered through the shared `Button` component. Salons without a cover image show branded cover art (initials, scissors mark, plum gradient) rather than an empty block.
 
 Hover states preserve the card's dark surface instead of replacing it with a light fill. They communicate interaction through a stronger border, restrained background modulation, shadow, and motion so text remains readable. Normal pages show the Salon Hup wordmark once in the header; repeated full-brand blocks were removed from authentication content and the footer. Startup and route-transition states may show the brand because normal page chrome is not yet available.
 
@@ -261,7 +265,7 @@ Two coordinated loading patterns clarify what the application is doing:
 - **Signature Snip action loader:** used for API operations such as signing in, registering, searching, booking, deciding a request, applying to a post, changing staff or services, and updating notifications. Animated scissors open and close with a small gold sparkle over a softened page backdrop. The message describes the current action instead of displaying a generic spinner.
 - **Salon Hup navigation loader:** used for initial application startup, lazy route loading, redirects, link navigation, programmatic navigation, and browser back or forward movement. It uses the primary brand mark and a destination-aware message without duplicating the header wordmark.
 
-The shared loader store counts overlapping operations so one completed request cannot hide another request that is still running. Action overlays appear after 180 ms to avoid flicker and remain visible for at least 320 ms once shown. Route transitions remain visible for approximately 650 ms to make the navigation feel intentional. Background availability refresh and notification polling do not take over the screen. Both loaders respect light/dark tokens and reduced-motion preferences.
+The shared loader store counts overlapping operations so one completed request cannot hide another request that is still running. Action overlays appear after 180 ms to avoid flicker and remain visible for at least 320 ms once shown. Route transitions remain visible for about 320 ms so navigation feels intentional without delaying the next page. The startup splash appears for 600 ms on the first load of a browser session only. Scroll reveals are short (360–420 ms), blur-free, and skipped for content already on screen at first paint. Background availability refresh and notification polling do not take over the screen. Both loaders respect light/dark tokens and reduced-motion preferences.
 
 ### Error presentation
 
