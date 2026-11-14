@@ -101,10 +101,15 @@ Page<User> searchCareerCandidates(
           AND user.id <> :excludedUserId
           AND (
             :search = ''
-            OR LOWER(user.userName) LIKE LOWER(CONCAT('%', :search, '%'))
-            OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(user.firstName) LIKE CONCAT(LOWER(:search), '%') ESCAPE '!'
+            OR LOWER(user.lastName) LIKE CONCAT(LOWER(:search), '%') ESCAPE '!'
+            OR LOWER(CONCAT(user.firstName, ' ', user.lastName)) LIKE CONCAT(LOWER(:search), '%') ESCAPE '!'
+            OR LOWER(user.userName) LIKE CONCAT(LOWER(:search), '%') ESCAPE '!'
           )
         """)
+// Prefix match, case-insensitive: "r", "ra", "ran" narrow to members whose first name,
+// last name, full name or username starts with the typed text. Callers escape LIKE
+// wildcards with "!" (see CommunityServiceImpl#likePrefix).
 Page<User> searchCommunityUsers(
         @Param("excludedUserId") Long excludedUserId,
         @Param("status") UserStatus status,

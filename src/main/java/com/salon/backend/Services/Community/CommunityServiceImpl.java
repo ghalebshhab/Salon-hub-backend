@@ -51,7 +51,7 @@ public class CommunityServiceImpl implements CommunityService {
         if (resultSize < 1 || resultSize > 30) return ApiResponse.error("Member result size must be between 1 and 30");
         String query = normalize(search);
         List<CommunityMemberResponse> members = userRepo.searchCommunityUsers(
-                        userId, UserStatus.Active, query == null ? "" : query,
+                        userId, UserStatus.Active, query == null ? "" : likePrefix(query),
                         PageRequest.of(0, resultSize, Sort.by("firstName", "lastName").ascending()))
                 .getContent().stream().map(member -> mapMember(member, userId)).toList();
         return ApiResponse.success("Community members fetched successfully", members);
@@ -413,6 +413,11 @@ public class CommunityServiceImpl implements CommunityService {
         if (content.length() > MAX_POST_LENGTH) return "Post content cannot exceed 5000 characters";
         if (mediaUrl != null && !UrlValidationUtils.isValidWebUrl(mediaUrl)) return "Media URL must be a valid HTTP or HTTPS URL";
         return null;
+    }
+
+    // Typed "%" or "_" must match literally instead of acting as LIKE wildcards.
+    public static String likePrefix(String value) {
+        return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
     private String normalize(String value) {
