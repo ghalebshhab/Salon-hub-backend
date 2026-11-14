@@ -4,8 +4,8 @@
 | --- | --- |
 | **Product** | Salonhub (earlier documents use the name "Salon Hup") |
 | **Document type** | Product, design and engineering specification |
-| **Document version** | 2.0.0 |
-| **Last updated** | 14 November 2026 |
+| **Document version** | 2.0.1 |
+| **Last updated** | 15 November 2026 |
 | **Product status** | Active development, not yet released to production |
 | **Owner and author** | Ghaleb Shhab |
 | **Source file** | `backend/documentation/Salon-Hup-Project-Documentation.md` |
@@ -28,7 +28,6 @@ This document is the single maintained description of Salonhub. It follows the p
 - **Implemented** means that working source code exists in the repositories.
 - **Partial** means that a foundation exists but production controls are not complete.
 - **Planned** means an approved direction with no implementation. Planned behavior is never described as current behavior.
-- **Release pending** means that the code is implemented and tested in the working tree but is not yet committed to the main branch.
 - Diagrams use Mermaid. GitHub and most Markdown viewers render them directly.
 - Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
 
@@ -177,7 +176,7 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 | Owner dashboard | Implemented | One owner-only view of salon, bookings, team, services and reviews |
 | Admin dashboard | Implemented | Separate Next.js application: overview, analytics, activity, reports, salons, users |
 | Global search | Implemented | Command palette that finds pages and people |
-| Lamsa AI assistant | Implemented, release pending | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
+| Lamsa AI assistant | Implemented | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
 | Design system | Implemented | Plum and gold identity, light and dark themes, shared tokens, motion rules, accessible focus states |
 | Interactive prototype | Implemented | `/prototype` shows the main journeys with sample data |
 | Payments | Planned | No implementation |
@@ -270,7 +269,7 @@ The analytics endpoint returns totals for users (active, blocked, owners, employ
 | FR-14 | Administrators can see platform analytics and user activity | Implemented |
 | FR-15 | Owners can see one operational dashboard for the owned salon | Implemented |
 | FR-16 | Users can search pages and people from each page | Implemented |
-| FR-17 | An assistant answers questions and gives suggestions from live platform data only | Implemented, release pending |
+| FR-17 | An assistant answers questions and gives suggestions from live platform data only | Implemented |
 | FR-18 | Customers can pay for appointments online | Planned |
 | FR-19 | Operators can deploy, monitor, migrate, back up and recover the system | Partial |
 
@@ -2033,7 +2032,7 @@ Steps 2, 3 and 5 depend on roadmap phase 7.
 | Web application | 177 tests pass in 39 files; lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
 | Admin dashboard | Not measured for this version | |
 
-The backend and web numbers include the Lamsa assistant work, which is release pending.
+The backend and web numbers include the Lamsa assistant work.
 
 | Layer | Purpose | State |
 | --- | --- | --- |
@@ -2156,7 +2155,6 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 | Lamsa | The Salonhub AI assistant |
 | Guide mode | Lamsa replies that fixed templates write, without the AI service |
 | Governorate | One of the 12 administrative regions of Jordan |
-| Release pending | Implemented and tested, not yet committed to the main branch |
 
 ## 30. Documentation maintenance
 
@@ -2173,6 +2171,7 @@ Versions use `major.minor.patch`: patch for a correction, minor for a feature or
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 2.0.1 | 15 November 2026 | Marked the Lamsa assistant as implemented after its release to the main branches, and removed the "release pending" convention |
 | 2.0.0 | 14 November 2026 | New structure in five parts (product, planning, design, development, handover). Added community, moderation, admin dashboard, owner dashboard API, global search and the Lamsa assistant. Added delivery history, phased roadmap, buyer handover chapters and 17 Mermaid diagrams. Updated status, tests, configuration and deployment to the current state. Product name written as Salonhub. |
 | 1.4.2 | 1 November 2026 | Recorded salon location and media delivery, and frontend design tokens, typography and motion timings |
 | 1.4.1 | 31 October 2026 | Standardized security-filter 401/403 responses through `ApiResponse.error`, preserved endpoint permissions and frontend session behavior, resolved R-13, and added nine filter-chain integration tests plus current verification evidence |
