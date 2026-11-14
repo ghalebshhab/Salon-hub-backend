@@ -91,6 +91,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/search/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/assistant/chat").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/assistant/insights").permitAll()
                         .anyRequest().authenticated())
                 .userDetailsService(userDetailsService)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

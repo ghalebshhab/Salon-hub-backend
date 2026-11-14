@@ -33,4 +33,16 @@ public interface SalonReviewRepo extends JpaRepository<SalonReview, Long> {
             @Param("salonId") Long salonId,
             @Param("customerStatus") UserStatus customerStatus
     );
+
+    @Query("""
+            SELECT review.salon.id AS salonId,
+                   AVG(review.rating) AS averageRating,
+                   COUNT(review) AS totalReviews
+            FROM SalonReview review
+            WHERE review.customer.status = :customerStatus
+            GROUP BY review.salon.id
+            """)
+    List<SalonRatingProjection> summarizeRatingsBySalon(
+            @Param("customerStatus") UserStatus customerStatus
+    );
 }
