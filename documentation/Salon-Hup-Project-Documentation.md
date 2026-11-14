@@ -1,70 +1,94 @@
-# Salon Hup Project Documentation
+# Salonhub: Product and Engineering Documentation
 
-**Document type:** Product and engineering specification
-**Project:** Salon Hup
-**Backend version:** 0.0.1 SNAPSHOT
-**Document version:** 1.4.2
-**Last updated:** 1 November 2026
-**Status:** Active development
+| Document control | |
+| --- | --- |
+| **Product** | Salonhub (earlier documents use the name "Salon Hup") |
+| **Document type** | Product, design and engineering specification |
+| **Document version** | 2.0.0 |
+| **Last updated** | 14 November 2026 |
+| **Product status** | Active development, not yet released to production |
+| **Owner and author** | Ghaleb Shhab |
+| **Source file** | `backend/documentation/Salon-Hup-Project-Documentation.md` |
+| **Audience** | Engineers, reviewers, quality assurance, operations, stakeholders, and a company that evaluates the product for purchase |
 
-## Document purpose
+## How to read this document
 
-This document is the maintained source of truth for the Salon Hup product. It covers the React frontend, Spring Boot backend, browser-to-API integration, product vision, implemented business rules, data model, complete API surface, security model, current delivery status, known risks, and planned development. It is intended for developers, reviewers, future contributors, quality assurance, operations, and stakeholders preparing the product for deployment.
+This document is the single maintained description of Salonhub. It follows the product through its life cycle, so each reader can go to the part that answers their question.
 
-The document distinguishes between implemented behavior and planned behavior. A capability is only marked as implemented when corresponding source code exists in the repository. Future changes should update this source after the implementation has been reviewed and approved.
+| Part | Chapters | Question it answers | Main reader |
+| --- | --- | --- | --- |
+| I. Product | 1 to 5 | What is Salonhub, who uses it, and what does it do today? | Stakeholders, buyers, product |
+| II. Planning | 6 to 9 | What was required, what was delivered, what comes next, and what are the risks? | Product, project leads, buyers |
+| III. Design | 10 to 14 | How is the system built, how does it behave, and how does it look? | Architects, engineers, designers |
+| IV. Development | 15 to 26 | How does each workflow, contract and API work, and how is it secured, tested and deployed? | Engineers, QA, operations |
+| V. Handover | 27 to 31 | What does a new owner receive, and how is this document kept correct? | Buyers, new team members |
 
-> **Document convention:** `Implemented` means working source code exists in this repository. `Partial` means a foundation exists but production controls are incomplete. `Planned` describes an approved direction that has not yet been implemented. Planned content is never presented as current behavior.
+### Conventions
 
-## Executive overview
+- **Implemented** means that working source code exists in the repositories.
+- **Partial** means that a foundation exists but production controls are not complete.
+- **Planned** means an approved direction with no implementation. Planned behavior is never described as current behavior.
+- **Release pending** means that the code is implemented and tested in the working tree but is not yet committed to the main branch.
+- Diagrams use Mermaid. GitHub and most Markdown viewers render them directly.
+- Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
 
-Salon Hup is a responsive web platform for salon discovery, service catalogs, salon ownership, employment, hiring, appointment booking, and verified customer reviews. The React client presents the customer, career, owner, and employee journeys; the Spring Boot API connects them through authenticated identity, explicit ownership rules, transactional state changes, and DTO-based contracts.
+## Contents
 
-The application currently supports verified user registration, JWT login, secure email-code verification, password recovery, a unified normal/career user profile, personalized hiring-post discovery, salon creation requests with administrative approval, salon profile management, employment requests and owner invitations, employee leave and salon transfers, reversible administrative user and salon blocking, hiring-post creation, ranked applications, owner acceptance and rejection, an owner-managed public service catalog, employee service capabilities and schedules, appointment requests and decisions, customer-approved rescheduling, employee assignment and reassignment explanations, customer and employee booking views, persistent user-specific booking notifications, completion, and booking-verified salon reviews. The React experience also includes an owner-only operational dashboard, a shared plum-and-gold light/dark design system, contextual action loading, branded route-transition loading, centralized backend-error presentation, and a prototype route for reviewing completed product states.
+**Part I. Product**: [1. Executive summary](#1-executive-summary) · [2. Vision, goals and principles](#2-vision-goals-and-principles) · [3. Users, roles and stakeholders](#3-users-roles-and-stakeholders) · [4. Scope](#4-scope) · [5. Feature catalog and status](#5-feature-catalog-and-status)
 
-The booking workflow now calculates appointment slots on the server from salon hours, selected-service duration, employee capabilities, weekly schedules, and accepted-booking conflicts. The React booking page displays those slots and the eligible employees for each time. Booking creation revalidates the chosen slot so stale or manipulated clients cannot bypass current availability. Booking decisions and material changes create durable inbox events in the same transaction. Salon reviews require a completed booking owned by the customer and remain linked to that booking. Schedule exceptions, push delivery, payment processing, employee ratings, and service ratings remain planned.
+**Part II. Planning**: [6. Requirements](#6-requirements) · [7. Delivery history](#7-delivery-history) · [8. Roadmap and next phases](#8-roadmap-and-next-phases) · [9. Risks](#9-risks)
 
-### Product status snapshot
+**Part III. Design**: [10. System architecture](#10-system-architecture) · [11. Application behaviour and flows](#11-application-behaviour-and-flows) · [12. Domain model](#12-domain-model) · [13. Domain state model](#13-domain-state-model) · [14. Experience and visual design](#14-experience-and-visual-design)
 
-| Capability group | Delivery state | Product meaning |
+**Part IV. Development**: [15. Technology stack](#15-technology-stack) · [16. Repositories and code structure](#16-repositories-and-code-structure) · [17. Business workflows](#17-business-workflows) · [18. Workflow data contracts](#18-workflow-data-contracts) · [19. API catalog](#19-api-catalog) · [20. API contract reference](#20-api-contract-reference) · [21. Security model](#21-security-model) · [22. Data protection and governance](#22-data-protection-and-governance) · [23. Environments and configuration](#23-environments-and-configuration) · [24. Deployment](#24-deployment) · [25. Testing and quality](#25-testing-and-quality) · [26. Operations and observability](#26-operations-and-observability)
+
+**Part V. Handover**: [27. Asset inventory for a new owner](#27-asset-inventory-for-a-new-owner) · [28. Known gaps before production](#28-known-gaps-before-production) · [29. Glossary](#29-glossary) · [30. Documentation maintenance](#30-documentation-maintenance) · [31. Revision history](#31-revision-history)
+
+---
+
+# Part I. Product
+
+## 1. Executive summary
+
+Salonhub is a web platform for the beauty community in Jordan. It connects four groups in one product:
+
+- **Customers** find approved salons, see services and prices, book appointments, and review completed visits.
+- **Salon owners** run the salon: profile, services, team, schedules, bookings, hiring and performance.
+- **Beauty professionals** keep one career profile, find jobs, apply, and manage their employment.
+- **Platform administrators** approve salons, moderate content, and watch platform activity.
+
+A community area (posts, comments, friends and salon follows) and an AI assistant named **Lamsa** connect these groups. Lamsa answers from live platform data: it finds pages, ranks salons by governorate, and suggests jobs and team members.
+
+The product consists of three applications that share one API:
+
+| Application | Technology | Purpose |
 | --- | --- | --- |
-| Identity and access | Implemented | Registration, email verification, resend cooldown, login, logout, password recovery, JWT authentication and invalidation, role authorization, and blocked-account enforcement exist |
-| Career and hiring | Implemented | Unified career profiles, discovery ranking, applications, owner decisions, and hiring lifecycle exist |
-| Salon administration | Implemented | Request review, rejection correction, resubmission, listing, blocking, and restoration exist |
-| Workforce management | Implemented | Join, invitation, leave, transfer, and linked hiring acceptance flows exist |
-| Salon service catalog | Implemented | Approved owners manage priced, timed services and public salon pages receive active offerings |
-| Customer booking | Implemented | Customers select server-calculated slots; owners decide, assign, reschedule through customer-approved proposals, and complete requests |
-| Employee availability | Implemented | Fifteen-minute slots reflect selected-service duration, qualified employees, weekly schedules, accepted conflicts, and a 30-minute same-day lead time |
-| Notification inbox | Implemented | Durable booking events, authenticated pagination, unread count, owned read operations, and frontend polling are connected |
-| Verified salon reviews | Implemented | A customer can review a completed owned booking once; public lists and aggregate summaries exclude blocked customers |
-| Web experience | Implemented | Responsive React routes cover discovery, authentication, profiles, hiring, owner operations, bookings, employee setup, reviews, and an owner-only dashboard in a consistent light/dark theme |
-| Interaction feedback | Implemented | Contextual Signature Snip action loader, branded route-transition loader, stable overlapping-request handling, and clear server-error messages are shared across active journeys |
-| Frontend/API integration | Implemented | Core journeys use shared Axios and `ApiResponse`; salon cover and employee portfolio media use authenticated backend Cloudinary routes |
-| Production operations | Partial | Environment secrets and health foundation exist; migrations, containers, durable revocation, monitoring, and hosting remain |
+| Web application | React 19, Vite, React Router 7 | Customer, owner, employee, career and community experience |
+| Admin dashboard | Next.js 16, TypeScript, Tailwind CSS 4 | Platform administration, analytics and moderation |
+| Backend API | Spring Boot 4.1, Java 17, JPA, MySQL | Identity, business rules, persistence and integrations |
 
-## Product scope
+**Current state.** All core journeys are implemented and covered by automated tests (221 backend tests and 177 web tests at the last full run). The product is not yet in production. The main open items are payments, managed database migrations, durable token revocation, monitoring, and continuous integration for the backend and admin dashboard. Chapter 28 lists them.
 
-### In scope for the product
+## 2. Vision, goals and principles
 
-- Consumer accounts, salon owners, salon employees, and platform administrators.
-- Salon onboarding and administrative governance.
-- Career profiles, recruitment discovery, applications, and hiring decisions.
-- Direct employment invitations, requests, leave, and salon transfer workflows.
-- Public salon discovery, customer booking, employee assignment, and verified salon reviews.
-- Operational controls required to deploy and support the backend safely.
+### 2.1 Vision
 
-### Current release boundary
+One trusted place for the salon business in Jordan: a customer books with confidence, a professional builds a career, and an owner fills both the appointment book and the team.
 
-The current backend release supports authentication, salon approval, career profiles, hiring, employment, administrative moderation, public service discovery, employee qualification and weekly availability, server-calculated appointment slots, customer-approved rescheduling, appointment lifecycle management, and verified salon reviews. It is not yet ready for production because schedule exceptions, payments, external push delivery, database migrations, durable token revocation, observability, and deployment infrastructure remain planned.
+### 2.2 Product goals
 
-### Explicitly outside the current implementation
+- Give each user a secure account and a clear role.
+- Publish only salons that an administrator approved.
+- Let customers book real, server-calculated appointment times.
+- Let owners assign qualified, available employees and complete appointments.
+- Publish reviews only from completed visits.
+- Help owners recruit, and help professionals find work that fits their profile.
+- Keep employment history correct when an employee moves between salons.
+- Give the community a safe place to share work, with reporting and moderation.
+- Guide each user with an assistant that uses real platform data only.
+- Build a base that is ready for payments, notifications and deployment.
 
-- Online payment processing, refunds, invoices, and financial reconciliation.
-- Holidays, employee time off, automated reminders, and recurring appointments.
-- Real-time chat, social feeds, employee and service ratings, and content moderation.
-- Native mobile push notifications and production email templates.
-- Multi-tenant billing, subscription plans, and salon analytics.
-
-## Product principles
+### 2.3 Product principles
 
 - **Server-owned identity:** clients never choose the authenticated user, owner, or salon relationship for protected workflows.
 - **Reversible administration:** moderation preserves recoverable business state unless an explicit deletion policy applies.
@@ -74,8 +98,130 @@ The current backend release supports authentication, salon approval, career prof
 - **Qualified assignment:** an assigned employee must be active in the salon, qualified for every selected service, and available for the complete appointment interval.
 - **Verified feedback:** salon ratings originate only from completed bookings owned by the reviewing customer.
 - **Safe evolution:** implemented behavior, planned behavior, and known production gaps remain visibly separated.
+- **Grounded assistance:** Lamsa states only what the database returns. The language model writes the sentence; it does not supply facts.
+- **Safe community:** each post, comment, salon and member can be reported, and an administrator records the decision.
 
-### Salon location and media delivery
+## 3. Users, roles and stakeholders
+
+### 3.1 Personas
+
+| Persona | Need | Main journeys |
+| --- | --- | --- |
+| Customer | Find a good salon nearby and book without phone calls | Discover, book, follow the booking, review |
+| Beauty professional | Find work and show skills | Career profile, job discovery, applications, employment, work gallery |
+| Salon owner | Fill the calendar and the team, and see performance | Salon setup, services, team, schedules, bookings, hiring, dashboard |
+| Salon employee | Know the day's appointments | Assigned bookings, schedule, leave and transfer |
+| Administrator | Keep the platform trustworthy | Salon approval, blocking, reports, analytics, activity |
+| Guest | Understand the platform before sign-up | Home page, public salon pages, community reading rules, Lamsa in guide mode |
+
+### 3.2 System roles
+
+| Role | Purpose | Permissions |
+| --- | --- | --- |
+| `USER` | Default registered account | One profile, salon discovery, bookings, reviews, career mode, applications, community, reports |
+| `OWNER` | User approved as owner of a salon | Everything a user can do, plus the owned salon, services, team, schedules, booking decisions, hiring, and the owner dashboard |
+| `Employee` | User currently employed by a salon | Assigned bookings, work gallery, leave and transfer workflows |
+| `ADMIN` | Platform administrator | Admin dashboard: salon requests, user and salon blocking, analytics, activity and moderation reports |
+
+Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employee`. A later normalization of the casing needs a data migration.
+
+### 3.3 Stakeholder responsibilities
+
+| Stakeholder | Primary concern | Decision responsibility |
+| --- | --- | --- |
+| Product owner | Correct business behavior and release priority | Approves workflows, edge cases, and scope changes |
+| Backend engineering | Reliable domain logic and API contracts | Implements reviewed behavior and technical controls |
+| Frontend engineering | Clear user journeys and valid client integration | Uses documented DTOs, authentication, and route contracts |
+| Quality assurance | Repeatable evidence and regression protection | Verifies acceptance criteria, authorization, and failure paths |
+| Operations | Deployability, observability, recovery, and secrets | Owns environment configuration and production runbooks |
+
+## 4. Scope
+
+### 4.1 In scope
+
+- Customer accounts, salon owners, salon employees and platform administrators.
+- Salon onboarding with administrative approval and reversible blocking.
+- Public salon discovery, service catalogs, appointment booking and verified reviews.
+- Career profiles, hiring posts, ranked applications and employment workflows.
+- Community: posts, comments, likes, friends and salon follows.
+- Content reports and administrative moderation.
+- The Lamsa assistant and global search.
+- Owner dashboard and platform admin dashboard with analytics.
+
+### 4.2 Outside the current implementation
+
+- Online payments, refunds, invoices and financial reconciliation.
+- Holidays, planned employee time off, automated reminders and recurring appointments.
+- Real-time chat, and ratings for single employees or services.
+- Native mobile applications and mobile push notifications.
+- Subscription plans and multi-tenant billing.
+- An Arabic user interface. Lamsa understands Arabic keywords, but the interface text is English.
+
+## 5. Feature catalog and status
+
+| Module | Status | What the user gets |
+| --- | --- | --- |
+| Identity and access | Implemented | Registration, email verification with resend cooldown, login, logout, password recovery, JWT sessions, role checks, blocked-account enforcement |
+| Unified profile and career mode | Implemented | One profile for each person; career data extends it; completion score |
+| Salon onboarding and governance | Implemented | Salon request, admin approval or rejection with reason, correction and resubmission, reversible blocking |
+| Salon profile, location and media | Implemented | Salon page, Google Maps location inside Jordan, cover image, employee work gallery through Cloudinary |
+| Service catalog | Implemented | Owner-managed services with price and duration; public list of active services |
+| Team, capabilities and schedules | Implemented | Employee directory, service capabilities, weekly working periods |
+| Appointment booking | Implemented | Server-calculated 15-minute slots, request, owner decision, employee assignment, customer-approved reschedule, completion |
+| Notification inbox | Implemented | Durable booking and friend events, unread count, read operations, polling |
+| Verified reviews | Implemented | One review for each completed booking; public list and summary |
+| Hiring | Implemented | Hiring posts, personalized discovery, ranked applications, owner decisions, post life cycle |
+| Employment, leave and transfer | Implemented | Requests, invitations, leave, transfer between salons |
+| Community | Implemented | Feed, posts with optional media, comments, likes, friends, salon follows, member profiles |
+| Moderation | Implemented | Reports on posts, comments, salons and users; admin review with a recorded decision |
+| Owner dashboard | Implemented | One owner-only view of salon, bookings, team, services and reviews |
+| Admin dashboard | Implemented | Separate Next.js application: overview, analytics, activity, reports, salons, users |
+| Global search | Implemented | Command palette that finds pages and people |
+| Lamsa AI assistant | Implemented, release pending | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
+| Design system | Implemented | Plum and gold identity, light and dark themes, shared tokens, motion rules, accessible focus states |
+| Interactive prototype | Implemented | `/prototype` shows the main journeys with sample data |
+| Payments | Planned | No implementation |
+| Production operations | Partial | Docker image and hosting exist; managed migrations, monitoring and durable token revocation remain |
+
+### 5.1 Community
+
+Members share work and connect with salons and with each other.
+
+| Capability | Rule |
+| --- | --- |
+| Posts | Text up to 5,000 characters, optional media URL. Only the owner of a salon can publish as that salon. An author can edit or delete an owned post. |
+| Comments | Text up to 2,000 characters. |
+| Likes | One like for each member and post; the list of members who liked a post is available. |
+| Friends | A request is `PENDING` until the receiver accepts it (`ACCEPTED`). A member cannot send a request to their own account. Either side can remove the friendship. |
+| Salon follows | A member can follow an active salon and list the followed salons. |
+| Member search | Returns 1 to 30 members for each search. |
+| Paging | Feed and comment pages hold up to 50 items (20 by default). |
+
+Web routes: `/community`, `/community/discover`, `/community/requests`, `/community/following`, `/community/new`, `/community/people/:userId`.
+
+### 5.2 Moderation
+
+A signed-in member can report a `POST`, `COMMENT`, `SALON` or `USER` with one reason: `SPAM`, `HARASSMENT`, `INAPPROPRIATE_CONTENT`, `IMPERSONATION`, `SCAM` or `OTHER`. Details are optional and limited to 1,000 characters. A member can hold one open report for each item. An administrator reviews each report in the admin dashboard and sets it to `RESOLVED` or `DISMISSED`, with an optional note of up to 1,000 characters.
+
+### 5.3 Lamsa, the AI assistant
+
+"Lamsa" (لمسة) means "a touch" in Arabic. Lamsa is the assistant inside Salonhub, with its own mark, its own page and a small chat on each page.
+
+| Topic | Design |
+| --- | --- |
+| What it does | Finds pages, ranks salons by governorate, lists salons with open team seats, suggests jobs to professionals and candidates to owners, and explains how Salonhub works |
+| Where it appears | `/assistant` page, a floating launcher on each page except sign-in pages, and the "Lamsa's picks" section of the home page |
+| How it stays correct | The backend detects the intent from keywords (English and Arabic), loads real records, and passes only those records to the language model. Without an API key, fixed sentence templates write the reply ("guide mode"). |
+| Ranking | Salon ratings use a Bayesian-weighted average, so one 5-star review does not outrank many good reviews |
+| Limits | 20 AI replies in 10 minutes for each member; guests always receive guide mode |
+| Language model | Anthropic Claude through the official Java SDK; the model name is configuration (`ASSISTANT_MODEL`) |
+| Privacy | The conversation is kept in the browser session only. The server does not store chat history. |
+
+### 5.4 Global search
+
+A command palette opens from the navigation bar. It searches a catalog of pages (filtered by the user's role) and community members.
+
+### 5.5 Salon location and media
 
 Salon creation and editing accept an optional full HTTPS Google Maps URL together with latitude and longitude. The backend requires the three values together, accepts Google Maps hosts only, and validates the coordinates against Jordan's geographic bounds. Public salon pages present the city as a separate, readable link that opens the saved map location without allowing it to collide with the salon name.
 
@@ -92,380 +238,577 @@ The public employee directory uses a dedicated public DTO. It may show name, spe
 | `GET` | `/api/media/salons/{salonId}/work` | Public | Return the accepted salon's paginated public work gallery |
 | `DELETE` | `/api/media/work/{mediaId}` | Publishing employee | Remove an owned gallery record and its managed Cloudinary asset |
 
-## Product goals
+### 5.6 Administration
 
-- Give users a secure account and a clear role in the platform.
-- Allow eligible users to request ownership of a salon profile.
-- Require administrative review before a salon becomes active.
-- Help salon owners recruit and manage employees.
-- Allow users to request employment or respond to salon invitations.
-- Preserve employment state when an employee transfers between salons.
-- Publish structured hiring posts and route applications to the correct salon owner.
-- Let customers request appointments and track owner decisions.
-- Help owners assign qualified available employees and complete appointments.
-- Publish trustworthy salon feedback based on completed visits.
-- Build a reliable foundation for payments, notifications, and deployment.
+The admin dashboard is a separate application so that administrative code and sessions stay apart from the public web application. It contains these pages: sign-in, overview, analytics, activity, reports, salons, salon detail, users, person detail and administrator profile.
 
-## Roles and responsibilities
+The analytics endpoint returns totals for users (active, blocked, owners, employees, career profiles), salons by state, bookings by state, gross and completed booking value, and a monthly trend.
 
-| Role | Purpose | Current permissions |
+---
+
+# Part II. Planning
+
+## 6. Requirements
+
+### 6.1 Functional requirements
+
+| ID | Requirement | State |
 | --- | --- | --- |
-| USER | Default registered account and potential employee | Manage one profile, discover salons and services, request appointments, track or cancel owned bookings, review completed visits, enable career mode, and apply to hiring posts |
-| OWNER | User approved as the owner of a salon | Manage the owned salon, services, employee capabilities and schedules, booking decisions and assignments, invitations, employment requests, leave requests, and hiring posts |
-| Employee | User currently assigned to a salon | View assigned bookings, participate in employment and leave workflows, and transfer after the required workflow |
-| ADMIN | Platform administrator | Sign in to the dashboard, review salon requests, accept or reject salon requests, manage user directories, and reversibly block or unblock non-admin users and salons |
-
-Role names currently follow the source enum exactly: `USER`, `OWNER`, `ADMIN`, and `Employee`. A future normalization may standardize the casing, but that change requires migration planning.
-
-### Stakeholder responsibilities
-
-| Stakeholder | Primary concern | Decision responsibility |
-| --- | --- | --- |
-| Product owner | Correct business behavior and release priority | Approves workflows, edge cases, and scope changes |
-| Backend engineering | Reliable domain logic and API contracts | Implements reviewed behavior and technical controls |
-| Frontend engineering | Clear user journeys and valid client integration | Uses documented DTOs, authentication, and route contracts |
-| Quality assurance | Repeatable evidence and regression protection | Verifies acceptance criteria, authorization, and failure paths |
-| Operations | Deployability, observability, recovery, and secrets | Owns environment configuration and production runbooks |
-
-## Functional requirements
-
-| ID | Requirement | Current state |
-| --- | --- | --- |
-| FR-01 | A visitor can register a unique validated account, verify email ownership, recover a forgotten password, and authenticate securely | Implemented |
-| FR-02 | A user has one profile that can be upgraded with career information | Implemented |
-| FR-03 | A user can request a salon and an administrator governs activation | Implemented |
-| FR-04 | Owners and users can create and decide employment relationships through controlled workflows | Implemented |
-| FR-05 | Owners can publish vacancies and receive every application ranked by transparent fit rules | Implemented |
+| FR-01 | A visitor can register a unique validated account, verify the email address, recover a forgotten password, and sign in securely | Implemented |
+| FR-02 | A user has one profile that can be extended with career information | Implemented |
+| FR-03 | A user can request a salon, and an administrator governs activation | Implemented |
+| FR-04 | Owners and users create and decide employment relationships through controlled workflows | Implemented |
+| FR-05 | Owners publish vacancies and receive each application ranked by transparent fit rules | Implemented |
 | FR-06 | Administrators can reversibly restrict non-admin users and salons | Implemented |
-| FR-07 | Customers can discover active salon services | Implemented |
-| FR-08 | Customers can request future appointments for active services within salon and employee availability | Implemented |
-| FR-09 | Owners can decide bookings, assign qualified employees, and complete accepted appointments | Implemented |
+| FR-07 | Customers can discover active salons and their services | Implemented |
+| FR-08 | Customers can request future appointments within salon and employee availability | Implemented |
+| FR-09 | Owners decide bookings, assign qualified employees, and complete accepted appointments | Implemented |
 | FR-10 | Customers can publish a verified salon review after a completed owned booking | Implemented |
-| FR-11 | The platform can notify participants about time-sensitive workflow changes | Planned |
-| FR-12 | Production operators can deploy, monitor, migrate, back up, and recover the system | Planned |
+| FR-11 | The platform notifies participants about workflow changes inside the application | Implemented (in-app inbox); email and push delivery are planned |
+| FR-12 | Members can publish posts, comment, like, add friends and follow salons | Implemented |
+| FR-13 | Members can report content, and administrators record a decision for each report | Implemented |
+| FR-14 | Administrators can see platform analytics and user activity | Implemented |
+| FR-15 | Owners can see one operational dashboard for the owned salon | Implemented |
+| FR-16 | Users can search pages and people from each page | Implemented |
+| FR-17 | An assistant answers questions and gives suggestions from live platform data only | Implemented, release pending |
+| FR-18 | Customers can pay for appointments online | Planned |
+| FR-19 | Operators can deploy, monitor, migrate, back up and recover the system | Partial |
 
-## Technology stack
+### 6.2 Non-functional requirements
 
-| Layer | Technology |
-| --- | --- |
-| Web client | React 19, React Router 7, Vite 8 |
-| Client HTTP and feedback | Axios, React Toastify |
-| Client styling and icons | Tailwind CSS 4 foundation, project CSS, Lucide React |
-| Client tests and quality | Vitest, Testing Library, ESLint, Prettier |
-| Language | Java 17 |
-| Framework | Spring Boot 4.1.0 |
-| HTTP API | Spring Web MVC |
-| Security | Spring Security, JWT, BCrypt |
-| Persistence | Spring Data JPA and Hibernate |
-| Production database target | MySQL |
-| Local database | Persistent H2 with MySQL compatibility mode |
-| Test database | Isolated H2 in-memory database with MySQL compatibility mode |
-| Validation | Spring Validation plus service-level business validation |
-| Email foundation | Spring Mail with SMTP configuration |
-| Build | Maven |
-| Utilities | Lombok |
+> **Status:** The targets below define production acceptance criteria. They are requirements for release planning and are not claims about the current runtime.
 
-## Application architecture
+| Category | Production target | Current assessment |
+| --- | --- | --- |
+| Availability | Define an uptime objective and maintenance policy before launch | Not defined |
+| Performance | Establish p95 latency targets per API class and test realistic data volumes | Not measured |
+| Scalability | Support stateless horizontal API scaling with shared revocation and persistence services | Blocked by in-memory token blacklist |
+| Security | TLS, managed secrets, least privilege, dependency scanning, and authorization tests | Partial |
+| Reliability | Transactional state changes, idempotency where required, and recovery procedures | Partial |
+| Data integrity | Versioned migrations, constraints, locking, and production backup validation | Partial |
+| Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Planned |
+| Accessibility | Frontend journeys should target WCAG 2.2 AA | Frontend responsibility; not yet verified |
+| Localization | Define supported languages, locale-sensitive dates, and message strategy | Planned |
 
-The product uses a feature-oriented React client connected to a layered Spring API.
+## 7. Delivery history
 
-```text
-React route
-  -> feature page
-      -> feature hook
-          -> API adapter
-              -> shared Axios client
-                  -> Controller
-      -> Service interface
-          -> Service implementation
-              -> Repository
-                  -> MySQL database
+The product was built in small reviewed slices. The backend repository starts on 8 July 2026 and holds 138 commits; the web application repository holds 166 commits (14 November 2026).
+
+| Phase | Period | Delivered |
+| --- | --- | --- |
+| 1. Foundation | July to September 2026 | Accounts, JWT security, salon requests and approval, employment requests, first hiring post workflow |
+| 2. Hiring and governance | Late September 2026 | Ranked applications, unified career profile, hiring post life cycle, reversible blocking, safe DTOs, externalized secrets |
+| 3. Booking | October 2026 | Service catalog, capabilities and schedules, server-calculated slots, booking life cycle, rescheduling, notification inbox, verified reviews |
+| 4. Trust and experience | Late October to early November 2026 | Verified registration and password recovery, owner dashboard, plum and gold design system, salon location and media |
+| 5. Community and administration | November 2026 | Community, friend notifications, moderation reports, admin dashboard with analytics and activity, global search, community workspace redesign |
+| 6. Assistance | November 2026 | Lamsa assistant (API, chat page, floating chat, home page picks), refined buttons, focus states, card motion and application background |
+
+```mermaid
+timeline
+    title Salonhub delivery phases (2026)
+    July to September : Accounts and security : Salon approval : Employment and first hiring flow
+    Late September : Ranked applications : Career profile : Reversible blocking
+    October : Services and schedules : Booking and rescheduling : Notifications and reviews
+    Early November : Verified sign-up and recovery : Owner dashboard : Design system and media
+    November : Community and moderation : Admin dashboard : Global search
+    Mid November : Lamsa assistant : Interface refinements
 ```
 
-Controllers define HTTP routes and receive authenticated identity information. DTOs define API input and output contracts. Service implementations contain validation and business rules. Repositories provide database access through Spring Data JPA. Entities represent persisted domain state.
+Chapter 31 holds the detailed revision history of this document.
 
-The main Java package is `com.salon.backend` and contains:
+## 8. Roadmap and next phases
 
-- `Config` for Spring Security, password hashing, and JWT filtering.
-- `Controllers` for authentication, dashboard, salons, salon services, employees, bookings, reviews, employment, hiring posts, and users.
-- `DTOs` for request and response contracts.
-- `Entities` for users, salons, services, employee capabilities and schedules, bookings, reviews, employment, leave requests, and hiring posts.
-- `Repositories` for JPA database access.
-- `Services` for authentication, administration, salon management, salon-service management, employee directories and availability, bookings, reviews, employment, and hiring-post rules.
+The phases below are in priority order. A phase is added to chapter 7 after it is delivered and approved.
 
-All service responses use the generic `ApiResponse<T>` envelope containing `success`, `message`, and `data`. The frontend API adapters return the response body, `requireData` accepts successful envelopes and throws the server message for unsuccessful envelopes, and feature hooks convert those outcomes into page state and consistent toast feedback.
+| Phase | Goal | Main work | State |
+| --- | --- | --- | --- |
+| 7. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Planned |
+| 8. API documentation | Give integrators one contract | OpenAPI description from the controllers, generated API client shared by both web applications | Planned |
+| 9. Scheduling depth | Cover real salon calendars | Holidays, employee time off, reminders, calendar views, recurring appointments | Planned |
+| 10. Payments | Earn revenue from bookings | Payment provider, refunds, invoices, reconciliation | Planned, needs business approval |
+| 11. Outbound notifications | Reach users outside the application | Email templates, push delivery | Planned |
+| 12. Reviews and reputation | Richer trust signals | Employee and service ratings | Planned |
+| 13. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Planned |
+| 14. Mobile | Native reach | Mobile applications on the same API | Not yet planned in detail |
 
-### Architectural responsibilities
+> **Reserved for later phases.** New phases are added to this table first, then described in a subsection of this chapter with goal, scope, acceptance criteria and dependencies.
+
+## 9. Risks
+
+### Risk register
+
+| ID | Risk | Impact | Likelihood | Treatment |
+| --- | --- | --- | --- | --- |
+| R-01 | In-memory logout blacklist is lost on restart and cannot coordinate multiple instances | High | High | Add durable shared revocation or refresh-token design |
+| R-02 | Automatic schema update can create uncontrolled production changes | High | High | Adopt Flyway or Liquibase before production |
+| R-03 | Earlier credentials remain in Git history | High | Medium | Rotate every exposed value and use deployment secrets |
+| R-04 | Authorization coverage is incomplete across the full API surface | High | Medium | Add route and service authorization tests |
+| R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
+| R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
+| R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
+| R-08 | Holidays and employee time-off exceptions are not implemented | Medium | High | Add dated salon closures and employee absence records to the availability calculation |
+| R-09 | Payment processing and reconciliation are not implemented | High | Certain | Approve payment methods and provider before defining secure payment APIs |
+| R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
+| R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
+| R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
+| R-13 | Resolved: Spring Security 401/403 responses use the application `ApiResponse` envelope | Medium | Resolved | Custom authentication entry point and access-denied handler preserve status codes and clear messages; nine filter-chain integration tests cover rejected and permitted requests |
+| R-14 | Dashboard financial values are operational summaries rather than settled payment records | High | High | Label them as booking revenue estimates until payment capture, refunds, fees, and reconciliation are implemented |
+
+### Entity exposure
+
+Employment, leave, user-listing, salon-listing, and requested-salon routes return dedicated DTOs. Remaining controllers should be audited for direct JPA entity responses before deployment.
+
+### Secret management
+
+Current source configuration obtains database credentials, SMTP credentials, and the JWT signing key from environment variables. Previously committed credentials remain in Git history and must be rotated before deployment. Production infrastructure should inject the replacement values through its secret manager.
+
+### Token revocation
+
+The logout blacklist is stored in application memory. It disappears after a restart and does not work consistently across multiple server instances. A durable revocation or refresh-token design is required for production.
+
+### Data integrity and concurrency
+
+Hiring-post position reservation, post lifecycle changes, linked transfer cancellation, booking decisions, accepted-appointment overlap checks, notification event keys, and one-review-per-booking creation use transactional locks or database constraints. Employee-capacity mutations, notification retries, and review creation should receive database-backed concurrency tests before deployment.
+
+### Error and validation consistency
+
+The approved API contract represents business outcomes through the existing `ApiResponse<T>` envelope and its `success` and `error` factories. `ApiResponse.error` now prevents blank reasons, and the frontend preserves useful response and transport details through one shared normalizer. Future validation work must keep this response structure and must not introduce a new HTTP-status strategy or centralized exception handler. Remaining consistency work should standardize field validation and security-filter responses within this contract.
+
+### Schema lifecycle
+
+Hibernate currently uses automatic schema update. Production environments should use versioned database migrations such as Flyway or Liquibase.
+
+### Risks added in version 2.0.0
+
+| ID | Risk | Effect | Mitigation |
+| --- | --- | --- | --- |
+| R-15 | Schema changes use Hibernate `ddl-auto=update` plus hand-written SQL files; no migration tool applies them in order | A deployment can leave the database different from the code | Adopt a migration tool (phase 7) and make the SQL files in `database/migrations` its first versions |
+| R-16 | Only the web application has continuous integration | A broken backend or admin build can reach the main branch | Add build-and-test workflows for both repositories (phase 7) |
+| R-17 | The assistant depends on an external AI service | An outage or a cost increase affects AI replies | Guide mode answers without the service; a rate limit caps use; the model name is configuration |
+| R-18 | User-written community content | Harmful content can stay visible until an administrator acts | Reports and admin review exist; automatic filtering is not implemented |
+| R-19 | One author wrote the product | Knowledge is concentrated in one person | This document, the tests and the enforced code structure reduce the dependence |
+
+---
+
+# Part III. Design
+
+## 10. System architecture
+
+### 10.1 System context
+
+```mermaid
+flowchart LR
+    customer(["Customer"])
+    pro(["Beauty professional"])
+    owner(["Salon owner"])
+    admin(["Administrator"])
+
+    subgraph salonhub["Salonhub"]
+        web["Web application<br/>React 19 + Vite"]
+        adminapp["Admin dashboard<br/>Next.js 16"]
+        api["Backend API<br/>Spring Boot 4.1"]
+        db[("MySQL database")]
+    end
+
+    cloud["Cloudinary<br/>media storage"]
+    mail["SMTP<br/>email codes"]
+    ai["Anthropic Claude<br/>reply wording"]
+    maps["Google Maps<br/>location links"]
+
+    customer --> web
+    pro --> web
+    owner --> web
+    admin --> adminapp
+    web -->|"REST, JWT"| api
+    adminapp -->|"server proxy, httpOnly cookie"| api
+    api --> db
+    api --> cloud
+    api --> mail
+    api -.->|"optional"| ai
+    web -.->|"opens link"| maps
+```
+
+The API is the only business gateway. Both web applications hold no business rules that the API does not enforce again.
+
+### 10.2 Runtime and deployment view
+
+```mermaid
+flowchart TB
+    browser["Browser"]
+    subgraph hosting["Hosting"]
+        vercel["Static web application<br/>(Vercel)"]
+        next["Admin dashboard<br/>(Next.js server)"]
+        render["API container<br/>(Docker, Render)"]
+    end
+    mysql[("Managed MySQL")]
+    ext["Cloudinary · SMTP · Anthropic"]
+
+    browser -->|"HTTPS"| vercel
+    browser -->|"HTTPS"| next
+    vercel -->|"/api, bearer token"| render
+    next -->|"/api/dashboard, token from cookie"| render
+    render --> mysql
+    render --> ext
+```
+
+### 10.3 Layers of the backend
+
+```mermaid
+flowchart LR
+    req["HTTP request"] --> sec["Security filter chain<br/>JWT, roles, blocked check"]
+    sec --> ctl["Controller<br/>route and identity"]
+    ctl --> svc["Service<br/>validation, rules, transactions"]
+    svc --> repo["Repository<br/>queries and locks"]
+    repo --> dbs[("Database")]
+    svc --> ext2["Adapters<br/>media, mail, assistant"]
+    ctl --> dto["DTO + ApiResponse envelope"]
+```
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| Controller | Route mapping, request binding, authenticated principal extraction | Domain decisions or direct repository orchestration |
-| DTO | External request and response shape | Persistence behavior or service dependencies |
-| Service | Validation, authorization, state transitions, transactions | HTTP rendering concerns |
-| Repository | Query intent, locking, and persistence access | Product policy |
-| Entity | Persisted state and relationships | Client-facing response contracts |
+| Controller | Route mapping, request binding, authenticated identity | Business decisions or direct repository work |
+| DTO | External request and response shape | Persistence behavior |
+| Service | Validation, authorization, state transitions, transactions | HTTP rendering |
+| Repository | Query intent, locking, persistence access | Product policy |
+| Entity | Persisted state and relationships | Client-facing contracts |
 
-### Key architecture decisions
+### 10.4 Layers of the web application
 
-- JWT subjects use immutable database user IDs; email remains available through the authenticated principal for compatible routes.
-- DTOs are required at external boundaries to prevent password and persistence-graph exposure.
-- Business outcomes continue through `ApiResponse.success(...)` and `ApiResponse.error(...)` under the approved API convention.
-- Pessimistic write locks and entity versioning protect sensitive hiring, booking, transfer, moderation, and one-review-per-booking transitions.
-- H2 in MySQL compatibility mode isolates automated tests from developer and production databases.
-- Secrets enter through environment variables and never through committed production values.
+```mermaid
+flowchart LR
+    app["app<br/>routes, layout, styles, search"] --> features["features<br/>one folder for each workflow"]
+    features --> shared["shared<br/>HTTP client, session, components, hooks"]
+    subgraph feature["Inside a feature"]
+        pages["pages / components"] --> hooks["hooks / providers"]
+        hooks --> apiad["api adapters"]
+        hooks --> model["model<br/>pure rules"]
+    end
+```
 
-## Frontend application
+ESLint enforces these rules: `shared` cannot import `features` or `app`; views cannot import API modules; `model` files cannot import React, the router or the HTTP client.
 
-The frontend is a React 19 single-page application built by Vite. It is organized by feature so pages, hooks, models, API adapters, and feature-specific components remain close to the workflow they implement. App-level routing and layout compose those features, while `shared` owns the HTTP client, authentication storage, reusable query behavior, notifications, and common components.
+### 10.5 Key architecture decisions
 
-### Frontend structure
+| Decision | Reason |
+| --- | --- |
+| JWT subject is the immutable user ID | Email and username changes do not break sessions |
+| DTOs at each external boundary | Passwords and entity graphs never leave the API |
+| One `ApiResponse<T>` envelope (`success`, `message`, `data`) | Both web applications handle success and errors in one way |
+| Pessimistic locks and entity versions on sensitive transitions | No double booking, double hiring or double review under load |
+| Availability is calculated and re-checked on the server | A stale or modified client cannot book an unavailable time |
+| Notification written in the same transaction as the booking change | An event exists only if the change happened |
+| Admin dashboard is a separate application with a server-side proxy | The admin token stays in an httpOnly cookie and never reaches browser scripts |
+| The assistant loads facts first and lets the model write only the wording | No invented salons, ratings or jobs |
+| Media goes through a backend storage abstraction | The Cloudinary secret never reaches the browser, and the provider can be replaced |
+| Secrets come from environment variables | No production secret is committed |
 
-| Area | Responsibility | Implemented examples |
+## 11. Application behaviour and flows
+
+### 11.1 Use cases by role
+
+```mermaid
+flowchart LR
+    guest(["Guest"]) --> u1["Browse salons and services"]
+    guest --> u2["Ask Lamsa in guide mode"]
+    guest --> u3["Register and verify email"]
+
+    cust(["Customer"]) --> c1["Book an appointment"]
+    cust --> c2["Accept or reject a new time"]
+    cust --> c3["Review a completed visit"]
+    cust --> c4["Post, comment, follow, add friends"]
+    cust --> c5["Report content"]
+
+    prof(["Professional"]) --> p1["Keep a career profile"]
+    prof --> p2["Find and apply to jobs"]
+    prof --> p3["Join, leave or transfer salon"]
+    prof --> p4["See assigned bookings"]
+
+    own(["Owner"]) --> o1["Request and manage a salon"]
+    own --> o2["Manage services, team and schedules"]
+    own --> o3["Decide, assign and complete bookings"]
+    own --> o4["Publish hiring posts and decide applications"]
+    own --> o5["Read the owner dashboard"]
+
+    adm(["Administrator"]) --> a1["Approve or reject salon requests"]
+    adm --> a2["Block and unblock users and salons"]
+    adm --> a3["Review reports"]
+    adm --> a4["Read analytics and activity"]
+```
+
+### 11.2 Main journey through the application
+
+```mermaid
+flowchart TD
+    start(["Visitor opens Salonhub"]) --> home["Home page<br/>discover, Lamsa's picks"]
+    home --> salon["Salon page<br/>services, team, gallery, reviews"]
+    home --> reg["Register"] --> verify["Verify email code"] --> login["Sign in"]
+    salon --> needlogin{"Signed in?"}
+    needlogin -- no --> login
+    needlogin -- yes --> book["Choose services and a time"]
+    login --> book
+    book --> pending["Booking PENDING"]
+    pending --> decision{"Owner decision"}
+    decision -- accept --> accepted["ACCEPTED<br/>employee assigned"]
+    decision -- reject --> rejected["REJECTED with note"]
+    decision -- new time --> proposal["Reschedule proposal"]
+    proposal --> custdec{"Customer answer"}
+    custdec -- accept --> accepted
+    custdec -- reject --> pending
+    accepted --> done["COMPLETED"]
+    done --> review["Customer writes a review"]
+
+    login --> career["Turn on career profile"] --> jobs["Hiring posts ranked for the profile"]
+    jobs --> apply["Apply"] --> owndec{"Owner decision"}
+    owndec -- accept --> employed["Employee of the salon"]
+    owndec -- reject --> jobs
+
+    login --> create["Request a salon"] --> admindec{"Admin review"}
+    admindec -- accept --> ownerrole["Owner role<br/>services, team, hiring"]
+    admindec -- reject --> fix["Correct and resubmit<br/>(up to 3 times)"] --> admindec
+```
+
+### 11.3 Registration, verification and password recovery
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant W as Web application
+    participant A as API
+    participant M as SMTP
+    U->>W: Register
+    W->>A: POST /api/auth/register
+    A->>A: Validate, hash password, store hashed code
+    A->>M: Send verification code
+    U->>W: Enter code
+    W->>A: POST /api/auth/email/verify
+    A-->>W: Account verified
+    U->>W: Sign in
+    W->>A: POST /api/auth/login
+    A-->>W: JWT
+    Note over U,A: Password recovery
+    U->>W: Forgot password
+    W->>A: POST /api/auth/password/forgot
+    A->>M: Send code (same answer for unknown email)
+    W->>A: POST /api/auth/password/verify-code
+    A-->>W: One-time reset token
+    W->>A: POST /api/auth/password/reset
+    A->>A: Replace password, invalidate older JWTs
+```
+
+### 11.4 Salon request life cycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Requested: user submits salon
+    Requested --> Accepted: admin accepts
+    Requested --> Rejected: admin rejects with reason
+    Rejected --> Requested: owner corrects and resubmits (max 3)
+    Requested --> Inactive: admin blocks
+    Accepted --> Inactive: admin blocks
+    Rejected --> Inactive: admin blocks
+    Inactive --> Requested: unblock restores prior state
+    Inactive --> Accepted: unblock restores prior state
+    Inactive --> Rejected: unblock restores prior state
+```
+
+### 11.5 Appointment slot decision
+
+```mermaid
+flowchart TD
+    a["Customer selects active services and a date"] --> b["Total duration = sum of service durations"]
+    b --> c["Build 15-minute start times inside salon hours"]
+    c --> d{"Same day?"}
+    d -- yes --> e["Remove times earlier than now + 30 minutes"]
+    d -- no --> f
+    e --> f["For each time: find active employees"]
+    f --> g{"Qualified for every selected service?"}
+    g -- no --> x["Employee not eligible"]
+    g -- yes --> h{"Working for the full interval?"}
+    h -- no --> x
+    h -- yes --> i{"Free of accepted bookings?"}
+    i -- no --> x
+    i -- yes --> j["Employee eligible for this time"]
+    j --> k{"At least one eligible employee?"}
+    k -- yes --> l["Time offered to the customer"]
+    k -- no --> m["Time hidden"]
+```
+
+The same checks run again when the customer submits the booking.
+
+### 11.6 Booking sequence
+
+```mermaid
+sequenceDiagram
+    actor C as Customer
+    participant W as Web application
+    participant A as API
+    participant D as Database
+    actor O as Owner
+    C->>W: Select services and date
+    W->>A: Availability request
+    A->>D: Services, schedules, accepted bookings
+    A-->>W: Slots with eligible employees
+    C->>W: Confirm a slot
+    W->>A: Create booking
+    A->>A: Re-check the slot
+    A->>D: Save booking PENDING with price and duration snapshot
+    O->>W: Open pending bookings
+    O->>A: Accept and assign employee
+    A->>D: Lock employee, check conflicts
+    A->>D: Save ACCEPTED + notification (one transaction)
+    A-->>C: Notification in inbox
+    O->>A: Complete appointment
+    A->>D: Save COMPLETED
+    C->>A: Create review for the completed booking
+```
+
+### 11.7 Booking life cycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: customer requests
+    PENDING --> ACCEPTED: owner accepts and assigns
+    PENDING --> REJECTED: owner rejects with note
+    PENDING --> CANCELLED: customer cancels
+    ACCEPTED --> CANCELLED: customer cancels
+    ACCEPTED --> ACCEPTED: customer accepts a reschedule proposal
+    ACCEPTED --> COMPLETED: owner completes
+    REJECTED --> [*]
+    CANCELLED --> [*]
+    COMPLETED --> [*]
+```
+
+### 11.8 Hiring and employment
+
+```mermaid
+sequenceDiagram
+    actor O as Owner
+    actor P as Professional
+    participant A as API
+    participant D as Database
+    O->>A: Create hiring post
+    A->>D: Save post (Open)
+    P->>A: Discover posts
+    A-->>P: Posts ranked against the career profile
+    P->>A: Apply (one application for each post)
+    A->>D: Save application with profile snapshot and score
+    O->>A: List applications (ranked)
+    alt accept
+        O->>A: Accept application
+        A->>D: Lock post, reserve position
+        A->>D: Create employment (or pending leave if employed elsewhere)
+    else reject
+        O->>A: Reject application
+    end
+    Note over A,D: A post closes when positions are filled, and expires on schedule
+```
+
+### 11.9 Community and moderation
+
+```mermaid
+flowchart LR
+    m(["Member"]) --> post["Create post<br/>as self or as owned salon"]
+    post --> feed["Feed"]
+    feed --> like["Like"]
+    feed --> comment["Comment"]
+    m --> fr["Send friend request"] --> acc{"Receiver accepts?"}
+    acc -- yes --> friends["Friends"]
+    acc -- no --> none["Request removed"]
+    m --> follow["Follow salon"]
+    feed --> report["Report post, comment, salon or user"]
+    report --> open["Report OPEN"]
+    open --> adm(["Administrator"])
+    adm --> res["RESOLVED"]
+    adm --> dis["DISMISSED"]
+```
+
+### 11.10 Lamsa reply
+
+```mermaid
+sequenceDiagram
+    actor U as User or guest
+    participant W as Web application
+    participant A as Assistant service
+    participant D as Database
+    participant L as Claude
+    U->>W: Ask a question
+    W->>A: POST /api/assistant/chat (message, recent turns, page)
+    A->>A: Detect intent and governorate
+    A->>D: Load real salons, ratings, jobs, candidates
+    alt signed in, within rate limit, API key set
+        A->>L: Question + loaded records only
+        L-->>A: Reply text
+    else guest, limit reached, or no key
+        A->>A: Guide mode: fixed sentence templates
+    end
+    A-->>W: Reply, cards, page links, next suggestions
+    W-->>U: Message with salon, job or candidate cards
+```
+
+### 11.11 Notification delivery
+
+```mermaid
+sequenceDiagram
+    participant S as Booking or community service
+    participant D as Database
+    participant W as Web application
+    actor U as Recipient
+    S->>D: State change + notification (same transaction)
+    loop every 30 seconds and when the tab becomes visible
+        W->>D: GET /api/notifications/unread-count
+    end
+    U->>W: Open inbox
+    W->>D: GET /api/notifications
+    U->>W: Open a notification
+    W->>D: PUT /api/notifications/{id}/read
+    W-->>U: Go to the related page
+```
+
+## 12. Domain model
+
+### 12.1 Entity relationships
+
+```mermaid
+erDiagram
+    USER ||--o| SALON : owns
+    USER }o--o| SALON : "works at"
+    SALON ||--o{ SALON_SERVICE : offers
+    USER ||--o{ EMPLOYEE_SERVICE : "can perform"
+    SALON_SERVICE ||--o{ EMPLOYEE_SERVICE : "performed by"
+    USER ||--o{ EMPLOYEE_SCHEDULE : "works on"
+    USER ||--o{ BOOKING : requests
+    SALON ||--o{ BOOKING : receives
+    BOOKING ||--|{ BOOKING_SERVICE : snapshots
+    BOOKING ||--o{ RESCHEDULE_PROPOSAL : has
+    BOOKING ||--o| SALON_REVIEW : "verified by"
+    USER ||--o{ USER_NOTIFICATION : receives
+    SALON ||--o{ HIRING_POST : publishes
+    HIRING_POST ||--o{ HIRING_APPLICATION : receives
+    USER ||--o{ HIRING_APPLICATION : submits
+    USER ||--o{ EMPLOYMENT_REQUEST : "joins through"
+    USER ||--o{ LEAVE_REQUEST : "leaves through"
+    USER ||--o{ COMMUNITY_POST : writes
+    SALON ||--o{ COMMUNITY_POST : "publishes as"
+    COMMUNITY_POST ||--o{ COMMUNITY_COMMENT : has
+    COMMUNITY_POST ||--o{ COMMUNITY_POST_LIKE : has
+    USER ||--o{ FRIENDSHIP : requests
+    USER ||--o{ SALON_FOLLOW : follows
+    USER ||--o{ MODERATION_REPORT : files
+    SALON ||--o{ WORK_MEDIA : shows
+```
+
+The diagram shows the main relationships. Sections 12.2 and later describe each entity.
+
+### 12.2 Community and moderation entities
+
+| Entity | Main fields | Notes |
 | --- | --- | --- |
-| `app` | Route composition, layout, loading, not-found, and render-error boundaries | Lazy routes, `ProtectedRoute`, navbar, toast container |
-| `features/auth` | Registration, email verification, login, logout, password recovery, and session entry | Forms, auth hooks, public recovery routes, `/auth/*` adapters |
-| `features/salons` | Public discovery, details, salon request, and owner profile | Home cards, salon details, create salon, my salon |
-| `features/services` | Public catalog and owner service management | List, create, edit, deactivate |
-| `features/profile` | Unified profile and career-mode upgrade | Career form with resume and portfolio validation |
-| `features/hiring` and `applications` | Vacancy discovery, application, owner decision, and applicant history | Ranked posts, apply flow, decision screens |
-| `features/employees` | Owner workforce directory and employee setup | Service capabilities and weekly schedules |
-| `features/bookings` | Customer request, owner queue, employee view, and status monitoring | Qualified employee filtering, lifecycle actions, 30-second polling |
-| `features/reviews` | Verified salon ratings and comments | Review modal, public list, summary, own deletion |
-| `features/media` | Reusable device/Drive selection, Cloudinary delivery optimization, salon covers, and employee work gallery | Connected to authenticated backend media routes |
-| `shared` | Cross-feature transport, auth storage, feedback, loading, and UI primitives | Axios interceptors, `requireData`, error normalization, toast helpers, persistent loader state, branded overlays |
-
-Dependencies flow from `app` to `features` to `shared`. Pages use hooks rather than importing transport code directly. Pure model functions remain independent of React and HTTP; for example, booking employee filtering checks that one employee supports every selected service.
-
-### Visual design system
-
-The application uses an editorial salon identity built around deep plum, warm gold, soft rose surfaces, and high-contrast neutral text. The same semantic color roles drive the navigation, cards, forms, dashboard, feedback components, and documentation. Components consume theme variables instead of feature-specific hard-coded colors so light and dark modes remain visually consistent.
-
-| Token | Light value | Dark value | Use |
-| --- | --- | --- | --- |
-| Primary | `#76546F` | `#C58EBA` | Brand actions, active navigation, focus and diagram emphasis |
-| Primary strong | `#5E4058` | `#D7A8CE` | Hover emphasis, headings, high-priority controls |
-| Primary soft | `#F1E8EF` | Derived dark plum surface | Selected states, subtle panels, loader aura |
-| Accent gold | `#D7A86E` | `#E1B978` | Highlights, status accents, premium visual details |
-| Page background | `#FAF7F4` | `#141216` | Main application canvas |
-| Card surface | `#FFFFFF` | `#211D23` | Cards, dialogs, forms, dashboard panels |
-| Main text | `#292329` | `#F8F3F6` | Readable foreground content |
-| Muted text | `#746B72` | `#B9AFB6` | Secondary labels and supporting copy |
-| Border | `#E8DEDF` | `#423942` | Dividers, input outlines, non-destructive hover feedback |
-| On primary | `#FFFFFF` | `#1D161C` | Text on filled primary and success buttons (WCAG AA in both themes) |
-| Focus outline | `#76546F` | `#D7A8CE` | Solid 2px keyboard focus outline, at least 3:1 against surfaces |
-
-Typography uses two self-hosted variable typefaces: Fraunces (`--font-display`) for editorial headings and Inter (`--font-body`) for interface text. Theme-independent scales live in `src/app/styles/tokens.css`: twelve type sizes (`--text-2xs` 11px to `--text-6xl` 64px), four weights (400, 500, 600, 700), spacing on a 4px grid, radius, elevation, layering, and motion durations. Feature stylesheets consume these tokens instead of literal values. Buttons are defined once in `buttons.css` and rendered through the shared `Button` component. Salons without a cover image show branded cover art (initials, scissors mark, plum gradient) rather than an empty block.
-
-Hover states preserve the card's dark surface instead of replacing it with a light fill. They communicate interaction through a stronger border, restrained background modulation, shadow, and motion so text remains readable. Normal pages show the Salon Hup wordmark once in the header; repeated full-brand blocks were removed from authentication content and the footer. Startup and route-transition states may show the brand because normal page chrome is not yet available.
-
-### Loading and transition experience
-
-Two coordinated loading patterns clarify what the application is doing:
-
-- **Signature Snip action loader:** used for API operations such as signing in, registering, searching, booking, deciding a request, applying to a post, changing staff or services, and updating notifications. Animated scissors open and close with a small gold sparkle over a softened page backdrop. The message describes the current action instead of displaying a generic spinner.
-- **Salon Hup navigation loader:** used for initial application startup, lazy route loading, redirects, link navigation, programmatic navigation, and browser back or forward movement. It uses the primary brand mark and a destination-aware message without duplicating the header wordmark.
-
-The shared loader store counts overlapping operations so one completed request cannot hide another request that is still running. Action overlays appear after 180 ms to avoid flicker and remain visible for at least 320 ms once shown. Route transitions remain visible for about 320 ms so navigation feels intentional without delaying the next page. The startup splash appears for 600 ms on the first load of a browser session only. Scroll reveals are short (360–420 ms), blur-free, and skipped for content already on screen at first paint. Background availability refresh and notification polling do not take over the screen. Both loaders respect light/dark tokens and reduced-motion preferences.
-
-### Error presentation
-
-The backend `ApiResponse.error(...)` factory trims supplied messages and guarantees a clear fallback when a caller provides a blank or null reason. On the client, one normalizer prioritizes the backend `message`, validation `errors`, or legacy `error` field and then maps timeouts, network failures, and HTTP status failures to understandable text. Axios interceptors preserve those details; feature hooks render them through the common toast or page-error components. A generic failure is used only when neither the server nor transport provides a useful reason.
-
-### Frontend routes and user journeys
-
-| Browser route | Access | Page purpose | Primary API integration |
-| --- | --- | --- | --- |
-| `/` | Public | Active salon discovery | `GET /api/salons/active` |
-| `/salons/:salonId` | Public | Salon profile, services, ratings, and reviews | Salon, service, and review public endpoints |
-| `/login`, `/register` | Public | Account access and verified account creation | Auth login and registration |
-| `/verify-email` | Public | Verify a new account or request a replacement code | Email verification and resend endpoints |
-| `/forgot-password`, `/verify-reset-code`, `/reset-password` | Public | Request, authorize, and complete password recovery | Password recovery endpoints |
-| `/salons/:salonId/book` | Authenticated | Select services, qualified employee, future date, and contact details | Salon, services, employees, `POST /api/bookings` |
-| `/my-bookings` | Authenticated customer | Track, cancel, and review appointments; poll decisions every 30 seconds while open | Customer booking and review endpoints |
-| `/hiring-posts` | Authenticated | Browse filtered and personalized vacancies | `GET /api/hiring-posts` |
-| `/hiring-posts/:postId/apply` | Authenticated career user | Submit the optional application note | Hiring application endpoint |
-| `/profile/career` | Authenticated | Enable or update the career section on the unified profile | Profile GET and career PUT |
-| `/my-applications` | Authenticated applicant | View permanent application history and decisions | Applicant-history endpoint |
-| `/owner/dashboard` | OWNER only | Owner workspace with salon, employee, customer, booking, revenue, rating, and employee-performance summaries | Owner dashboard and scoped salon APIs |
-| `/owner/create-salon`, `/owner/my-salon` | Authenticated owner candidate/owner | Request and manage an owned salon | Salon create, mine, edit, delete |
-| `/owner/create-hiring-post`, `/owner/applications` | Authenticated owner | Publish vacancies and rank or decide applicants | Hiring owner endpoints |
-| `/owner/employees`, `/owner/employees/:employeeId/setup` | Authenticated owner | Manage active staff, capabilities, and weekly working periods | Salon employee endpoints |
-| `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit` | Authenticated owner | Manage the salon catalog | Salon service endpoints |
-| `/owner/bookings` | Authenticated owner | Decide, assign, reassign with explanation, and complete bookings | Owner booking endpoints |
-| `/employee/bookings` | Authenticated employee | View appointments assigned to the signed-in employee | Employee booking endpoint |
-
-`ProtectedRoute` checks for a stored session and redirects unauthenticated visitors to login while preserving the attempted location. It improves navigation, while Spring Security and service authorization remain the authoritative access controls.
-
-### Frontend and backend connection
-
-[[DIAGRAM:frontend-integration]]
-
-The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local development, Vite proxies `/api` to `VITE_API_PROXY_TARGET`, defaulting to `http://localhost:8080`. In production, the built client can use the same-origin `/api` reverse proxy or an explicitly configured HTTPS API origin.
-
-| Concern | Frontend behavior | Backend behavior |
-| --- | --- | --- |
-| Authentication | Keeps verification and recovery calls public, stores the current JWT contract, and adds `Authorization: Bearer <token>` outside auth routes | Verifies account email before login, validates JWT, resolves immutable user ID, checks active state and credential-change time, and applies roles |
-| Request lifecycle | Uses a 15-second timeout and abort signals for stale page requests | Binds DTOs, derives caller identity from the security principal |
-| Success handling | Reads `ApiResponse.data`; feature hooks update UI and show success feedback | Returns `ApiResponse.success(message, data)` |
-| Business failure | Shared normalization preserves `message`, validation `errors`, and legacy `error`; hooks show the result in a toast or page state | Returns `ApiResponse.error(message)` with `data: null`; blank reasons receive a safe fallback |
-| Slow foreground action | Begins a contextual Signature Snip loading operation and keeps concurrent work visible | Completes or fails the requested transaction and returns the standard envelope |
-| Route transition | Shows the branded navigation overlay for links, redirects, programmatic navigation, and history changes | Protected resources still enforce authentication and role authorization |
-| Unauthorized session | Clears matching current credentials on HTTP 401; HTTP 403 does not sign the user out | Security may reject unauthenticated or unauthorized calls before the controller |
-| Booking decisions | Polls customer bookings every 30 seconds only while the page is visible and reports accepted or rejected transitions | Persists booking state and owner note; returns scoped booking DTOs |
-| Notification inbox | Connected inbox, bell, polling, unread count, and read controls | Persists recipient-scoped booking events and exposes paginated inbox, unread-count, and read-state APIs |
-| Mapping differences | Salon and hiring adapters normalize backend field names for views | Keeps stable DTO names and pagination metadata |
-
-### Runtime links and environment
-
-- [Live API Test](http://localhost:8080/swagger-ui/index.html) - local Swagger UI address. It becomes usable when the backend is running and the Springdoc/OpenAPI dependency is enabled. The route is allowed by security, but the current Maven dependencies do not yet provide Swagger UI.
-- Frontend local URL: `http://localhost:5173` when started with Vite's default development server.
-- Backend local base URL: `http://localhost:8080/api`.
-
-| Variable | Default | Use |
-| --- | --- | --- |
-| `VITE_API_BASE_URL` | `/api` | Browser API prefix; safe public configuration, never a secret |
-| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | Local Vite proxy target |
-| Backend environment variables | Defined in backend `.env.example` | Database, JWT, SMTP, and runtime configuration |
-
-### Integration coverage and gaps
-
-| Capability | Frontend | Backend | Connection state |
-| --- | --- | --- | --- |
-| Auth and unified career profile | Registration, verification, login, recovery, and profile pages implemented | Verification codes, reset authorization, JWT invalidation, and unified profile implemented | Connected end to end |
-| Public salons and service catalogs | Implemented | Implemented | Connected |
-| Salon request and owner management | Implemented | Implemented | Connected |
-| Hiring discovery, application, and decisions | Implemented | Implemented | Connected for current UI actions; edit, reopen, and cancel-join APIs have no current page control |
-| Employee directory, capabilities, and schedules | Implemented | Implemented | Connected |
-| Booking creation and customer, owner, employee views | Implemented | Implemented | Connected |
-| Booking assignment explanation | Implemented | Implemented | Connected; explanation is required when replacing an assigned employee |
-| Persistent notification inbox | Implemented | Implemented | Connected with signed-in polling and refresh when the application becomes active |
-| Server-calculated booking availability | Implemented | Implemented | Connected; the booking page renders qualified employees and selectable 15-minute slots |
-| Customer-approved booking rescheduling | Implemented | Implemented | Connected; owners propose server-available slots and customers accept or keep the original appointment |
-| Verified salon reviews | Implemented | Implemented | Connected |
-| Direct employment, leave, transfer | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
-| Administration dashboard | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
-| Salon media | Device/Drive picker, previews, owner cover editor, public gallery, employee publisher | Cloudinary storage abstraction, signed server uploads, asset metadata and deletion | Connected; requires Cloudinary environment credentials |
-| Swagger interactive testing | Link and allowed security path | Dependency absent | Enable Springdoc/OpenAPI before using Live API Test |
-
-[[PAGEBREAK]]
-
-## Current application flow
-
-This portrait-oriented flowchart shows the completed customer, salon-owner, career, and employee journeys in the web application. Cross-lane arrows show the handoffs between a customer and salon staff. Breaks are handled as needed rather than scheduled; admin workflows are backend-only in the current frontend.
-
-[[DIAGRAM:application-flow]]
-
-[[PAGEBREAK]]
-
-## System diagrams
-
-The following diagrams present the product from business, runtime, interaction, and value perspectives. Solid flows represent implemented behavior. Labels that include `planned` identify capabilities outside the current release.
-
-### System context
-
-This view shows the people and external systems that exchange data with Salon Hup. The browser application uses the backend API as the single business gateway; the API owns authorization and persistence decisions.
-
-[[DIAGRAM:system-context]]
-
-[[PAGEBREAK]]
-
-### Use case view
-
-The use case view separates customer, career user, salon owner, employee, and administrator responsibilities. A person may move between roles through approved salon and employment workflows.
-
-[[DIAGRAM:use-cases]]
-
-### Software component architecture
-
-Requests cross explicit boundaries from the React feature adapter to Spring Security, thin controllers, domain services, repositories, and the database. DTOs and the `ApiResponse<T>` envelope protect the API boundary.
-
-[[DIAGRAM:components]]
-
-### Frontend action, error, and navigation feedback
-
-The following view shows how routes, API operations, backend response messages, and the two loading presentations cooperate without placing workflow-specific behavior in page components.
-
-[[DIAGRAM:frontend-feedback]]
-
-[[PAGEBREAK]]
-
-### Account verification and password recovery sequence
-
-The authentication sequence shows verified registration, server-generated short-lived codes, resend throttling, one-time reset authorization, BCrypt password replacement, and invalidation of JWTs issued before the credential change. Codes and reset tokens are never persisted in plaintext.
-
-[[DIAGRAM:auth-sequence]]
-
-[[PAGEBREAK]]
-
-### Hiring application sequence
-
-The hiring sequence shows how authenticated profile data replaces repeated applicant entry and how acceptance delegates to the existing employment workflow.
-
-[[DIAGRAM:hiring-sequence]]
-
-[[PAGEBREAK]]
-
-### Salon service sequence
-
-The service sequence shows owner authorization, validation, persistence, public filtering, and reversible disable behavior.
-
-[[DIAGRAM:service-sequence]]
-
-[[PAGEBREAK]]
-
-### Employee qualification and appointment-slot decision
-
-This decision flow shows how the server creates selectable appointment times from active services, total duration, salon hours, qualified employees, weekly schedules, accepted bookings, and the same-day lead rule. The same checks run again when the customer submits the booking.
-
-[[DIAGRAM:availability-flow]]
-
-[[PAGEBREAK]]
-
-### Appointment booking sequence
-
-The booking sequence shows trusted profile data, active-service validation, employee qualification and schedule checks, owner decisions, assignment, and completion.
-
-[[DIAGRAM:booking-sequence]]
-
-[[PAGEBREAK]]
-
-### Booking lifecycle
-
-The booking lifecycle shows the permitted owner and customer transitions and the terminal states that cannot return to an earlier stage.
-
-[[DIAGRAM:booking-lifecycle]]
-
-[[PAGEBREAK]]
-
-### Booking reschedule sequence
-
-The reschedule sequence shows the owner-only availability lookup, durable proposal, customer decision, acceptance-time capacity revalidation, and atomic appointment and notification update. A rejected proposal preserves the original appointment.
-
-[[DIAGRAM:reschedule-sequence]]
-
-[[PAGEBREAK]]
-
-### Booking notification sequence
-
-The notification sequence shows the atomic booking-and-notification write, server-owned recipient selection, idempotent event key, and authenticated polling and read flow. A failed booking transition creates no event, and a notification failure rolls back the enclosing booking transaction.
-
-[[DIAGRAM:notification-sequence]]
-
-[[PAGEBREAK]]
-
-### Verified salon review sequence
-
-The review sequence shows how a completed owned booking authorizes one customer review and how public summaries include reviews from currently active customers.
-
-[[DIAGRAM:review-sequence]]
-
-### Stakeholder benefits
-
-The platform creates value by connecting discovery, operational control, career mobility, and platform governance through one consistent domain model.
-
-[[DIAGRAM:benefits]]
-
-## Core domain model
+| Community post | Author, optional salon, content, optional media URL, created and updated time | The salon is set only when the owner publishes as the salon |
+| Community comment | Post, author, content, created time | |
+| Community post like | Post, member | One for each pair |
+| Friendship | Requester, addressee, status (`PENDING`, `ACCEPTED`) | |
+| Salon follow | Member, salon | |
+| Moderation report | Reporter, target type, target ID, reason, details, status, admin note | Status `OPEN`, `RESOLVED` or `DISMISSED` |
 
 ### User
 
@@ -567,7 +910,7 @@ A hiring application links one applicant, hiring post, and employment request. I
 
 Known identity fields including name, username, email, phone number, role, and user ID come from the authenticated user and are not accepted from the client. The linked employment request provides the application status and allows acceptance to reuse the existing employment and transfer workflows.
 
-## Domain state model
+## 13. Domain state model
 
 ### Primary state transitions
 
@@ -614,7 +957,213 @@ Known identity fields including name, username, email, phone number, role, and u
 - Direct salon unblocking restores the saved owner role and exact prior salon status.
 - Deleted entities are not restored through block and unblock operations.
 
-## Implemented business workflows
+## 14. Experience and visual design
+
+### 14.1 Brand
+
+| Element | Definition |
+| --- | --- |
+| Name | Salonhub. The word mark sets "Salon" in upright type and "hub" in italic. |
+| Mark | A comb arc with teeth around a gold hub |
+| Primary color | Plum `#76546f` (dark theme `#c58eba`) |
+| Accent color | Gold `#d7a86e` (dark theme `#e1b978`) |
+| Background | Warm cream `#faf7f4` (dark theme `#141216`) |
+| Typefaces | Fraunces Variable for headings, Inter Variable for interface text |
+| Assistant | Lamsa: a speech bubble that holds the comb arc, with a gold spark for the "touch" |
+
+### 14.2 Design tokens
+
+All feature styles use shared tokens in `src/app/styles/tokens.css`.
+
+| Scale | Values |
+| --- | --- |
+| Type | 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 48 and 64 px |
+| Weights | 400, 500, 600, 700 |
+| Spacing | 4 px grid: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 px |
+| Radius | 6, 10, 16, 24 px and full; buttons use 4 px as part of the editorial style |
+| Elevation | Four shadow levels, with separate dark-theme values |
+| Motion | 120 ms (fast), 200 ms (base), 320 ms (slow), one standard ease-out curve |
+| Breakpoints | 640 px, 900 px, 1200 px |
+
+### 14.3 Interaction rules
+
+- **Buttons:** four variants (primary, secondary, danger, success) and two sizes. Hover lifts the button on pointer devices only. A press settles it. A disabled button stays flat.
+- **Focus:** each interactive element shows a visible focus ring for keyboard users. Form fields show a brand border and a soft ring.
+- **Cards:** only cards that the user can open or act on lift on hover. Forms and layout panels do not move.
+- **Scroll reveal:** home page sections fade and rise in about 1.2 to 1.4 seconds. Content that is on screen at first paint appears with no animation.
+- **Background:** each page sits on a soft plum light, a low gold glow and a paper grain. It is CSS only and stays behind the content.
+- **Lamsa launcher:** one short gesture every 6 seconds (spark, then comb teeth), then a rest. A greeting appears once in a session.
+- **Reduced motion:** when the user asks for reduced motion, animations stop and content shows immediately.
+- **Themes:** light and dark themes use the same tokens; colors come from theme variables.
+
+### Visual design system
+
+The application uses an editorial salon identity built around deep plum, warm gold, soft rose surfaces, and high-contrast neutral text. The same semantic color roles drive the navigation, cards, forms, dashboard, feedback components, and documentation. Components consume theme variables instead of feature-specific hard-coded colors so light and dark modes remain visually consistent.
+
+| Token | Light value | Dark value | Use |
+| --- | --- | --- | --- |
+| Primary | `#76546F` | `#C58EBA` | Brand actions, active navigation, focus and diagram emphasis |
+| Primary strong | `#5E4058` | `#D7A8CE` | Hover emphasis, headings, high-priority controls |
+| Primary soft | `#F1E8EF` | Derived dark plum surface | Selected states, subtle panels, loader aura |
+| Accent gold | `#D7A86E` | `#E1B978` | Highlights, status accents, premium visual details |
+| Page background | `#FAF7F4` | `#141216` | Main application canvas |
+| Card surface | `#FFFFFF` | `#211D23` | Cards, dialogs, forms, dashboard panels |
+| Main text | `#292329` | `#F8F3F6` | Readable foreground content |
+| Muted text | `#746B72` | `#B9AFB6` | Secondary labels and supporting copy |
+| Border | `#E8DEDF` | `#423942` | Dividers, input outlines, non-destructive hover feedback |
+| On primary | `#FFFFFF` | `#1D161C` | Text on filled primary and success buttons (WCAG AA in both themes) |
+| Focus outline | `#76546F` | `#D7A8CE` | Solid 2px keyboard focus outline, at least 3:1 against surfaces |
+
+Typography uses two self-hosted variable typefaces: Fraunces (`--font-display`) for editorial headings and Inter (`--font-body`) for interface text. Theme-independent scales live in `src/app/styles/tokens.css`: twelve type sizes (`--text-2xs` 11px to `--text-6xl` 64px), four weights (400, 500, 600, 700), spacing on a 4px grid, radius, elevation, layering, and motion durations. Feature stylesheets consume these tokens instead of literal values. Buttons are defined once in `buttons.css` and rendered through the shared `Button` component. Salons without a cover image show branded cover art (initials, scissors mark, plum gradient) rather than an empty block.
+
+Hover states preserve the card's dark surface instead of replacing it with a light fill. They communicate interaction through a stronger border, restrained background modulation, shadow, and motion so text remains readable. Normal pages show the Salonhub wordmark once in the header; repeated full-brand blocks were removed from authentication content and the footer. Startup and route-transition states may show the brand because normal page chrome is not yet available.
+
+### Loading and transition experience
+
+Two coordinated loading patterns clarify what the application is doing:
+
+- **Signature Snip action loader:** used for API operations such as signing in, registering, searching, booking, deciding a request, applying to a post, changing staff or services, and updating notifications. Animated scissors open and close with a small gold sparkle over a softened page backdrop. The message describes the current action instead of displaying a generic spinner.
+- **Salonhub navigation loader:** used for initial application startup, lazy route loading, redirects, link navigation, programmatic navigation, and browser back or forward movement. It uses the primary brand mark and a destination-aware message without duplicating the header wordmark.
+
+The shared loader store counts overlapping operations so one completed request cannot hide another request that is still running. Action overlays appear after 180 ms to avoid flicker and remain visible for at least 320 ms once shown. Route transitions remain visible for about 320 ms so navigation feels intentional without delaying the next page. The startup splash appears for 600 ms on the first load of a browser session only. Scroll reveals are short (360–420 ms), blur-free, and skipped for content already on screen at first paint. Background availability refresh and notification polling do not take over the screen. Both loaders respect light/dark tokens and reduced-motion preferences.
+
+### Error presentation
+
+The backend `ApiResponse.error(...)` factory trims supplied messages and guarantees a clear fallback when a caller provides a blank or null reason. On the client, one normalizer prioritizes the backend `message`, validation `errors`, or legacy `error` field and then maps timeouts, network failures, and HTTP status failures to understandable text. Axios interceptors preserve those details; feature hooks render them through the common toast or page-error components. A generic failure is used only when neither the server nor transport provides a useful reason.
+
+---
+
+# Part IV. Development
+
+## 15. Technology stack
+
+| Layer | Technology |
+| --- | --- |
+| Web application | React 19, React Router 7, Vite 8 |
+| Web HTTP and feedback | Axios, React Toastify |
+| Web styling and icons | Project CSS with design tokens, Tailwind CSS 4 foundation, Lucide React |
+| Web tests and quality | Vitest, Testing Library, ESLint with architecture rules, Prettier |
+| Admin dashboard | Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4, Lucide icons |
+| Backend language and framework | Java 17, Spring Boot 4.1, Spring Web MVC |
+| Security | Spring Security, JWT, BCrypt |
+| Persistence | Spring Data JPA, Hibernate |
+| Database | MySQL in production; H2 in MySQL mode for local work and tests |
+| Validation | Spring Validation plus service-level rules |
+| Email | Spring Mail over SMTP |
+| Media | Cloudinary through a backend storage abstraction |
+| AI assistant | Anthropic Java SDK |
+| Build and packaging | Maven, multi-stage Docker image |
+
+## 16. Repositories and code structure
+
+| Repository | Content | Main branch |
+| --- | --- | --- |
+| `salon-community-frontend` | Web application | `main` |
+| `Salon-hub-backend` (`SalonBookingv2/backend`) | API, database scripts, this document | `master` |
+| `SalonBookingv2/admin-dashboard` | Admin dashboard | separate repository |
+
+### 16.1 Backend packages (`com.salon.backend`)
+
+| Package | Content |
+| --- | --- |
+| `Config` | Security configuration, password hashing, JWT filter, CORS |
+| `Controllers` | `Auth`, `Users`, `Salons` (salon, services, employees, bookings, reviews, employment, hiring, media), `Community`, `Moderation`, `Notifications`, `Owner`, `Dashboard` (admin), `Assistant` |
+| `DTOs` | Request and response contracts for each area, and `ApiResponse` |
+| `Entities` | `auth`, `users`, `salons`, `community`, `moderation`, `notifications`, `media` |
+| `Repositories` | Spring Data repositories for each area |
+| `Services` | Interfaces and implementations for each area, including `Activity` (admin activity) and `Assistant` |
+
+### 16.2 Web application structure
+
+```text
+src/
+  app/        routes, layout, navigation, global search, ordered styles
+  features/   applications, assistant, auth, bookings, community, dashboard,
+              employees, employment, hiring, home, media, moderation,
+              notifications, profile, prototype, reviews, salons, services
+  shared/     api, auth, components, config, hooks, notifications, theme, utils
+  test/       test setup and architecture checks
+```
+
+Each feature holds only the layers that it needs: `pages`, `components`, `hooks`, `providers`, `api` and `model`.
+
+### 16.3 Web routes
+
+| Area | Routes |
+| --- | --- |
+| Public | `/`, `/salons/:salonId`, `/assistant`, `/prototype`, `/hiring-posts` |
+| Authentication | `/login`, `/register`, `/verify-email`, `/forgot-password`, `/verify-reset-code`, `/reset-password` |
+| Customer | `/salons/:salonId/book`, `/my-bookings`, `/notifications`, `/account/security` |
+| Career | `/profile/career`, `/hiring-posts/:postId/apply`, `/my-applications`, `/employment` |
+| Community | `/community`, `/community/discover`, `/community/requests`, `/community/following`, `/community/new`, `/community/people/:userId` |
+| Owner | `/owner/dashboard`, `/owner/create-salon`, `/owner/my-salon`, `/owner/my-salon/edit`, `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit`, `/owner/employees`, `/owner/employees/:employeeId/setup`, `/owner/employment`, `/owner/bookings`, `/owner/create-hiring-post`, `/owner/applications` |
+| Employee | `/employee/bookings` |
+
+Route guards give navigation behavior only. The API enforces authorization for each operation.
+
+### 16.4 Admin dashboard structure
+
+| Path | Purpose |
+| --- | --- |
+| `/login` | Administrator sign-in |
+| `/` | Overview |
+| `/analytics`, `/activity` | Platform numbers and user activity |
+| `/reports` | Moderation queue |
+| `/salons`, `/salons/[id]` | Salon requests, list and detail |
+| `/users`, `/people/[id]` | User directory and detail |
+| `/profile` | Administrator profile |
+| `/api/admin/login`, `/api/admin/logout`, `/api/admin/[...path]` | Server routes that keep the token in an httpOnly cookie and forward calls to `/api/dashboard/*` |
+
+### 16.5 Web and API connection
+
+The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local development, Vite proxies `/api` to `VITE_API_PROXY_TARGET`, defaulting to `http://localhost:8080`. In production, the built client can use the same-origin `/api` reverse proxy or an explicitly configured HTTPS API origin.
+
+| Concern | Frontend behavior | Backend behavior |
+| --- | --- | --- |
+| Authentication | Keeps verification and recovery calls public, stores the current JWT contract, and adds `Authorization: Bearer <token>` outside auth routes | Verifies account email before login, validates JWT, resolves immutable user ID, checks active state and credential-change time, and applies roles |
+| Request lifecycle | Uses a 15-second timeout and abort signals for stale page requests | Binds DTOs, derives caller identity from the security principal |
+| Success handling | Reads `ApiResponse.data`; feature hooks update UI and show success feedback | Returns `ApiResponse.success(message, data)` |
+| Business failure | Shared normalization preserves `message`, validation `errors`, and legacy `error`; hooks show the result in a toast or page state | Returns `ApiResponse.error(message)` with `data: null`; blank reasons receive a safe fallback |
+| Slow foreground action | Begins a contextual Signature Snip loading operation and keeps concurrent work visible | Completes or fails the requested transaction and returns the standard envelope |
+| Route transition | Shows the branded navigation overlay for links, redirects, programmatic navigation, and history changes | Protected resources still enforce authentication and role authorization |
+| Unauthorized session | Clears matching current credentials on HTTP 401; HTTP 403 does not sign the user out | Security may reject unauthenticated or unauthorized calls before the controller |
+| Booking decisions | Polls customer bookings every 30 seconds only while the page is visible and reports accepted or rejected transitions | Persists booking state and owner note; returns scoped booking DTOs |
+| Notification inbox | Connected inbox, bell, polling, unread count, and read controls | Persists recipient-scoped booking events and exposes paginated inbox, unread-count, and read-state APIs |
+| Mapping differences | Salon and hiring adapters normalize backend field names for views | Keeps stable DTO names and pagination metadata |
+
+### Runtime links and environment
+
+- [Live API Test](http://localhost:8080/swagger-ui/index.html) - local Swagger UI address. It becomes usable when the backend is running and the Springdoc/OpenAPI dependency is enabled. The route is allowed by security, but the current Maven dependencies do not yet provide Swagger UI.
+- Frontend local URL: `http://localhost:5173` when started with Vite's default development server.
+- Backend local base URL: `http://localhost:8080/api`.
+
+| Variable | Default | Use |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api` | Browser API prefix; safe public configuration, never a secret |
+| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | Local Vite proxy target |
+| Backend environment variables | Defined in backend `.env.example` | Database, JWT, SMTP, and runtime configuration |
+
+### Integration coverage and gaps
+
+| Capability | Frontend | Backend | Connection state |
+| --- | --- | --- | --- |
+| Auth and unified career profile | Registration, verification, login, recovery, and profile pages implemented | Verification codes, reset authorization, JWT invalidation, and unified profile implemented | Connected end to end |
+| Public salons and service catalogs | Implemented | Implemented | Connected |
+| Salon request and owner management | Implemented | Implemented | Connected |
+| Hiring discovery, application, and decisions | Implemented | Implemented | Connected for current UI actions; edit, reopen, and cancel-join APIs have no current page control |
+| Employee directory, capabilities, and schedules | Implemented | Implemented | Connected |
+| Booking creation and customer, owner, employee views | Implemented | Implemented | Connected |
+| Booking assignment explanation | Implemented | Implemented | Connected; explanation is required when replacing an assigned employee |
+| Persistent notification inbox | Implemented | Implemented | Connected with signed-in polling and refresh when the application becomes active |
+| Server-calculated booking availability | Implemented | Implemented | Connected; the booking page renders qualified employees and selectable 15-minute slots |
+| Customer-approved booking rescheduling | Implemented | Implemented | Connected; owners propose server-available slots and customers accept or keep the original appointment |
+| Verified salon reviews | Implemented | Implemented | Connected |
+| Direct employment, leave, transfer | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
+| Administration dashboard | No dedicated current pages | Implemented | Backend ready; frontend journey pending |
+| Salon media | Device/Drive picker, previews, owner cover editor, public gallery, employee publisher | Cloudinary storage abstraction, signed server uploads, asset metadata and deletion | Connected; requires Cloudinary environment credentials |
+| Swagger interactive testing | Link and allowed security path | Dependency absent | Enable Springdoc/OpenAPI before using Live API Test |
+
+## 17. Business workflows
 
 ### Registration and login
 
@@ -641,7 +1190,7 @@ An authenticated owner opens `/owner/dashboard`. The route guard requires an act
 
 ### Shared interaction-feedback journey
 
-When a user starts a foreground operation, the relevant feature hook supplies an action-specific message to the shared loading service. The Signature Snip overlay appears only when the operation lasts beyond the short delay, keeps the underlying page visually present but de-emphasized, and remains active until all overlapping operations finish. On success, the page updates and a success message may be shown. On failure, the client displays the exact useful backend reason from `ApiResponse`; transport-only failures receive a clear network, timeout, authentication, authorization, not-found, or server message. Navigation uses the separate Salon Hup brand loader and covers declarative links, redirects, programmatic navigation, and browser history movement.
+When a user starts a foreground operation, the relevant feature hook supplies an action-specific message to the shared loading service. The Signature Snip overlay appears only when the operation lasts beyond the short delay, keeps the underlying page visually present but de-emphasized, and remains active until all overlapping operations finish. On success, the page updates and a success message may be shown. On failure, the client displays the exact useful backend reason from `ApiResponse`; transport-only failures receive a clear network, timeout, authentication, authorization, not-found, or server message. Navigation uses the separate Salonhub brand loader and covers declarative links, redirects, programmatic navigation, and browser history movement.
 9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
 10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
 
@@ -803,9 +1352,35 @@ Employment and leave endpoints never accept a current-user ID from request param
 
 Employment and leave endpoints return dedicated response DTOs instead of exposing JPA entities. The DTOs contain the request, salon, participant, hiring-post, status, reason, and timestamp fields needed by clients without exposing entity graphs or account secrets.
 
-## Hiring-post creation contract
+### Community workflow
 
-### Owner-provided fields
+1. A signed-in member opens the feed. The API returns one page of posts with author, salon, like and comment counts.
+2. The member creates a post as their own account, or as the owned salon if the member is its owner.
+3. Other members like and comment. The author can edit or delete the post; the API checks ownership.
+4. A member sends a friend request. The receiver accepts or declines it. A friend event creates a notification.
+5. A member follows or unfollows an active salon.
+
+### Moderation workflow
+
+1. A member reports a post, comment, salon or user with a reason.
+2. The API rejects the report if the item no longer exists or if the member already has an open report for it.
+3. An administrator opens the reports page in the admin dashboard and filters the queue.
+4. The administrator sets the report to `RESOLVED` or `DISMISSED` and can add a note. Blocking a user or salon is a separate administrative action.
+
+### Assistant workflow
+
+1. The web application sends the message, the recent turns and the current page to `POST /api/assistant/chat`.
+2. The service detects one intent: greeting, top salons, find salons, jobs, hiring, application help or unknown. It also detects one of the 12 governorates of Jordan from English or Arabic names.
+3. The service loads the matching records and page links.
+4. A reply writer produces the text: the AI writer for signed-in members inside the rate limit, the guide writer in all other cases.
+5. The response holds the reply, the intent, the mode, cards (salons, jobs, candidates, rankings), links and next suggestions. The service removes a suggestion that repeats the question.
+6. `GET /api/assistant/insights` supplies the home page rankings and the opportunity card.
+
+## 18. Workflow data contracts
+
+### Hiring-post creation contract
+
+#### Owner-provided fields
 
 | Field | Rule |
 | --- | --- |
@@ -819,7 +1394,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | numOfPositions | Required and greater than zero |
 | expiresAt | Required and later than the current time |
 
-### Automatically generated fields
+#### Automatically generated fields
 
 | Field | Source |
 | --- | --- |
@@ -828,15 +1403,15 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | status | Set to `Open` |
 | createdAt | Set by the backend at creation time |
 
-## Hiring application contract
+### Hiring application contract
 
-### Applicant-provided field
+#### Applicant-provided field
 
 | Field | Rule |
 | --- | --- |
 | applicationNote | Optional, maximum 2000 characters |
 
-### Profile-provided application snapshot
+#### Profile-provided application snapshot
 
 | Field | Rule |
 | --- | --- |
@@ -847,7 +1422,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | resumeUrl | Optional HTTP/HTTPS PDF URL; adds a ranking bonus |
 | portfolioUrl | Optional valid HTTP/HTTPS URL |
 
-### Ranking output
+#### Ranking output
 
 | Field | Purpose |
 | --- | --- |
@@ -859,11 +1434,9 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | missingRequirements | Human-readable explanation of every unmet condition |
 | resumeUploaded | Shows whether the optional résumé bonus applies |
 
-[[PAGEBREAK]]
+### Employee availability contract
 
-## Employee availability contract
-
-### Service capability update
+#### Service capability update
 
 | Field | Rule |
 | --- | --- |
@@ -871,7 +1444,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | serviceIds | Required collection of unique IDs; an empty list clears capabilities |
 | each service | Must be active and belong to the same salon as the employee |
 
-### Weekly schedule update
+#### Weekly schedule update
 
 | Field | Rule |
 | --- | --- |
@@ -881,9 +1454,9 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | endTime | Required and no later than salon closing time |
 | same-day periods | Must not overlap; adjacent periods are accepted; gaps are outside scheduled working periods |
 
-## Booking contract
+### Booking contract
 
-### Customer-provided booking fields
+#### Customer-provided booking fields
 
 | Field | Rule |
 | --- | --- |
@@ -895,7 +1468,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | customerLocation | Required; maximum 255 characters |
 | note | Optional; maximum 1000 characters |
 
-### Backend-generated booking fields
+#### Backend-generated booking fields
 
 | Field | Source |
 | --- | --- |
@@ -906,7 +1479,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | status | Set to `PENDING` at creation |
 | timestamps | Set during creation and every accepted state transition |
 
-### Availability request and response
+#### Availability request and response
 
 | Field | Rule |
 | --- | --- |
@@ -920,14 +1493,14 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | slots[].time | A start time whose complete duration fits salon and employee availability |
 | slots[].eligibleEmployees | Qualified active employees without an accepted overlap at that time |
 
-### Owner booking action fields
+#### Owner booking action fields
 
 | Field | Rule |
 | --- | --- |
 | assignedEmployeeId | Optional during acceptance and a required path value during explicit assignment; employee must pass salon, capability, and schedule checks |
 | ownerNote | Optional for first assignment and acceptance; required when replacing an already assigned employee; maximum 1000 characters |
 
-### Reschedule proposal contract
+#### Reschedule proposal contract
 
 | Field | Rule |
 | --- | --- |
@@ -939,7 +1512,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | acceptance | Revalidates capacity and updates the appointment while preserving booking status |
 | history | Every proposal remains in the booking response with status and timestamps |
 
-## Salon review contract
+### Salon review contract
 
 | Field | Rule |
 | --- | --- |
@@ -949,7 +1522,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | uniqueness | One salon review per booking, protected by service validation and a database constraint |
 | visibility | Public only while the salon is active and the reviewing customer is active |
 
-## API catalog
+## 19. API catalog
 
 All routes except explicitly public authentication routes require a valid bearer token under the current security configuration.
 
@@ -1130,7 +1703,71 @@ The authenticated user for every route above comes from the JWT principal. No ro
 | GET | `/api/users/active` | Return active users to an administrator |
 | GET | `/api/users/blocked` | Return blocked users to an administrator |
 
-## Complete API contract reference
+### Community
+
+All community routes need a signed-in user.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/community/feed` | One page of feed posts |
+| GET | `/api/community/posts/{postId}` | One post |
+| POST | `/api/community/posts` | Create a post (as self or as owned salon) |
+| PUT | `/api/community/posts/{postId}` | Edit an owned post |
+| DELETE | `/api/community/posts/{postId}` | Delete an owned post |
+| PUT / DELETE | `/api/community/posts/{postId}/like` | Like or remove the like |
+| GET | `/api/community/posts/{postId}/likes` | Members who liked the post |
+| GET / POST | `/api/community/posts/{postId}/comments` | List or add comments |
+| DELETE | `/api/community/posts/{postId}/comments/{commentId}` | Delete a comment that the caller may delete |
+| GET | `/api/community/people` | Search members |
+| GET | `/api/community/people/{userId}` | Community profile of a member |
+| GET | `/api/community/people/{userId}/posts` | Posts of a member |
+| POST | `/api/community/friends/requests/{userId}` | Send a friend request |
+| PUT | `/api/community/friends/requests/{friendshipId}/accept` | Accept an incoming request |
+| DELETE | `/api/community/friends/requests/{friendshipId}` | Decline or cancel a request |
+| DELETE | `/api/community/friends/{friendshipId}` | Remove a friendship |
+| GET | `/api/community/friends` | List friends |
+| GET | `/api/community/friends/requests` | List incoming requests |
+| PUT / DELETE | `/api/community/salons/{salonId}/follow` | Follow or unfollow a salon |
+| GET | `/api/community/salons/following` | List followed salons |
+
+### Moderation
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| POST | `/api/reports` | Signed-in user | Report a post, comment, salon or user |
+| GET | `/api/dashboard/reports` | `ADMIN` | List reports |
+| PUT | `/api/dashboard/reports/{reportId}` | `ADMIN` | Resolve or dismiss a report |
+
+### Owner dashboard
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/owner/dashboard` | `OWNER` | Salon, bookings, employees, services and reviews of the owned salon in one response |
+
+### Admin dashboard
+
+All routes need the `ADMIN` role, except sign-in.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/dashboard/login` | Administrator sign-in (public) |
+| GET | `/api/dashboard/session`, `/api/dashboard/profile` | Current administrator |
+| GET | `/api/dashboard/analytics` | Platform totals and monthly trend |
+| GET | `/api/dashboard/activity` | User activity |
+| GET | `/api/dashboard/salons/requested`, `/all`, `/active`, `/{salonId}`, `/{salonId}/team` | Salon queues and detail |
+| POST | `/api/dashboard/salons/requested/accept`, `/reject` | Decide a salon request |
+| POST | `/api/dashboard/salons/{salonId}/block`, `/unblock` | Block or restore a salon |
+| GET | `/api/dashboard/users/all`, `/active`, `/blocked`, `/{userId}` | User directories and detail |
+| POST | `/api/dashboard/users/{userId}/block`, `/unblock` | Block or restore a user |
+
+### Assistant
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| POST | `/api/assistant/chat` | Public | One reply with cards, links and suggestions |
+| GET | `/api/assistant/insights` | Public | Governorate rankings and one opportunity for the home page |
+
+## 20. API contract reference
 
 This reference lists every implemented controller route. `Body` names JSON fields, `path` and `query` identify URL inputs, and `none` means the caller sends no application data beyond authentication. Every success value below is placed in `ApiResponse.data`.
 
@@ -1290,7 +1927,7 @@ Business-error response body:
 
 The frontend presents the error `message` to the user through the shared notification component. It must not replace useful server validation text with a generic failure unless no message exists.
 
-## Security model
+## 21. Security model
 
 Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, verifies that the account is still active, rejects tokens issued before `credentialsUpdatedAt`, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt.
 
@@ -1306,7 +1943,15 @@ The JWT signing secret must be Base64 encoded and contain at least 32 random byt
 
 Local development can load an ignored `.env` file and use a persistent H2 database in MySQL compatibility mode. Deployment environment variables override local values and may point the same application to MySQL. Automated tests use a separate H2 in-memory database with test-only mail and JWT values, so tests do not require developer MySQL or SMTP credentials and do not write to local or production data.
 
-## Data protection and governance
+### Additions in version 2.0.0
+
+- Community, report and notification routes need a signed-in user. The API takes the acting user from the token, never from the request body.
+- Admin routes under `/api/dashboard/**` need the `ADMIN` role. The admin dashboard keeps the token in an httpOnly cookie and calls the API from its server routes.
+- The two assistant routes are public. Guests receive guide mode only, and AI replies have a rate limit for each member.
+- The Anthropic API key and the Cloudinary secret exist only in the backend environment.
+- Text that a user sends to the assistant is treated as data. The model receives only the loaded records and has no tools and no write access.
+
+## 22. Data protection and governance
 
 ### Data classification
 
@@ -1327,241 +1972,161 @@ The current implementation does not yet define retention periods, user data expo
 - Production logs should be structured and include request correlation IDs, severity, event name, and safe entity identifiers.
 - Security and moderation events should become durable audit records before launch.
 
-## Non-functional requirements
+## 23. Environments and configuration
 
-> **Status:** The targets below define production acceptance criteria. They are requirements for release planning and are not claims about the current runtime.
+| Environment | Purpose | Database | Schema strategy |
+| --- | --- | --- | --- |
+| Local development | Implementation and manual tests | Persistent H2 in MySQL mode by default, or local MySQL | Hibernate `update` |
+| Automated test | Repeatable tests | In-memory H2 in MySQL mode | Create and drop |
+| Staging | Release acceptance | Isolated managed MySQL | Planned: versioned migrations |
+| Production | Real users | Managed MySQL with backups | Planned: versioned migrations |
 
-| Category | Production target | Current assessment |
+### Backend variables
+
+| Variable | Purpose | Required |
 | --- | --- | --- |
-| Availability | Define an uptime objective and maintenance policy before launch | Not defined |
-| Performance | Establish p95 latency targets per API class and test realistic data volumes | Not measured |
-| Scalability | Support stateless horizontal API scaling with shared revocation and persistence services | Blocked by in-memory token blacklist |
-| Security | TLS, managed secrets, least privilege, dependency scanning, and authorization tests | Partial |
-| Reliability | Transactional state changes, idempotency where required, and recovery procedures | Partial |
-| Data integrity | Versioned migrations, constraints, locking, and production backup validation | Partial |
-| Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Planned |
-| Accessibility | Frontend journeys should target WCAG 2.2 AA | Frontend responsibility; not yet verified |
-| Localization | Define supported languages, locale-sensitive dates, and message strategy | Planned |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Database connection | Password required; others have local defaults |
+| `JWT_SECRET`, `JWT_EXPIRATION_MS` | Token signing and lifetime | Secret required |
+| `AUTH_CODE_SECRET` | Hashing of email and reset codes | Required in deployed environments |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | SMTP | Username and password required |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Media storage | Required for uploads |
+| `CORS_ALLOWED_ORIGINS` | Allowed web origins | Required in deployed environments |
+| `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` | Lamsa AI replies | Optional; without a key Lamsa uses guide mode |
+| `SERVER_PORT` | API port (8081 in the local profile) | Optional |
 
-## Environment and configuration model
+### Web variables
 
-| Environment | Purpose | Database | Secrets | Schema strategy |
-| --- | --- | --- | --- | --- |
-| Local development | Developer implementation and manual testing | Persistent H2 in MySQL compatibility mode by default; MySQL can be configured | IDE or shell environment | Hibernate update currently used |
-| Automated test | Repeatable unit and Spring context verification | Ephemeral H2 in MySQL mode | Test-only values | Create and drop |
-| Staging | Production-like validation and release acceptance | Managed isolated MySQL | Deployment secret manager | Planned versioned migrations |
-| Production | Customer traffic and durable business data | Managed MySQL with backup policy | Deployment secret manager | Required versioned migrations |
-
-Required runtime variables are `DB_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `JWT_SECRET`. `DB_URL`, `DB_USERNAME`, `MAIL_HOST`, `MAIL_PORT`, and `JWT_EXPIRATION_MS` have development defaults and remain overrideable. Spring Boot does not automatically import `.env`; the launcher, IDE, container platform, or hosting platform must inject the values.
-
-## Deployment architecture
-
-### Target production topology - planned
-
-```text
-Internet client
-  -> TLS load balancer / reverse proxy
-      -> Static React application
-      -> /api to Salon Hup API instances
-          -> Managed MySQL
-          -> Durable token/session revocation store
-          -> SMTP or transactional email provider
-          -> Object storage for managed résumé and media uploads
-          -> Metrics, logs, alerts, and error tracking
-```
-
-The frontend currently builds into a static `dist/` bundle and the backend packages as a Spring Boot service. Production must rewrite client routes to `index.html`, proxy `/api` to the backend or configure an approved API origin and CORS policy, and serve both over HTTPS. Container definitions, environment-specific configuration, database migrations, shared token revocation, health/readiness policy, and the hosting pipeline still need implementation.
-
-### Deployment sequence - planned
-
-1. Build and test an immutable application artifact.
-2. Scan dependencies and the container image for known vulnerabilities.
-3. Back up the production database and verify migration compatibility.
-4. Apply versioned database migrations through a controlled release job.
-5. Deploy to staging and run smoke, authorization, and critical workflow tests.
-6. Deploy gradually to production with health checks and rollback criteria.
-7. Verify logs, metrics, email connectivity, database health, and core user journeys.
-
-## Testing and quality strategy
-
-### Current automated evidence
-
-The backend suite covers Spring application startup, immutable JWT identity, blocked-account authentication, verified-registration behavior, verification expiry and attempt limits, non-enumerating password recovery, one-time reset authorization, old-JWT invalidation, dashboard moderation logic, user-directory mapping, employment authorization, hiring lifecycle and expiration, salon resubmission rules, salon-service ownership and visibility, employee capability replacement, employee schedule validation and availability, booking lifecycle, overlap prevention, reassignment rules, notification ownership and read state, notification deduplication and booking-event creation, verified salon reviews, URL validation, and non-empty `ApiResponse.error` reasons. It runs against an isolated H2 test database. On 31 October 2026 the complete backend suite passed 123 tests, including nine new security-filter integration tests. Those tests use the production `SecurityConfig`, JWT filter, JWT service, blacklist, Jackson mapper, and response handlers with a mocked user lookup and probe controllers, isolating filter authorization from controller business logic. They verify missing, malformed, blacklisted, and blocked-account authentication; anonymous admin requests; authenticated non-admin denial; permitted user/admin requests; and public endpoint access. The frontend includes Vitest and Testing Library coverage for all active routes including the four new public auth routes, login redirects, authentication subscriptions, public-auth JWT exclusion, auth action loading messages, 401/403 behavior, stale request cancellation, response-envelope handling, salon payload contracts, action-loading state, and route/navigation loading. The 31 October frontend run passed all 66 tests, lint, and the production build without frontend source changes. A combined staging acceptance run with real SMTP remains required.
-
-### Required test layers
-
-| Layer | Purpose | Release expectation |
+| Variable | Application | Purpose |
 | --- | --- | --- |
-| Unit | Validate scoring, validation, and isolated state rules | Required for complex branching rules |
-| Service integration | Validate transactions, repositories, locks, and mappings | Required for critical workflows |
-| Authorization | Verify every role and ownership boundary | Required before production |
-| API contract | Protect request, response, and `ApiResponse` compatibility | Required before frontend release |
-| Concurrency | Prove capacity, position, transfer, and block transitions under contention | Required before production |
-| End-to-end | Validate registration through business outcome in staging | Required for release candidates |
-| Performance | Establish capacity, latency, and database-query baselines | Required before launch |
+| `VITE_API_PROXY_TARGET` | Web application | Local API address for the Vite proxy |
+| `VITE_API_BASE_URL` | Web application | Public API origin when it is not `/api` |
+| `NEXT_PUBLIC_API_BASE_URL` | Admin dashboard | API address |
 
-## Observability and operations
+All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 
-### Required operational signals - planned
+## 24. Deployment
 
-- Health and readiness checks for the API, database, and required external services.
-- Request volume, error rate, latency percentiles, JVM health, connection-pool pressure, and database saturation.
-- Business metrics for registration, salon approvals, applications, hiring acceptance, bookings, completion, cancellation, and verified reviews.
-- Alerts tied to user impact, with an owner, severity, runbook, and escalation path.
-- Centralized structured logs with retention and access controls.
+| Part | Current arrangement |
+| --- | --- |
+| Web application | Static build (`dist/`) on Vercel. All routes rewrite to `index.html`. |
+| Backend API | Multi-stage Docker image (Java 17), built for Render, which supplies the port |
+| Database | MySQL |
+| Admin dashboard | Next.js application; hosting is not yet recorded in this document |
+| Database changes | Hibernate `update`, plus SQL scripts in `backend/database/migrations` (five files, 31 October to 9 November 2026) that are applied by hand |
 
-### Incident response outline - planned
+### Release procedure (target)
 
-1. Detect and classify the incident from an alert or user report.
-2. Protect users and data by disabling the affected path or rolling back when necessary.
-3. Preserve safe logs, deployment metadata, and database evidence.
-4. Restore service using the documented rollback or recovery process.
-5. Communicate status and impact through the agreed channel.
-6. Complete a blameless review with corrective actions and owners.
+1. Build and test each application.
+2. Back up the database and check the migration.
+3. Apply database migrations through a controlled job.
+4. Deploy to staging and run the critical journeys.
+5. Deploy to production with health checks and a rollback rule.
+6. Check logs, email delivery, database health and the core journeys.
 
-## Release readiness checklist
+Steps 2, 3 and 5 depend on roadmap phase 7.
 
-| Gate | Required evidence | Current state |
+## 25. Testing and quality
+
+| Application | Evidence (14 November 2026) | Tooling |
 | --- | --- | --- |
-| Product scope | Approved release journeys and acceptance criteria | Partial |
-| Security | Threat review, authorization matrix tests, secret rotation, TLS | Partial |
-| Data | Versioned migrations, backup and restore test, retention policy | Planned |
-| Quality | Passing unit, integration, contract, concurrency, and staging E2E suites | Partial |
-| Operations | Dashboards, alerts, runbooks, health checks, and ownership | Planned |
-| Deployment | Reproducible artifact, staging promotion, rollback procedure | Planned |
-| Legal and privacy | Privacy notice, terms, consent and deletion decisions | Planned |
-| Customer support | Support channel, issue triage, and escalation process | Planned |
+| Backend | 221 tests pass in 45 test classes | JUnit, Spring test context, H2 |
+| Web application | 177 tests pass in 39 files; lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
+| Admin dashboard | Not measured for this version | |
 
-## Current implementation status
+The backend and web numbers include the Lamsa assistant work, which is release pending.
 
-| Area | Status | Notes |
+| Layer | Purpose | State |
 | --- | --- | --- |
-| Registration and login | Implemented | Core validation, BCrypt, verified email, resend cooldown, login gating, JWT, and immutable-ID authenticated principal available |
-| Password recovery | Implemented | Non-enumerating request, short-lived verification code, one-time reset token, shared password policy, and old-JWT invalidation are connected to the React recovery pages |
-| React application shell | Implemented | Lazy routes, shared layout, protected navigation, branded route-transition loading, not-found/render-error fallbacks, light/dark themes, and responsive feature pages are available |
-| Frontend API integration | Implemented for core journeys | Shared Axios client, JWT attachment, timeout, stale-request cancellation, `ApiResponse` parsing, field normalization, clear error reasons, contextual loading, and toast feedback connect active screens to the API |
-| Owner dashboard | Implemented | OWNER-only route and backend-scoped data present salon, staff, customers, bookings, revenue, ratings, and employee-performance insights |
-| Design system and branding | Implemented | Plum/gold semantic tokens, accessible dark surfaces, restrained hover treatment, one normal-page header brand, and theme-aware feedback components are shared across the application |
-| Interactive prototype | Implemented | `/prototype` demonstrates customer, owner, employee, hiring, booking, invitation, status, schedule, and dashboard states with interactive sample data |
-| Unified user profile | Implemented | Registration data, career activation/update, completion score, and URL validation available |
-| Logout | Implemented | In-memory blacklist; not durable across restarts |
-| Salon onboarding | Implemented | Admin approval, persisted rejection reason, correction, and three explicit resubmissions available |
-| Salon profile update | Implemented | Ownership check and rejected-request correction exist |
-| User and salon response DTOs | Implemented | Listing endpoints omit passwords and persistence entity graphs |
-| Administrative blocking | Implemented | Non-admin user and salon blocking is reversible; prior salon status and owner role are restored after all applicable blocks are removed |
-| Direct employment | Implemented | Request, invite, accept, reject, cancel, authenticated identity, and response DTOs available |
-| Leave and transfer | Implemented | Normal departure, cross-salon transfer, secure cancellation, and position restoration available |
-| Hiring-post creation | Implemented | DTO, repository, service, controller, and validation compile successfully |
-| Hiring-post discovery | Implemented | Pagination, filters, controlled sorting, personalized labels, and ranked results available |
-| Hiring applications | Implemented | Profile autofill, immutable application snapshot, transparent ranking, owner review, acceptance, and rejection available |
-| Hiring-post management | Implemented | Owner list/detail/edit/close/reopen, scheduled expiration, application history, and locked position updates available |
-| Salon service catalog | Implemented | Owner create/list/update/disable/reactivate and public active-service discovery are available through DTO-based APIs |
-| Employee directory and capabilities | Implemented | Authenticated discovery and owner directories include capability data; owners replace validated service assignments |
-| Employee weekly schedules | Implemented | Owners configure working periods; ad hoc absences are handled through reassignment; validation enforces salon hours, non-overlap, and explicit empty availability |
-| Customer booking | Implemented | Server-calculated slots, creation revalidation, proposal-based rescheduling, customer and owner history, pending queue, employee view, acceptance, rejection, cancellation, assignment, accepted-interval conflict prevention, completion, and service snapshots are available |
-| Notification inbox | Implemented | Booking events persist atomically with recipient and booking snapshots; the frontend polls the authenticated inbox and supports unread count and owned read operations |
-| Verified salon reviews | Implemented | Completed-booking ownership, one-review constraint, public list and summary, customer list, deletion, and blocked-user filtering are available |
-| Salon media | Partial | Frontend page and API adapter exist; backend entity, persistence, service, and controller are not implemented |
-| Interactive API documentation | Partial | The `Live API Test` address and security allowlist exist; Springdoc/OpenAPI dependency and generated runtime UI are not yet enabled |
-| Automated tests | Active | Backend suite has 109 passing tests and focused auth verification has nine; frontend has 63 passing tests plus clean lint and production build. Broader staging, SMTP, contention, accessibility, and performance coverage remains required |
-| Secret configuration | Implemented | Database, SMTP, sender, auth-code hashing, and JWT secrets use environment variables with a safe example contract |
-| Deployment configuration | Planned | Production profiles, migrations, packaging, monitoring, and hosting remain |
+| Unit tests | Business rules: ranking, availability, intent detection, reply writing | Present |
+| Service and security tests | Authorization, ownership, 401 and 403 responses | Present |
+| Web component and route tests | Routes, guards, forms, stale-request handling | Present |
+| Architecture checks | Import boundaries in the web application | Enforced by ESLint |
+| Continuous integration | Format, lint, tests and build on each push | Web application only |
+| End-to-end tests against a running API | Full journeys with real accounts | Not present |
+| Load, contention and accessibility audits | Production confidence | Not present |
 
-## Known technical risks
+### Quality and review policy
 
-### Risk register
+Every feature should move through a small reviewable slice:
 
-| ID | Risk | Impact | Likelihood | Treatment |
-| --- | --- | --- | --- | --- |
-| R-01 | In-memory logout blacklist is lost on restart and cannot coordinate multiple instances | High | High | Add durable shared revocation or refresh-token design |
-| R-02 | Automatic schema update can create uncontrolled production changes | High | High | Adopt Flyway or Liquibase before production |
-| R-03 | Earlier credentials remain in Git history | High | Medium | Rotate every exposed value and use deployment secrets |
-| R-04 | Authorization coverage is incomplete across the full API surface | High | Medium | Add route and service authorization tests |
-| R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
-| R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
-| R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
-| R-08 | Holidays and employee time-off exceptions are not implemented | Medium | High | Add dated salon closures and employee absence records to the availability calculation |
-| R-09 | Payment processing and reconciliation are not implemented | High | Certain | Approve payment methods and provider before defining secure payment APIs |
-| R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
-| R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
-| R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
-| R-13 | Resolved: Spring Security 401/403 responses use the application `ApiResponse` envelope | Medium | Resolved | Custom authentication entry point and access-denied handler preserve status codes and clear messages; nine filter-chain integration tests cover rejected and permitted requests |
-| R-14 | Dashboard financial values are operational summaries rather than settled payment records | High | High | Label them as booking revenue estimates until payment capture, refunds, fees, and reconciliation are implemented |
+1. Confirm business rules with the product owner.
+2. Add or update entities only when persistence changes are required.
+3. Create request and response DTOs.
+4. Add repository methods with clear names.
+5. Define the service interface and implement business validation.
+6. Add a thin controller that uses authenticated identity.
+7. Compile and run relevant tests.
+8. Review the code and API behavior before moving to the next feature.
+9. Update this document after the change is approved.
 
-### Entity exposure
+## 26. Operations and observability
 
-Employment, leave, user-listing, salon-listing, and requested-salon routes return dedicated DTOs. Remaining controllers should be audited for direct JPA entity responses before deployment.
+| Signal | State |
+| --- | --- |
+| Application logs | Standard Spring logs; structured logging is planned |
+| Health endpoint | Foundation exists |
+| Metrics, alerts, error tracking | Planned |
+| Backups and recovery test | Planned |
+| Admin activity view | Implemented in the admin dashboard |
 
-### Secret management
+### Incident response outline (planned)
 
-Current source configuration obtains database credentials, SMTP credentials, and the JWT signing key from environment variables. Previously committed credentials remain in Git history and must be rotated before deployment. Production infrastructure should inject the replacement values through its secret manager.
+1. Detect through alerts or user reports.
+2. Limit the effect: block the account or salon, or disable the feature.
+3. Restore service: roll back the release or the migration.
+4. Record the cause and the correction in this document's risk chapter.
 
-### Token revocation
+---
 
-The logout blacklist is stored in application memory. It disappears after a restart and does not work consistently across multiple server instances. A durable revocation or refresh-token design is required for production.
+# Part V. Handover
 
-### Data integrity and concurrency
+## 27. Asset inventory for a new owner
 
-Hiring-post position reservation, post lifecycle changes, linked transfer cancellation, booking decisions, accepted-appointment overlap checks, notification event keys, and one-review-per-booking creation use transactional locks or database constraints. Employee-capacity mutations, notification retries, and review creation should receive database-backed concurrency tests before deployment.
+| Asset | Description |
+| --- | --- |
+| Source code | Three repositories: web application, backend API, admin dashboard |
+| Database | MySQL schema created by the entities, plus five SQL scripts |
+| Brand | Salonhub name, comb-arc mark, Lamsa name and mark, plum and gold design system |
+| Tests | 221 backend tests and 177 web tests |
+| Documentation | This document, repository README files, `THIRD_PARTY_NOTICES.md` in the web application |
+| Build and hosting | Dockerfile for the API, Vercel configuration for the web application, GitHub Actions workflow for the web application |
 
-### Error and validation consistency
+### External services that the product uses
 
-The approved API contract represents business outcomes through the existing `ApiResponse<T>` envelope and its `success` and `error` factories. `ApiResponse.error` now prevents blank reasons, and the frontend preserves useful response and transport details through one shared normalizer. Future validation work must keep this response structure and must not introduce a new HTTP-status strategy or centralized exception handler. Remaining consistency work should standardize field validation and security-filter responses within this contract.
+| Service | Use | Needed to run? |
+| --- | --- | --- |
+| MySQL host | Data | Yes |
+| SMTP provider | Verification and recovery codes | Yes |
+| Cloudinary | Salon covers and work galleries | For uploads |
+| Anthropic API | Lamsa AI replies | No; guide mode works without it |
+| Google Maps | Location links (no API key) | No |
+| Vercel and Render | Current hosting | Replaceable |
 
-### Schema lifecycle
+A new owner needs their own accounts and keys for each service. No secret is stored in the repositories; the risk register records that earlier credentials in the repository history must be rotated.
 
-Hibernate currently uses automatic schema update. Production environments should use versioned database migrations such as Flyway or Liquibase.
+### What a buyer should check
 
-## Development roadmap
+- Third-party licenses: see `THIRD_PARTY_NOTICES.md` and the dependency files (`pom.xml`, `package.json`).
+- The legal basis for personal data (accounts, bookings, reviews, community content) in the target market.
+- The cost of the external services at the expected number of users. This document does not hold cost figures.
 
-### Priority 1 Complete hiring management - completed
+## 28. Known gaps before production
 
-- Allow owners to edit, close, and inspect their posts.
-- Add scheduled expiration handling.
-- Let applicants list and cancel their pending applications.
-- Prevent repeat application after rejection or cancellation.
+| Gap | Effect | Roadmap phase |
+| --- | --- | --- |
+| No migration tool | Schema changes are not repeatable | 7 |
+| Logout uses an in-memory token blacklist | A restart forgets revoked tokens | 7 |
+| No monitoring, metrics or error tracking | Problems are found late | 7 |
+| No CI for the backend and the admin dashboard | Regressions can reach the main branch | 7 |
+| Credentials from the repository history are not rotated | Security exposure | 7 |
+| No generated API description (OpenAPI) | Integrators read this document only | 8 |
+| No payments | No online revenue from bookings | 10 |
+| Email delivery uses plain SMTP with basic templates | Limited delivery reporting | 11 |
+| English interface only | Smaller reach in the home market | 13 |
+| No end-to-end or load tests | Unknown behavior under real traffic | 7 |
+| The PDF edition (`output/pdf`) is older than this version | Readers of the PDF see version 1.4.0 | Regenerate after the generator supports the new structure |
 
-### Priority 2 Secure existing workflows - in progress
-
-- Replace request-supplied current user IDs with authenticated identities. Completed for employment and leave.
-- Introduce response DTOs for users, salons, employment requests, and leave requests. Completed for these current API surfaces; remaining controllers still require an exposure audit.
-- Add role checks at route and service levels.
-- Correct the admin salon lookup and owner-blocking behavior. Completed with reversible user and salon blocking, independent overlapping restrictions, role restoration, and blocked-token enforcement.
-- Correct the salon-rejection request contract. Completed with persisted reasons and controlled resubmission.
-
-### Priority 3 Hiring workflow hardening
-
-- Expand ranking tests to cover boundary scores, pagination, filters, and incomplete profiles.
-- Protect position reservation with database locking or optimistic versioning.
-- Add application history and audit timestamps.
-- Add managed résumé upload storage instead of relying only on a URL.
-
-### Priority 4 Booking foundation
-
-- Define salon services, prices, and durations. Completed with owner management, public active-service discovery, validation, DTOs, ownership checks, and reversible disable.
-- Define which employees can perform each service. Completed with owner-managed capabilities and full-service-set enforcement.
-- Define weekly employee working periods. Completed with validated periods, inherited salon hours, and explicit empty availability. Personal breaks remain ad hoc; owners handle conflicts by assigning another qualified employee and informing the customer.
-- Create booking request, confirmation, rejection, cancellation, assignment, completion, customer history, owner queue, and employee views. Completed.
-- Preserve service price, duration, and name snapshots in booking history. Completed.
-- Add booking-verified salon ratings, public review lists, and aggregate summaries. Completed.
-- Reject overlapping accepted bookings. Completed with employee write locking, complete-interval comparison, and adjacent-appointment support.
-- Calculate server-owned available appointment slots. Completed with 15-minute generation, qualified-employee details, accepted-conflict filtering, 30-minute same-day notice, creation-time revalidation, and connected frontend selection.
-- Connect the frontend notification inbox with 30-60 second signed-in polling and refresh on application activation. Completed.
-- Add holidays, employee time off, reminders, and salon calendar views. Customer-approved rescheduling is completed with proposal history, server availability, acceptance-time revalidation, and durable events.
-- Approve and implement payment methods, provider integration, refunds, and reconciliation.
-- Extend reviews with approved employee and service rating rules.
-
-### Priority 5 Production readiness
-
-- Add meaningful unit, integration, authorization, and concurrency tests.
-- Introduce database migrations and environment-specific profiles.
-- Rotate the credentials that existed in repository history and store their replacements in the deployment secret manager.
-- Add structured logging, health checks, metrics, and error tracking.
-- Create Docker and deployment configuration.
-- Configure production CORS, TLS, backups, and recovery procedures.
-- Perform final security and performance reviews.
-
-## Glossary
+## 29. Glossary
 
 | Term | Meaning |
 | --- | --- |
@@ -1586,41 +2151,33 @@ Hibernate currently uses automatic schema update. Production environments should
 | Verified salon review | A one-to-one review created by the customer from an owned completed booking |
 | Soft disable | A reversible state change that hides a service without deleting its identity or future booking references |
 | DTO | A request or response object that defines an external API contract without exposing persistence entities |
+| Community | The area where members post, comment, like, add friends and follow salons |
+| Moderation report | A member's report of a post, comment, salon or user, decided by an administrator |
+| Lamsa | The Salonhub AI assistant |
+| Guide mode | Lamsa replies that fixed templates write, without the AI service |
+| Governorate | One of the 12 administrative regions of Jordan |
+| Release pending | Implemented and tested, not yet committed to the main branch |
 
-## Quality and review policy
+## 30. Documentation maintenance
 
-Every feature should move through a small reviewable slice:
+- The source is `backend/documentation/Salon-Hup-Project-Documentation.md`. It stays with the backend repository because the API is the shared contract.
+- Each approved change in any of the three applications updates this document in the same work item.
+- An update changes: the version and date in the document control table, chapter 5 (status), the affected workflow, API and domain chapters, chapter 8 (roadmap) and chapter 31 (history).
+- A delivered roadmap phase moves from chapter 8 to chapter 7.
+- Diagrams are Mermaid text in this file. Change the diagram in the same commit as the behavior.
+- Behavior that is not approved stays marked as planned.
 
-1. Confirm business rules with the product owner.
-2. Add or update entities only when persistence changes are required.
-3. Create request and response DTOs.
-4. Add repository methods with clear names.
-5. Define the service interface and implement business validation.
-6. Add a thin controller that uses authenticated identity.
-7. Compile and run relevant tests.
-8. Review the code and API behavior before moving to the next feature.
-9. Update this document after the change is approved.
+Versions use `major.minor.patch`: patch for a correction, minor for a feature or a large section, major for a new structure.
 
-## Documentation maintenance
-
-The editable source is `documentation/Salon-Hup-Project-Documentation.md`. The published PDF is `output/pdf/Salon-Hup-Project-Documentation.pdf`. The document is maintained with the backend repository because it describes the shared product, but every approved frontend or backend change must update the relevant product, integration, API, testing, and diagram sections.
-
-Approved feature batches should update the document version, last-updated date, implementation-status table, relevant workflow, API catalog, domain model, and roadmap. Draft or unapproved behavior should remain marked as planned and should not be described as implemented.
-
-Document versions use three numeric positions: `major.minor.patch`.
-
-- Increase `patch` for a small correction or routine documentation update: `0.0.1` through `0.0.9`.
-- Increase `minor` for a large feature or substantial section update and reset `patch` to zero: `0.1.0`.
-- Increase `major` for a complete document restructuring or redesign and reset the other positions: `1.0.0`.
-- Each position rolls over after nine. For example, the update after `0.0.9` is `0.1.0`.
-
-## Revision history
+## 31. Revision history
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 2.0.0 | 14 November 2026 | New structure in five parts (product, planning, design, development, handover). Added community, moderation, admin dashboard, owner dashboard API, global search and the Lamsa assistant. Added delivery history, phased roadmap, buyer handover chapters and 17 Mermaid diagrams. Updated status, tests, configuration and deployment to the current state. Product name written as Salonhub. |
+| 1.4.2 | 1 November 2026 | Recorded salon location and media delivery, and frontend design tokens, typography and motion timings |
 | 1.4.1 | 31 October 2026 | Standardized security-filter 401/403 responses through `ApiResponse.error`, preserved endpoint permissions and frontend session behavior, resolved R-13, and added nine filter-chain integration tests plus current verification evidence |
 | 1.4.0 | 27 October 2026 | Added verified registration, email-code lifecycle and resend cooldown, non-enumerating password recovery, one-time reset authorization, credential-change JWT invalidation, four connected React auth pages, action and navigation loading integration, public-auth token policy, complete API contracts, security model, auth sequence diagram, and final backend/frontend verification evidence |
-| 1.3.0 | 26 October 2026 | Rethemed the full publication to the Salon Hup plum-and-gold design system; documented the owner dashboard, interactive prototype, light/dark behavior, accessible hover treatment, single-header branding, Signature Snip action loading, branded route-transition loading, concurrent loader lifecycle, centralized frontend error display, backend error-message fallback, and new frontend feedback diagram and verification evidence |
+| 1.3.0 | 26 October 2026 | Rethemed the full publication to the Salonhub plum-and-gold design system; documented the owner dashboard, interactive prototype, light/dark behavior, accessible hover treatment, single-header branding, Signature Snip action loading, branded route-transition loading, concurrent loader lifecycle, centralized frontend error display, backend error-message fallback, and new frontend feedback diagram and verification evidence |
 | 1.2.4 | 18 October 2026 | Added customer-approved booking rescheduling, trusted reschedule availability, proposal history and decisions, acceptance-time revalidation, concurrency locks, durable proposal notifications, connected owner and customer interfaces, a reschedule sequence diagram, four API contracts, and 98-test verification evidence |
 | 1.2.3 | 18 October 2026 | Added server-calculated 15-minute booking availability, qualified-employee slot details, 30-minute same-day notice, accepted-conflict filtering, booking-creation revalidation, connected frontend slot selection, updated booking diagrams and API contracts, and 89-test verification evidence |
 | 1.2.2 | 13 October 2026 | Added persistent recipient-scoped booking notifications, authenticated paginated inbox and read APIs, atomic and idempotent event creation, frontend polling contract, accepted-booking overlap prevention, notification sequence diagram, API tables, authorization rules, and 83-test verification evidence |
