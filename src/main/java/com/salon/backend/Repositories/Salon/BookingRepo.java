@@ -42,6 +42,31 @@ public interface BookingRepo extends JpaRepository<Booking, Long> {
             BookingStatus status
     );
 
+    /** Bookings that occupy an employee's time: held requests, confirmed and running ones. */
+    List<Booking> findByAssignedEmployeeIdInAndBookingDateAndStatusIn(
+            Collection<Long> employeeIds,
+            LocalDate bookingDate,
+            Collection<BookingStatus> statuses
+    );
+
+    List<Booking> findByAssignedEmployeeIdAndBookingDateAndStatusIn(
+            Long employeeId,
+            LocalDate bookingDate,
+            Collection<BookingStatus> statuses
+    );
+
+    long countByAssignedEmployeeIdAndBookingDateBetweenAndStatusIn(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<BookingStatus> statuses
+    );
+
+    Optional<Booking> findFirstByAssignedEmployeeIdAndStatusOrderByBookingTimeAsc(
+            Long employeeId,
+            BookingStatus status
+    );
+
     long countByStatus(BookingStatus status);
 
     List<Booking> findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(LocalDateTime createdAt);

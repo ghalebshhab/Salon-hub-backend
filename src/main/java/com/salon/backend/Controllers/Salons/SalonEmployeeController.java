@@ -7,6 +7,11 @@ import com.salon.backend.DTOs.Salon.Employee.EmployeeCapabilitiesResponse;
 import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeServicesRequest;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeScheduleResponse;
 import com.salon.backend.DTOs.Salon.Employee.UpdateEmployeeScheduleRequest;
+import com.salon.backend.DTOs.Salon.Employee.EmployeeTimeOffRequest;
+import com.salon.backend.DTOs.Salon.Employee.EmployeeTimeOffResponse;
+import com.salon.backend.Services.Salon.Employee.EmployeeTimeOffManagement;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Employee.EmployeeCapabilityManagement;
 import com.salon.backend.Services.Salon.Employee.SalonEmployeeDirectory;
@@ -30,6 +35,7 @@ public class SalonEmployeeController {
     private final SalonEmployeeDirectory salonEmployeeDirectory;
     private final EmployeeCapabilityManagement employeeCapabilityManagement;
     private final EmployeeScheduleManagement employeeScheduleManagement;
+    private final EmployeeTimeOffManagement employeeTimeOffManagement;
 
     @GetMapping("/salon/{salonId}")
     public ApiResponse<List<PublicSalonEmployeeResponse>> getSalonEmployees(
@@ -79,5 +85,27 @@ public class SalonEmployeeController {
                 request,
                 currentUser.getId()
         );
+    }
+
+    @GetMapping("/{employeeId}/time-off")
+    public ApiResponse<List<EmployeeTimeOffResponse>> getEmployeeTimeOff(
+            @PathVariable Long employeeId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeTimeOffManagement.getUpcomingTimeOff(employeeId, currentUser.getId());
+    }
+
+    @PostMapping("/{employeeId}/time-off")
+    public ApiResponse<EmployeeTimeOffResponse> addEmployeeTimeOff(
+            @PathVariable Long employeeId,
+            @RequestBody EmployeeTimeOffRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeTimeOffManagement.addTimeOff(employeeId, request, currentUser.getId());
+    }
+
+    @DeleteMapping("/time-off/{timeOffId}")
+    public ApiResponse<Void> removeEmployeeTimeOff(
+            @PathVariable Long timeOffId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return employeeTimeOffManagement.removeTimeOff(timeOffId, currentUser.getId());
     }
 }
