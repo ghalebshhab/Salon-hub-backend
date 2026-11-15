@@ -3,6 +3,7 @@ package com.salon.backend.Services.Salon;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.CreateSalonResponse;
+import com.salon.backend.DTOs.Salon.UpdateSalonLocationRequest;
 import com.salon.backend.DTOs.Salon.UpdateSalonRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Entities.salons.Salon;
@@ -18,9 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
-import java.net.URI;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -101,22 +100,20 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("Max number of employees is required and must be greater than 0");
 
         }
-        String locationError = validateMapLocation(
+        SalonMapLocation.Result mapLocation = SalonMapLocation.resolve(
                 createSalonRequest.getGoogleMapsUrl(),
                 createSalonRequest.getLatitude(),
                 createSalonRequest.getLongitude()
         );
-        if (locationError != null) {
-            return ApiResponse.error(locationError);
+        if (!mapLocation.isValid()) {
+            return ApiResponse.error(mapLocation.error());
         }
         Salon salon=new Salon();
         salon.setEmail(createSalonRequest.getSalonEmail());
         salon.setOpeningTime(createSalonRequest.getOpeningTime());
         salon.setClosingTime(createSalonRequest.getClosingTime());
         salon.setLocation(createSalonRequest.getSalonCity());
-        salon.setGoogleMapsUrl(normalize(createSalonRequest.getGoogleMapsUrl()));
-        salon.setLatitude(createSalonRequest.getLatitude());
-        salon.setLongitude(createSalonRequest.getLongitude());
+        applyMapLocation(salon, mapLocation);
         salon.setDescription(createSalonRequest.getSalonDescription());
         salon.setMaxEmployeesNumber(createSalonRequest.getMaxNumberOfEmployees());
         salon.setSalonPhoneNumber(createSalonRequest.getSalonPhoneNumber());
@@ -231,17 +228,15 @@ public class SalonServiceImpl implements SalonService {
         else{
             return ApiResponse.error("Max number of employees is required and must be greater than 0");
         }
-        String locationError = validateMapLocation(
+        SalonMapLocation.Result mapLocation = SalonMapLocation.resolve(
                 updateSalonRequest.getGoogleMapsUrl(),
                 updateSalonRequest.getLatitude(),
                 updateSalonRequest.getLongitude()
         );
-        if (locationError != null) {
-            return ApiResponse.error(locationError);
+        if (!mapLocation.isValid()) {
+            return ApiResponse.error(mapLocation.error());
         }
-        salon.setGoogleMapsUrl(normalize(updateSalonRequest.getGoogleMapsUrl()));
-        salon.setLatitude(updateSalonRequest.getLatitude());
-        salon.setLongitude(updateSalonRequest.getLongitude());
+        applyMapLocation(salon, mapLocation);
         salonRepo.save(salon);
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
@@ -399,36 +394,41 @@ public class SalonServiceImpl implements SalonService {
         );
     }
 
-    private String validateMapLocation(String mapsUrl, Double latitude, Double longitude) {
-        boolean hasUrl = mapsUrl != null && !mapsUrl.isBlank();
-        boolean hasLatitude = latitude != null;
-        boolean hasLongitude = longitude != null;
-        if (!hasUrl && !hasLatitude && !hasLongitude) return null;
-        if (!hasUrl || !hasLatitude || !hasLongitude) {
-            return "Google Maps URL, latitude, and longitude must be provided together";
+    @Override
+    @Transactional
+    public ApiResponse<SalonResponse> updateSalonLocation(Long salonId,
+                                                          Long ownerId,
+                                                          UpdateSalonLocationRequest request) {
+        if (request == null) {
+            return ApiResponse.error("Location details are required");
         }
-        if (!isGoogleMapsUrl(mapsUrl)) {
-            return "Enter a valid HTTPS Google Maps location URL";
+        Salon salon = salonRepo.findById(salonId).orElse(null);
+        if (salon == null) {
+            return ApiResponse.error("Salon Not Found");
         }
-        if (latitude < 29.0 || latitude > 33.5 || longitude < 34.8 || longitude > 39.4) {
-            return "The selected salon location must be inside Jordan";
+        if (salon.getOwner() == null || ownerId == null || salon.getOwner().getId() != ownerId) {
+            return ApiResponse.error("You can only update your salon");
         }
-        return null;
+        SalonMapLocation.Result mapLocation =
+                SalonMapLocation.resolve(null, request.latitude(), request.longitude());
+        if (!mapLocation.isValid()) {
+            return ApiResponse.error(mapLocation.error());
+        }
+        applyMapLocation(salon, mapLocation);
+        if (mapLocation.latitude() != null && request.city() != null
+                && JordanCities.contains(request.city())) {
+            salon.setLocation(request.city());
+        }
+        salonRepo.save(salon);
+        String message = mapLocation.latitude() == null
+                ? "Salon map pin removed"
+                : "Salon location saved";
+        return ApiResponse.success(message, mapSalonResponse(salon));
     }
 
-    private boolean isGoogleMapsUrl(String value) {
-        try {
-            URI uri = URI.create(value.trim());
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) return false;
-            String host = uri.getHost().toLowerCase(Locale.ROOT);
-            return host.equals("google.com") || host.endsWith(".google.com")
-                    || host.equals("goo.gl") || host.endsWith(".goo.gl");
-        } catch (Exception exception) {
-            return false;
-        }
-    }
-
-    private String normalize(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+    private void applyMapLocation(Salon salon, SalonMapLocation.Result mapLocation) {
+        salon.setGoogleMapsUrl(mapLocation.googleMapsUrl());
+        salon.setLatitude(mapLocation.latitude());
+        salon.setLongitude(mapLocation.longitude());
     }
 }

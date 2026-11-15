@@ -3,6 +3,7 @@ package com.salon.backend.Services.Salon;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
+import com.salon.backend.DTOs.Salon.UpdateSalonLocationRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
@@ -201,6 +202,87 @@ class SalonServiceImplTest {
         when(salonRepo.findByOwnerId(owner.getId())).thenReturn(null);
 
         ApiResponse<?> response = service.createSalon(request, owner.getId());
+
+        assertFalse(response.isSuccess());
+        assertEquals("The selected salon location must be inside Jordan", response.getMessage());
+        verify(salonRepo, never()).save(any());
+    }
+
+    private Salon ownedSalon(long ownerId) {
+        User owner = new User();
+        owner.setId(ownerId);
+        Salon salon = new Salon();
+        salon.setId(12L);
+        salon.setOwner(owner);
+        salon.setLocation("Amman");
+        // Older data that fails today's full-profile rules must not block a pin update.
+        salon.setDescription("short");
+        when(salonRepo.findById(salon.getId())).thenReturn(Optional.of(salon));
+        return salon;
+    }
+
+    @Test
+    void ownerSavesOnlyTheMapPinAndTheServerBuildsTheLink() {
+        Salon salon = ownedSalon(4L);
+
+        ApiResponse<SalonResponse> response = service.updateSalonLocation(
+                12L, 4L, new UpdateSalonLocationRequest(32.5556123456, 35.85, "Irbid"));
+
+        assertTrue(response.isSuccess());
+        assertEquals(32.5556123, salon.getLatitude());
+        assertEquals(35.85, salon.getLongitude());
+        assertEquals("Irbid", salon.getLocation());
+        assertEquals("short", salon.getDescription());
+        assertEquals("https://www.google.com/maps/search/?api=1&query=32.5556123,35.85",
+                response.getData().googleMapsUrl());
+        verify(salonRepo).save(salon);
+    }
+
+    @Test
+    void unsupportedDetectedCityKeepsTheCurrentCity() {
+        Salon salon = ownedSalon(4L);
+
+        ApiResponse<SalonResponse> response = service.updateSalonLocation(
+                12L, 4L, new UpdateSalonLocationRequest(31.95, 35.91, null));
+
+        assertTrue(response.isSuccess());
+        assertEquals("Amman", salon.getLocation());
+    }
+
+    @Test
+    void ownerRemovesTheMapPin() {
+        Salon salon = ownedSalon(4L);
+        salon.setLatitude(31.95);
+        salon.setLongitude(35.91);
+        salon.setGoogleMapsUrl("https://www.google.com/maps/search/?api=1&query=31.95,35.91");
+
+        ApiResponse<SalonResponse> response = service.updateSalonLocation(
+                12L, 4L, new UpdateSalonLocationRequest(null, null, null));
+
+        assertTrue(response.isSuccess());
+        assertNull(salon.getLatitude());
+        assertNull(salon.getLongitude());
+        assertNull(salon.getGoogleMapsUrl());
+    }
+
+    @Test
+    void anotherUserCannotMoveTheSalonPin() {
+        ownedSalon(4L);
+
+        ApiResponse<SalonResponse> response = service.updateSalonLocation(
+                12L, 99L, new UpdateSalonLocationRequest(31.95, 35.91, null));
+
+        assertFalse(response.isSuccess());
+        assertEquals("You can only update your salon", response.getMessage());
+        verify(salonRepo, never()).save(any());
+    }
+
+    @Test
+    void pinOutsideJordanIsRejected() {
+        ownedSalon(4L);
+
+        ApiResponse<SalonResponse> response = service.updateSalonLocation(
+                12L, 4L, new UpdateSalonLocationRequest(25.2048, 55.2708, null));
 
         assertFalse(response.isSuccess());
         assertEquals("The selected salon location must be inside Jordan", response.getMessage());

@@ -4,6 +4,7 @@ package com.salon.backend.Services.Salon;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.CreateSalonResponse;
+import com.salon.backend.DTOs.Salon.UpdateSalonLocationRequest;
 import com.salon.backend.DTOs.Salon.UpdateSalonRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 
@@ -12,6 +13,7 @@ import java.util.List;
 public interface SalonService {
     ApiResponse<CreateSalonResponse> createSalon(CreateSalonRequest createSalonRequest,Long id);
     ApiResponse<CreateSalonResponse> updateSalon(UpdateSalonRequest updateSalonRequest,Long id,Long ownerId);
+    ApiResponse<SalonResponse> updateSalonLocation(Long salonId, Long ownerId, UpdateSalonLocationRequest request);
     ApiResponse<Void> deleteSalon(long salonId, Long ownerId);
     ApiResponse<SalonResponse> getSalonById(long id);
     ApiResponse<SalonResponse> getSalonByOwnerId(Long ownerId);

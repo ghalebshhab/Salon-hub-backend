@@ -4,6 +4,7 @@ package com.salon.backend.Controllers.Salons;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.CreateSalonResponse;
+import com.salon.backend.DTOs.Salon.UpdateSalonLocationRequest;
 import com.salon.backend.DTOs.Salon.UpdateSalonRequest;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
@@ -49,6 +50,14 @@ public class SalonController {
             @PathVariable Long salonId,
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return salonService.updateSalon(updateSalonRequest, salonId, currentUser.getId());
+    }
+
+    @PutMapping("/{salonId}/location")
+    public ApiResponse<SalonResponse> updateSalonLocation(
+            @RequestBody UpdateSalonLocationRequest request,
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonService.updateSalonLocation(salonId, currentUser.getId(), request);
     }
 
     @PostMapping("/{salonId}/resubmit")
