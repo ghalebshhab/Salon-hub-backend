@@ -2,6 +2,7 @@ package com.salon.backend.Entities.salons;
 
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
+import com.salon.backend.Entities.media.MediaResourceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -65,6 +66,15 @@ public class Salon {
     private String profilePictureUrl;
 
     private String profilePicturePublicId;
+
+    @Enumerated(EnumType.STRING)
+    private MediaResourceType profilePictureResourceType;
+
+    private Integer profilePictureWidth;
+
+    private Integer profilePictureHeight;
+
+    private Long profilePictureBytes;
 
     private SalonStatus status;
 

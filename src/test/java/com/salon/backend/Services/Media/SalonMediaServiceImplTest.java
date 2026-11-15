@@ -93,6 +93,10 @@ class SalonMediaServiceImplTest {
         assertTrue(response.isSuccess());
         assertEquals(uploaded.secureUrl(), salon.getProfilePictureUrl());
         assertEquals(uploaded.publicId(), salon.getProfilePicturePublicId());
+        assertEquals(MediaResourceType.IMAGE, salon.getProfilePictureResourceType());
+        assertEquals(1600, salon.getProfilePictureWidth());
+        assertEquals(900, salon.getProfilePictureHeight());
+        assertEquals(5000L, salon.getProfilePictureBytes());
         verify(salonRepo).save(salon);
         verify(storageService).delete("salonhub/old-cover", "image");
     }

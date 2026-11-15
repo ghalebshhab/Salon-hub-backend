@@ -128,6 +128,10 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         String previousPublicId = salon.getProfilePicturePublicId();
         salon.setProfilePictureUrl(result.secureUrl());
         salon.setProfilePicturePublicId(result.publicId());
+        salon.setProfilePictureResourceType(result.resourceType());
+        salon.setProfilePictureWidth(result.width());
+        salon.setProfilePictureHeight(result.height());
+        salon.setProfilePictureBytes(result.bytes());
         salonRepo.save(salon);
         if (previousPublicId != null && !previousPublicId.equals(result.publicId())) {
             storageService.delete(previousPublicId, "image");

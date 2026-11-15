@@ -146,3 +146,13 @@ and production build passed. No live credentials or provider calls. Frontend loc
 remain preserved and unpushed. This is a signature gate, not full media content validation.
 Item 2 remains IN PROGRESS; see the status document for files, review/setup and remaining
 cleanup/content/privacy/location/upload-state acceptance work. Do not repeat this fix.
+
+November 14 continuation persists salon-cover upload metadata on the salon itself: Cloudinary
+resource type, intrinsic width, height and byte count now accompany the already persisted HTTPS
+delivery URL and public ID. The fields are nullable for existing salons and are filled only by
+the authenticated owner cover-upload flow. Hibernate schema update creates the new nullable
+columns during deployment; no standalone migration framework exists in this repository. This
+does not claim video-duration support, remote-content validation or replacement-orphan recovery.
+Full backend verification passed (270 tests, zero failures/errors/skips, executable JAR
+packaged); see the status document for verification and deployment review. Item 2 remains IN
+PROGRESS.
