@@ -9,6 +9,7 @@ import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleAvailabilityRequest
 import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalResponse;
 import com.salon.backend.DTOs.Salon.Booking.AssignBookingEmployeeRequest;
+import com.salon.backend.DTOs.Salon.Booking.AssignableEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Salon.Booking.BookingManagement;
@@ -115,6 +116,13 @@ public class BookingController {
                 request == null ? null : request.ownerNote(),
                 currentUser.getId()
         );
+    }
+
+    @GetMapping("/{bookingId}/assignable-employees")
+    public ApiResponse<List<AssignableEmployeeResponse>> getAssignableEmployees(
+            @PathVariable Long bookingId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingManagement.getAssignableEmployees(bookingId, currentUser.getId());
     }
 
     @PostMapping("/{bookingId}/reschedule-availability")

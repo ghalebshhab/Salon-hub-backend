@@ -17,4 +17,18 @@ public interface BookingNotificationService {
     void bookingRescheduleAccepted(Booking booking, BookingRescheduleProposal proposal);
 
     void bookingRescheduleRejected(Booking booking, BookingRescheduleProposal proposal);
+
+    /** Tells the salon owner a customer sent a new request. */
+    void bookingRequested(Booking booking);
+
+    /** Tells the assigned employee they will serve this confirmed appointment. */
+    void bookingAssignedToEmployee(Booking booking);
+
+    void customerOnTheWay(Booking booking);
+
+    void customerArrived(Booking booking);
+
+    void serviceStarted(Booking booking);
+
+    void bookingCompleted(Booking booking);
 }

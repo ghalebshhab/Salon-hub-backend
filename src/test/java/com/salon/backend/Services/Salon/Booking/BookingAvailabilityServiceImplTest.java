@@ -16,6 +16,7 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
+import com.salon.backend.Repositories.Salon.EmployeeTimeOffRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
@@ -61,6 +62,7 @@ class BookingAvailabilityServiceImplTest {
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @Mock private EmployeeScheduleRepo scheduleRepo;
     @Mock private BookingRepo bookingRepo;
+    @Mock private EmployeeTimeOffRepo timeOffRepo;
     @Mock private EmployeeScheduleAvailability scheduleAvailability;
 
     private BookingAvailabilityServiceImpl availabilityService;
@@ -74,6 +76,7 @@ class BookingAvailabilityServiceImplTest {
                 capabilityRepo,
                 scheduleRepo,
                 bookingRepo,
+                timeOffRepo,
                 scheduleAvailability,
                 CLOCK
         );
@@ -110,7 +113,7 @@ class BookingAvailabilityServiceImplTest {
                 capability(employeeOne, service),
                 capability(employeeTwo, service)
         ));
-        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatus(
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(
                 any(),
                 any(),
                 any()
@@ -138,10 +141,10 @@ class BookingAvailabilityServiceImplTest {
         );
         assertEquals(15, response.getData().slotIntervalMinutes());
         assertEquals(30, response.getData().minimumLeadMinutes());
-        verify(bookingRepo).findByAssignedEmployeeIdInAndBookingDateAndStatus(
+        verify(bookingRepo).findByAssignedEmployeeIdInAndBookingDateAndStatusIn(
                 any(),
                 org.mockito.ArgumentMatchers.eq(date),
-                org.mockito.ArgumentMatchers.eq(BookingStatus.ACCEPTED)
+                org.mockito.ArgumentMatchers.eq(BookingAvailabilityServiceImpl.BUSY_STATUSES)
         );
     }
 
@@ -156,7 +159,7 @@ class BookingAvailabilityServiceImplTest {
         arrangeAvailability(salon, service, requester, List.of(employee));
         when(capabilityRepo.findByEmployeeIdIn(any()))
                 .thenReturn(List.of(capability(employee, service)));
-        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatus(any(), any(), any()))
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
                 .thenReturn(List.of());
 
         ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
@@ -202,7 +205,7 @@ class BookingAvailabilityServiceImplTest {
         arrangeAvailability(salon, service, requester, List.of(employee));
         when(capabilityRepo.findByEmployeeIdIn(any()))
                 .thenReturn(List.of(capability(employee, service)));
-        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatus(any(), any(), any()))
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
                 .thenReturn(List.of());
 
         ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
@@ -252,7 +255,7 @@ class BookingAvailabilityServiceImplTest {
         when(capabilityRepo.findByEmployeeIdIn(any()))
                 .thenReturn(List.of(capability(employee, service)));
         when(scheduleRepo.findByEmployeeIdIn(any())).thenReturn(List.of());
-        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatus(
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(
                 any(),
                 any(),
                 any()
@@ -264,6 +267,116 @@ class BookingAvailabilityServiceImplTest {
         assertTrue(response.isSuccess());
         assertEquals(7, response.getData().slots().size());
         assertEquals(LocalTime.of(9, 15), response.getData().slots().get(1).time());
+    }
+
+    @Test
+    void employeeOnTimeOffHasNoTimesAndTheNextFreeDayIsSuggested() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(11, 0));
+        SalonService service = service(20L, salon, 30);
+        User requester = user(1L, UserRole.USER, null);
+        User employee = user(2L, UserRole.Employee, salon);
+
+        arrangeAvailability(salon, service, requester, List.of(employee));
+        when(capabilityRepo.findByEmployeeIdIn(any())).thenReturn(List.of(capability(employee, service)));
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
+                .thenReturn(List.of());
+        when(timeOffRepo.findEmployeeIdsOffOn(any(), any())).thenAnswer(invocation -> {
+            LocalDate asked = invocation.getArgument(1);
+            return asked.isBefore(date.plusDays(2)) ? List.of(2L) : List.of();
+        });
+
+        ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
+                new BookingAvailabilityRequest(10L, List.of(20L), date, 2L),
+                1L
+        );
+
+        assertTrue(response.isSuccess());
+        assertTrue(response.getData().slots().isEmpty());
+        assertEquals("TIME_OFF", response.getData().unavailableReason());
+        assertEquals(date.plusDays(2), response.getData().nextAvailableDate());
+    }
+
+    @Test
+    void aPendingRequestForTheSameEmployeeHoldsItsTime() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(10, 0));
+        SalonService service = service(20L, salon, 30);
+        User requester = user(1L, UserRole.USER, null);
+        User employee = user(2L, UserRole.Employee, salon);
+        Booking held = acceptedBooking(40L, employee, date, LocalTime.of(9, 0), 30);
+        held.setStatus(BookingStatus.PENDING);
+
+        arrangeAvailability(salon, service, requester, List.of(employee));
+        when(capabilityRepo.findByEmployeeIdIn(any())).thenReturn(List.of(capability(employee, service)));
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
+                .thenReturn(List.of(held));
+
+        ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
+                new BookingAvailabilityRequest(10L, List.of(20L), date, 2L),
+                1L
+        );
+
+        assertEquals(
+                List.of(LocalTime.of(9, 30)),
+                response.getData().slots().stream().map(slot -> slot.time()).toList()
+        );
+    }
+
+    @Test
+    void anAppointmentEndingExactlyAtTheStartDoesNotBlockIt() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(10, 0));
+        SalonService service = service(20L, salon, 30);
+        User requester = user(1L, UserRole.USER, null);
+        User employee = user(2L, UserRole.Employee, salon);
+        Booking earlier = acceptedBooking(40L, employee, date, LocalTime.of(9, 0), 30);
+
+        arrangeAvailability(salon, service, requester, List.of(employee));
+        when(capabilityRepo.findByEmployeeIdIn(any())).thenReturn(List.of(capability(employee, service)));
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
+                .thenReturn(List.of(earlier));
+
+        ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
+                new BookingAvailabilityRequest(10L, List.of(20L), date, 2L),
+                1L
+        );
+
+        assertEquals(LocalTime.of(9, 30), response.getData().slots().get(0).time());
+    }
+
+    @Test
+    void assignableEmployeesListFreeEmployeesFirstWithReasonsForTheOthers() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(12, 0));
+        SalonService service = service(20L, salon, 30);
+        User busy = user(2L, UserRole.Employee, salon);
+        User off = user(3L, UserRole.Employee, salon);
+        User free = user(4L, UserRole.Employee, salon);
+        Booking request = acceptedBooking(50L, null, date, LocalTime.of(10, 0), 30);
+        request.setStatus(BookingStatus.PENDING);
+        request.setSalon(salon);
+        BookingServiceItem item = new BookingServiceItem();
+        item.setSourceServiceId(20L);
+        request.addServiceItem(item);
+        Booking conflict = acceptedBooking(51L, busy, date, LocalTime.of(10, 15), 30);
+
+        when(userRepo.findBySalonIdAndRoleAndStatusOrderByFirstNameAscLastNameAsc(
+                10L, UserRole.Employee, UserStatus.Active)).thenReturn(List.of(busy, off, free));
+        when(capabilityRepo.findByEmployeeIdIn(any())).thenReturn(List.of(
+                capability(busy, service), capability(off, service), capability(free, service)));
+        when(scheduleRepo.findByEmployeeIdIn(any())).thenReturn(List.of());
+        when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
+                .thenReturn(List.of(conflict));
+        when(timeOffRepo.findEmployeeIdsOffOn(any(), any())).thenReturn(List.of(3L));
+
+        List<com.salon.backend.DTOs.Salon.Booking.AssignableEmployeeResponse> result =
+                availabilityService.getAssignableEmployees(request);
+
+        assertEquals(List.of(4L, 2L, 3L), result.stream().map(e -> e.id()).toList());
+        assertTrue(result.get(0).available());
+        assertEquals("BUSY", result.get(1).reason());
+        assertEquals("TIME_OFF", result.get(2).reason());
     }
 
     private void arrangeAvailability(

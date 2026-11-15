@@ -169,6 +169,108 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         );
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingRequested(Booking booking) {
+        User owner = booking.getSalon().getOwner();
+        String employeePart = booking.getAssignedEmployee() == null
+                ? " Choose who will serve the customer."
+                : " Requested employee: " + fullName(booking.getAssignedEmployee()) + ".";
+        saveNotification(
+                booking,
+                owner,
+                NotificationEventType.BOOKING_REQUESTED,
+                "booking:" + booking.getId() + ":requested",
+                fullName(booking.getCustomer()) + " requested an appointment on "
+                        + booking.getBookingDate() + " at " + booking.getBookingTime() + "." + employeePart,
+                ownerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingAssignedToEmployee(Booking booking) {
+        User employee = booking.getAssignedEmployee();
+        if (employee == null) {
+            return;
+        }
+        saveNotification(
+                booking,
+                employee,
+                NotificationEventType.BOOKING_ASSIGNED,
+                "booking:" + booking.getId() + ":assigned:" + employee.getId(),
+                "You will serve " + fullName(booking.getCustomer()) + " on "
+                        + booking.getBookingDate() + " at " + booking.getBookingTime() + ".",
+                employeeBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void customerOnTheWay(Booking booking) {
+        User employee = booking.getAssignedEmployee();
+        Integer eta = booking.getTracking().getEtaMinutes();
+        saveNotification(
+                booking,
+                employee,
+                NotificationEventType.BOOKING_CUSTOMER_ON_THE_WAY,
+                "booking:" + booking.getId() + ":on-the-way",
+                fullName(booking.getCustomer()) + " is on the way"
+                        + (eta == null ? "." : ", about " + eta + " min away."),
+                employeeBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void customerArrived(Booking booking) {
+        saveNotification(
+                booking,
+                booking.getAssignedEmployee(),
+                NotificationEventType.BOOKING_CUSTOMER_ARRIVED,
+                "booking:" + booking.getId() + ":arrived",
+                fullName(booking.getCustomer()) + " arrived at the salon.",
+                employeeBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void serviceStarted(Booking booking) {
+        User employee = booking.getAssignedEmployee();
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_SERVICE_STARTED,
+                "booking:" + booking.getId() + ":started",
+                (employee == null ? "Your stylist" : fullName(employee))
+                        + " started your service at " + booking.getSalon().getName() + ".",
+                customerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingCompleted(Booking booking) {
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_COMPLETED,
+                "booking:" + booking.getId() + ":completed",
+                "Your appointment at " + booking.getSalon().getName()
+                        + " is complete. Share a review to help other guests.",
+                customerBookingPath(booking)
+        );
+    }
+
+    private String ownerBookingPath(Booking booking) {
+        return "/owner/bookings?bookingId=" + booking.getId();
+    }
+
+    private String employeeBookingPath(Booking booking) {
+        return "/employee/bookings?bookingId=" + booking.getId();
+    }
+
     private void saveCancellationNotification(
             Booking booking,
             User recipient,

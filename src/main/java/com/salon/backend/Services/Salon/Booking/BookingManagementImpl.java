@@ -1,10 +1,10 @@
 package com.salon.backend.Services.Salon.Booking;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Salon.Booking.AssignableEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
-import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalResponse;
-import com.salon.backend.DTOs.Salon.Booking.BookingServiceItemResponse;
+import com.salon.backend.DTOs.Salon.Booking.BookingUnavailableReason;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
@@ -12,6 +12,7 @@ import com.salon.backend.Entities.salons.bookings.Booking;
 import com.salon.backend.Entities.salons.bookings.BookingServiceItem;
 import com.salon.backend.Entities.salons.bookings.BookingRescheduleStatus;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
+import com.salon.backend.Entities.salons.bookings.JourneyStatus;
 import com.salon.backend.Entities.salons.services.SalonService;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
@@ -52,6 +53,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final BookingNotificationService bookingNotificationService;
     private final BookingAvailabilityService bookingAvailabilityService;
     private final BookingRescheduleProposalRepo rescheduleProposalRepo;
+    private final BookingResponseMapper responseMapper;
 
     @Override
     @Transactional
@@ -176,6 +178,7 @@ public class BookingManagementImpl implements BookingManagement {
         }
 
         bookingRepo.save(booking);
+        bookingNotificationService.bookingRequested(booking);
 
         return ApiResponse.success("Booking request created successfully", mapToResponse(booking));
     }
@@ -279,28 +282,19 @@ public class BookingManagementImpl implements BookingManagement {
             }
         }
 
-        if (assignedEmployee != null) {
-            if (!canPerformAllBookingServices(assignedEmployee.getId(), booking)) {
-                return ApiResponse.error("Selected employee cannot perform every requested service");
-            }
-            if (!scheduleAvailability.isEmployeeAvailable(
-                    assignedEmployee.getId(),
-                    booking.getSalon(),
-                    booking.getBookingDate(),
-                    booking.getBookingTime(),
-                    booking.getTotalDurationMinutes()
-            )) {
-                return ApiResponse.error("Selected employee is not working for the full requested appointment");
-            }
-            if (hasAcceptedBookingConflict(assignedEmployee.getId(), booking)) {
-                return ApiResponse.error("Selected employee already has an accepted appointment during this time");
-            }
-        } else if (!scheduleAvailability.isSalonOpenFor(
-                booking.getSalon(),
-                booking.getBookingTime(),
-                booking.getTotalDurationMinutes()
-        )) {
-            return ApiResponse.error("The requested appointment must fit inside the salon opening hours");
+        // A confirmed appointment always has the person who will serve the customer.
+        if (assignedEmployee == null) {
+            return ApiResponse.error("Choose the employee who will serve this customer before accepting");
+        }
+        if (!canPerformAllBookingServices(assignedEmployee.getId(), booking)) {
+            return ApiResponse.error("Selected employee cannot perform every requested service");
+        }
+        String unavailable = bookingAvailabilityService.employeeUnavailableReason(
+                assignedEmployee.getId(),
+                booking
+        );
+        if (unavailable != null) {
+            return ApiResponse.error(unavailableMessage(unavailable));
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -309,8 +303,10 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setOwnerNote(request == null ? null : normalizeText(request.ownerNote()));
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
+        booking.getTracking().setJourneyStatus(JourneyStatus.NOT_STARTED);
         bookingRepo.save(booking);
         bookingNotificationService.bookingAccepted(booking);
+        bookingNotificationService.bookingAssignedToEmployee(booking);
 
         return ApiResponse.success("Booking accepted successfully", mapToResponse(booking));
     }
@@ -363,6 +359,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(now);
         booking.setUpdatedAt(now);
+        booking.getTracking().clearCustomerPosition();
         cancelPendingRescheduleProposals(booking, now);
         bookingRepo.save(booking);
         bookingNotificationService.bookingCancelled(booking);
@@ -377,16 +374,19 @@ public class BookingManagementImpl implements BookingManagement {
         if (booking == null) {
             return ApiResponse.error("Booking for your active salon was not found");
         }
-        if (booking.getStatus() != BookingStatus.ACCEPTED) {
-            return ApiResponse.error("Only an accepted booking can be completed");
+        if (booking.getStatus() != BookingStatus.ACCEPTED
+                && booking.getStatus() != BookingStatus.IN_PROGRESS) {
+            return ApiResponse.error("Only an accepted or running booking can be completed");
         }
 
         LocalDateTime now = LocalDateTime.now();
         booking.setStatus(BookingStatus.COMPLETED);
         booking.setCompletedAt(now);
         booking.setUpdatedAt(now);
+        booking.getTracking().clearCustomerPosition();
         cancelPendingRescheduleProposals(booking, now);
         bookingRepo.save(booking);
+        bookingNotificationService.bookingCompleted(booking);
 
         return ApiResponse.success("Booking completed successfully", mapToResponse(booking));
     }
@@ -424,18 +424,9 @@ public class BookingManagementImpl implements BookingManagement {
         if (!canPerformAllBookingServices(employee.getId(), booking)) {
             return ApiResponse.error("Selected employee cannot perform every requested service");
         }
-        if (!scheduleAvailability.isEmployeeAvailable(
-                employee.getId(),
-                booking.getSalon(),
-                booking.getBookingDate(),
-                booking.getBookingTime(),
-                booking.getTotalDurationMinutes()
-        )) {
-            return ApiResponse.error("Selected employee is not working for the full requested appointment");
-        }
-        if (booking.getStatus() == BookingStatus.ACCEPTED
-                && hasAcceptedBookingConflict(employee.getId(), booking)) {
-            return ApiResponse.error("Selected employee already has an accepted appointment during this time");
+        String unavailable = bookingAvailabilityService.employeeUnavailableReason(employee.getId(), booking);
+        if (unavailable != null) {
+            return ApiResponse.error(unavailableMessage(unavailable));
         }
 
         String normalizedOwnerNote = normalizeText(ownerNote);
@@ -460,8 +451,41 @@ public class BookingManagementImpl implements BookingManagement {
         if (changingAssignedEmployee) {
             bookingNotificationService.bookingEmployeeReassigned(booking, previousEmployeeId);
         }
+        if (booking.getStatus() == BookingStatus.ACCEPTED
+                && (previousEmployeeId == null || previousEmployeeId != employee.getId())) {
+            bookingNotificationService.bookingAssignedToEmployee(booking);
+        }
 
         return ApiResponse.success("Employee assigned successfully", mapToResponse(booking));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<List<AssignableEmployeeResponse>> getAssignableEmployees(Long bookingId, Long ownerId) {
+        if (bookingId == null || ownerId == null || findManageableSalon(ownerId) == null) {
+            return ApiResponse.error("Booking for your active salon was not found");
+        }
+        Booking booking = bookingRepo.findById(bookingId).orElse(null);
+        if (booking == null
+                || booking.getSalon().getOwner() == null
+                || booking.getSalon().getOwner().getId() != ownerId) {
+            return ApiResponse.error("Booking for your active salon was not found");
+        }
+        return ApiResponse.success(
+                "Assignable employees fetched successfully",
+                bookingAvailabilityService.getAssignableEmployees(booking)
+        );
+    }
+
+    private String unavailableMessage(String reason) {
+        return switch (reason) {
+            case BookingUnavailableReason.TIME_OFF -> "Selected employee is on time off that day";
+            case BookingUnavailableReason.NOT_WORKING ->
+                    "Selected employee is not working for the full requested appointment";
+            case BookingUnavailableReason.BUSY ->
+                    "Selected employee already has another appointment during this time";
+            default -> "Selected employee is not available for this appointment";
+        };
     }
 
     private ApiResponse<Void> validateCreateRequest(CreateBookingRequest request) {
@@ -562,30 +586,6 @@ public class BookingManagementImpl implements BookingManagement {
         return true;
     }
 
-    private boolean hasAcceptedBookingConflict(Long employeeId, Booking targetBooking) {
-        LocalDateTime targetStart = LocalDateTime.of(
-                targetBooking.getBookingDate(),
-                targetBooking.getBookingTime()
-        );
-        LocalDateTime targetEnd = targetStart.plusMinutes(targetBooking.getTotalDurationMinutes());
-
-        return bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
-                        employeeId,
-                        targetBooking.getBookingDate(),
-                        BookingStatus.ACCEPTED
-                ).stream()
-                .filter(existing -> targetBooking.getId() == null
-                        || !targetBooking.getId().equals(existing.getId()))
-                .anyMatch(existing -> {
-                    LocalDateTime existingStart = LocalDateTime.of(
-                            existing.getBookingDate(),
-                            existing.getBookingTime()
-                    );
-                    LocalDateTime existingEnd = existingStart.plusMinutes(existing.getTotalDurationMinutes());
-                    return existingStart.isBefore(targetEnd) && targetStart.isBefore(existingEnd);
-                });
-    }
-
     private boolean isActiveSalon(Salon salon) {
         return salon != null
                 && salon.getStatus() == SalonStatus.Accepted
@@ -609,70 +609,11 @@ public class BookingManagementImpl implements BookingManagement {
     }
 
     private List<BookingResponse> mapBookings(List<Booking> bookings) {
-        return bookings.stream().map(this::mapToResponse).toList();
+        return responseMapper.map(bookings);
     }
 
     private BookingResponse mapToResponse(Booking booking) {
-        User customer = booking.getCustomer();
-        User employee = booking.getAssignedEmployee();
-        List<BookingServiceItemResponse> services = booking.getServiceItems().stream()
-                .map(item -> new BookingServiceItemResponse(
-                        item.getId(),
-                        item.getSourceServiceId(),
-                        item.getServiceName(),
-                        item.getPrice(),
-                        item.getDurationMinutes()
-                ))
-                .toList();
-
-        return new BookingResponse(
-                booking.getId(),
-                booking.getSalon().getId(),
-                booking.getSalon().getName(),
-                booking.getSalon().getLocation(),
-                customer.getId(),
-                fullName(customer),
-                customer.getEmail(),
-                booking.getCustomerPhoneNumber(),
-                booking.getCustomerLocation(),
-                booking.getBookingDate(),
-                booking.getBookingTime(),
-                booking.getStatus(),
-                services,
-                booking.getTotalPrice(),
-                booking.getTotalDurationMinutes(),
-                employee == null ? null : employee.getId(),
-                employee == null ? null : fullName(employee),
-                employee == null ? null : employeeSpecialty(employee),
-                booking.getNote(),
-                booking.getOwnerNote(),
-                booking.getRescheduleProposals().stream()
-                        .map(proposal -> new BookingRescheduleProposalResponse(
-                                proposal.getId(),
-                                proposal.getProposedDate(),
-                                proposal.getProposedTime(),
-                                proposal.getNote(),
-                                proposal.getStatus(),
-                                proposal.getCreatedAt(),
-                                proposal.getRespondedAt()
-                        ))
-                        .toList(),
-                booking.getCreatedAt(),
-                booking.getUpdatedAt()
-        );
-    }
-
-    private String employeeSpecialty(User employee) {
-        return employee.getCareerSkills() == null || employee.getCareerSkills().isEmpty()
-                ? null
-                : employee.getCareerSkills().get(0);
-    }
-
-    private String fullName(User user) {
-        String firstName = user.getFirstName() == null ? "" : user.getFirstName().trim();
-        String lastName = user.getLastName() == null ? "" : user.getLastName().trim();
-        String fullName = (firstName + " " + lastName).trim();
-        return fullName.isEmpty() ? user.getUserName() : fullName;
+        return responseMapper.map(booking);
     }
 
     private String normalizeText(String value) {

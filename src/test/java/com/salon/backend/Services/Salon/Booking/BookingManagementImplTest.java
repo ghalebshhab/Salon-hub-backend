@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.salon.backend.DTOs.Salon.Booking.BookingUnavailableReason;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -57,6 +59,7 @@ class BookingManagementImplTest {
     @Mock private BookingNotificationService bookingNotificationService;
     @Mock private BookingAvailabilityService bookingAvailabilityService;
     @Mock private BookingRescheduleProposalRepo rescheduleProposalRepo;
+    @Spy private BookingResponseMapper responseMapper = new BookingResponseMapper();
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach
@@ -200,29 +203,45 @@ class BookingManagementImplTest {
         assertEquals(4L, response.getData().assignedEmployeeId());
         verify(bookingRepo).save(booking);
         verify(bookingNotificationService).bookingAccepted(booking);
+        verify(bookingNotificationService).bookingAssignedToEmployee(booking);
     }
 
     @Test
-    void ownerCannotAcceptOverlappingBookingForTheSameEmployee() {
+    void ownerMustChooseAnEmployeeBeforeAcceptingAnOwnerAssignedRequest() {
+        Salon salon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
+                30L,
+                new BookingActionRequest("Confirmed", null),
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertEquals(
+                "Choose the employee who will serve this customer before accepting",
+                response.getMessage()
+        );
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        verify(bookingRepo, never()).save(any());
+        verify(bookingNotificationService, never()).bookingAccepted(any());
+    }
+
+    @Test
+    void ownerCannotAcceptWhenTheEmployeeIsBusyAtThatTime() {
         Salon salon = activeSalon(10L, 2L);
         User employee = activeUser(4L, UserRole.Employee, salon);
         Booking requestedBooking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
-        Booking existingBooking = booking(31L, salon, activeUser(5L, UserRole.USER, null));
-        existingBooking.setStatus(BookingStatus.ACCEPTED);
-        existingBooking.setAssignedEmployee(employee);
-        existingBooking.setBookingDate(requestedBooking.getBookingDate());
-        existingBooking.setBookingTime(requestedBooking.getBookingTime().plusMinutes(15));
 
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(requestedBooking));
         when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
-        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
-                4L,
-                requestedBooking.getBookingDate(),
-                BookingStatus.ACCEPTED
-        )).thenReturn(List.of(existingBooking));
+        when(bookingAvailabilityService.employeeUnavailableReason(4L, requestedBooking))
+                .thenReturn(BookingUnavailableReason.BUSY);
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
@@ -232,7 +251,7 @@ class BookingManagementImplTest {
 
         assertFalse(response.isSuccess());
         assertEquals(
-                "Selected employee already has an accepted appointment during this time",
+                "Selected employee already has another appointment during this time",
                 response.getMessage()
         );
         assertEquals(BookingStatus.PENDING, requestedBooking.getStatus());
@@ -241,26 +260,18 @@ class BookingManagementImplTest {
     }
 
     @Test
-    void adjacentAcceptedBookingDoesNotCreateAConflict() {
+    void ownerCannotAcceptWhenTheEmployeeIsOnTimeOff() {
         Salon salon = activeSalon(10L, 2L);
         User employee = activeUser(4L, UserRole.Employee, salon);
         Booking requestedBooking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
-        Booking existingBooking = booking(31L, salon, activeUser(5L, UserRole.USER, null));
-        existingBooking.setStatus(BookingStatus.ACCEPTED);
-        existingBooking.setAssignedEmployee(employee);
-        existingBooking.setBookingDate(requestedBooking.getBookingDate());
-        existingBooking.setBookingTime(requestedBooking.getBookingTime().plusMinutes(30));
 
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(requestedBooking));
         when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(employee));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
-        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
-                4L,
-                requestedBooking.getBookingDate(),
-                BookingStatus.ACCEPTED
-        )).thenReturn(List.of(existingBooking));
+        when(bookingAvailabilityService.employeeUnavailableReason(4L, requestedBooking))
+                .thenReturn(BookingUnavailableReason.TIME_OFF);
 
         ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
                 30L,
@@ -268,9 +279,9 @@ class BookingManagementImplTest {
                 2L
         );
 
-        assertTrue(response.isSuccess());
-        assertEquals(BookingStatus.ACCEPTED, requestedBooking.getStatus());
-        verify(bookingRepo).save(requestedBooking);
+        assertFalse(response.isSuccess());
+        assertEquals("Selected employee is on time off that day", response.getMessage());
+        verify(bookingRepo, never()).save(any());
     }
 
     @Test
@@ -320,6 +331,7 @@ class BookingManagementImplTest {
         );
         verify(bookingRepo).save(booking);
         verify(bookingNotificationService).bookingEmployeeReassigned(booking, 3L);
+        verify(bookingNotificationService).bookingAssignedToEmployee(booking);
     }
 
     @Test
@@ -356,22 +368,13 @@ class BookingManagementImplTest {
         Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
         booking.setStatus(BookingStatus.ACCEPTED);
         booking.setAssignedEmployee(previousEmployee);
-        Booking conflict = booking(31L, salon, activeUser(5L, UserRole.USER, null));
-        conflict.setStatus(BookingStatus.ACCEPTED);
-        conflict.setAssignedEmployee(replacement);
-        conflict.setBookingDate(booking.getBookingDate());
-        conflict.setBookingTime(booking.getBookingTime().plusMinutes(10));
-
         when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
         when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
         when(userRepo.findByIdForUpdate(4L)).thenReturn(Optional.of(replacement));
         when(capabilityRepo.countByEmployeeIdAndServiceIdIn(4L, java.util.Set.of(20L)))
                 .thenReturn(1L);
-        when(bookingRepo.findByAssignedEmployeeIdAndBookingDateAndStatus(
-                4L,
-                booking.getBookingDate(),
-                BookingStatus.ACCEPTED
-        )).thenReturn(List.of(conflict));
+        when(bookingAvailabilityService.employeeUnavailableReason(4L, booking))
+                .thenReturn(BookingUnavailableReason.BUSY);
 
         ApiResponse<BookingResponse> response = bookingManagement.assignEmployee(
                 30L,

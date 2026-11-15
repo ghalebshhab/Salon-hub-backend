@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Salon.Booking;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.DTOs.Salon.Booking.AssignableEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
@@ -35,4 +36,6 @@ public interface BookingManagement {
             String ownerNote,
             Long ownerId
     );
+
+    ApiResponse<List<AssignableEmployeeResponse>> getAssignableEmployees(Long bookingId, Long ownerId);
 }

@@ -4,6 +4,7 @@ import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.users.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -22,6 +23,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -76,6 +79,7 @@ public class Booking {
     private LocalTime bookingTime;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private BookingStatus status;
 
@@ -110,6 +114,17 @@ public class Booking {
     private LocalDateTime completedAt;
 
     private LocalDateTime cancelledAt;
+
+    @Embedded
+    private BookingTracking tracking = new BookingTracking();
+
+    /** Never null, also for rows loaded before the tracking columns existed. */
+    public BookingTracking getTracking() {
+        if (tracking == null) {
+            tracking = new BookingTracking();
+        }
+        return tracking;
+    }
 
     public void addServiceItem(BookingServiceItem item) {
         serviceItems.add(item);
