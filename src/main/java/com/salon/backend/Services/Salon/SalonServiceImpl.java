@@ -166,66 +166,47 @@ public class SalonServiceImpl implements SalonService {
             return ApiResponse.error("You can only update your salon");
         }
 
+        // Check every field first; change the salon only when all checks pass.
         String oldPhoneNumber=salon.getSalonPhoneNumber();
         String newPhoneNumber=updateSalonRequest.getSalonPhoneNumber();
-
-        if(newPhoneNumber!=null){
-            if(!newPhoneNumber.equals(oldPhoneNumber)){
-                boolean valid = newPhoneNumber.matches("^\\+9627\\d{8}$")
-                        || newPhoneNumber.matches("^07\\d{8}$");
-                if (!valid) {
-                    return ApiResponse.error(
-                            "Salon Phone Number must be in one of these formats: 07XXXXXXXX or +9627XXXXXXXX"
-                    );
-                }
-                if (salonRepo.existsBySalonPhoneNumber(newPhoneNumber)) {
-                    return ApiResponse.error("Phone number already exists.");
-                }
+        if(newPhoneNumber!=null && !newPhoneNumber.equals(oldPhoneNumber)){
+            boolean valid = newPhoneNumber.matches("^\\+9627\\d{8}$")
+                    || newPhoneNumber.matches("^07\\d{8}$");
+            if (!valid) {
+                return ApiResponse.error(
+                        "Salon Phone Number must be in one of these formats: 07XXXXXXXX or +9627XXXXXXXX"
+                );
             }
-            salon.setSalonPhoneNumber(newPhoneNumber);
-
+            if (salonRepo.existsBySalonPhoneNumber(newPhoneNumber)) {
+                return ApiResponse.error("Phone number already exists.");
+            }
         }
-
-        if(updateSalonRequest.getSalonEmail()!=null){
-            salon.setEmail(updateSalonRequest.getSalonEmail());
-        }
-        else{
+        if(updateSalonRequest.getSalonEmail()==null){
             return ApiResponse.error("Salon Email is Required , And must be in valid domain");
         }
-        if(updateSalonRequest.getSalonCity()!=null&&JordanCities.contains(updateSalonRequest.getSalonCity())){
-            salon.setLocation(updateSalonRequest.getSalonCity());
-        }
-        else{
+        if(updateSalonRequest.getSalonCity()==null||!JordanCities.contains(updateSalonRequest.getSalonCity())){
             return ApiResponse.error("Salon City is Required , And must a valid jordanian city");
         }
-        if(updateSalonRequest.getSalonDescription()!=null&&updateSalonRequest.getSalonDescription().length()>10){
-            salon.setDescription(updateSalonRequest.getSalonDescription());
-        }
-        else{
+        // An unchanged value is kept even if it was saved before a stricter rule;
+        // the rule applies when the owner writes a new value.
+        String description=updateSalonRequest.getSalonDescription();
+        if(description==null
+                || (description.length()<=10 && !description.equals(salon.getDescription()))){
             return ApiResponse.error("Salon Description is Required and must be more than 10 characters");
         }
-        if(updateSalonRequest.getSalonName()!=null&&updateSalonRequest.getSalonName().length()>3){
-            salon.setName(updateSalonRequest.getSalonName());
-        }
-        else{
+        String name=updateSalonRequest.getSalonName();
+        if(name==null || (name.length()<=3 && !name.equals(salon.getName()))){
             return ApiResponse.error("Salon Name is Required and must be more than 3 characters");
         }
-        if(updateSalonRequest.getOpeningTime()!=null&&updateSalonRequest.getOpeningTime().isBefore(salon.getClosingTime())){
-            salon.setOpeningTime(updateSalonRequest.getOpeningTime());
-        }
-        else{
+        LocalTime opening=updateSalonRequest.getOpeningTime();
+        LocalTime closing=updateSalonRequest.getClosingTime();
+        if(opening==null){
             return ApiResponse.error("Opening Time is Required and must be before Closing Time ");
         }
-        if(updateSalonRequest.getClosingTime()!=null&&salon.getOpeningTime().isBefore(updateSalonRequest.getClosingTime())){
-            salon.setClosingTime(updateSalonRequest.getClosingTime());
-        }
-        else{
+        if(closing==null||!opening.isBefore(closing)){
             return ApiResponse.error("Closing Time is Required and must be After Opening Time ");
         }
-        if (updateSalonRequest.getMaxNumberOfEmployees()!=null&&updateSalonRequest.getMaxNumberOfEmployees()>0) {
-            salon.setMaxEmployeesNumber(updateSalonRequest.getMaxNumberOfEmployees());
-        }
-        else{
+        if (updateSalonRequest.getMaxNumberOfEmployees()==null||updateSalonRequest.getMaxNumberOfEmployees()<=0) {
             return ApiResponse.error("Max number of employees is required and must be greater than 0");
         }
         SalonMapLocation.Result mapLocation = SalonMapLocation.resolve(
@@ -236,6 +217,17 @@ public class SalonServiceImpl implements SalonService {
         if (!mapLocation.isValid()) {
             return ApiResponse.error(mapLocation.error());
         }
+
+        if(newPhoneNumber!=null){
+            salon.setSalonPhoneNumber(newPhoneNumber);
+        }
+        salon.setEmail(updateSalonRequest.getSalonEmail());
+        salon.setLocation(updateSalonRequest.getSalonCity());
+        salon.setDescription(description);
+        salon.setName(name);
+        salon.setOpeningTime(opening);
+        salon.setClosingTime(closing);
+        salon.setMaxEmployeesNumber(updateSalonRequest.getMaxNumberOfEmployees());
         applyMapLocation(salon, mapLocation);
         salonRepo.save(salon);
 

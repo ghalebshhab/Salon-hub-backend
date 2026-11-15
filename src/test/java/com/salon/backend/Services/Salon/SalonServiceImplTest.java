@@ -4,6 +4,7 @@ import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.SalonResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.UpdateSalonLocationRequest;
+import com.salon.backend.DTOs.Salon.UpdateSalonRequest;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
@@ -206,6 +207,90 @@ class SalonServiceImplTest {
         assertFalse(response.isSuccess());
         assertEquals("The selected salon location must be inside Jordan", response.getMessage());
         verify(salonRepo, never()).save(any());
+    }
+
+    /** Salon saved before the description rule: "hair style" has exactly 10 characters. */
+    private Salon legacySalon(User owner) {
+        Salon salon = new Salon();
+        salon.setId(1L);
+        salon.setOwner(owner);
+        salon.setName("ghaleb shhab");
+        salon.setDescription("hair style");
+        salon.setEmail("salon@example.com");
+        salon.setSalonPhoneNumber("0791234567");
+        salon.setLocation("Amman");
+        salon.setOpeningTime(LocalTime.of(9, 0));
+        salon.setClosingTime(LocalTime.of(18, 0));
+        salon.setMaxEmployeesNumber(3L);
+        when(userRepo.findById(owner.getId())).thenReturn(Optional.of(owner));
+        when(salonRepo.findById(1L)).thenReturn(Optional.of(salon));
+        return salon;
+    }
+
+    private UpdateSalonRequest updateFrom(Salon salon) {
+        UpdateSalonRequest request = new UpdateSalonRequest();
+        request.setSalonName(salon.getName());
+        request.setSalonDescription(salon.getDescription());
+        request.setSalonEmail(salon.getEmail());
+        request.setSalonPhoneNumber(salon.getSalonPhoneNumber());
+        request.setSalonCity(salon.getLocation());
+        request.setOpeningTime(salon.getOpeningTime());
+        request.setClosingTime(salon.getClosingTime());
+        request.setMaxNumberOfEmployees(salon.getMaxEmployeesNumber());
+        return request;
+    }
+
+    @Test
+    void changingHoursKeepsAnUnchangedShortDescription() {
+        User owner = new User();
+        owner.setId(14L);
+        owner.setUserName("owner");
+        Salon salon = legacySalon(owner);
+        UpdateSalonRequest request = updateFrom(salon);
+        request.setOpeningTime(LocalTime.of(10, 0));
+        request.setClosingTime(LocalTime.of(20, 0));
+
+        ApiResponse<?> response = service.updateSalon(request, 1L, 14L);
+
+        assertTrue(response.isSuccess(), response.getMessage());
+        assertEquals(LocalTime.of(10, 0), salon.getOpeningTime());
+        assertEquals(LocalTime.of(20, 0), salon.getClosingTime());
+        assertEquals("hair style", salon.getDescription());
+        verify(salonRepo).save(salon);
+    }
+
+    @Test
+    void aNewShortDescriptionIsStillRejectedAndNothingChanges() {
+        User owner = new User();
+        owner.setId(14L);
+        Salon salon = legacySalon(owner);
+        UpdateSalonRequest request = updateFrom(salon);
+        request.setSalonDescription("short");
+        request.setOpeningTime(LocalTime.of(10, 0));
+
+        ApiResponse<?> response = service.updateSalon(request, 1L, 14L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Salon Description is Required and must be more than 10 characters", response.getMessage());
+        assertEquals(LocalTime.of(9, 0), salon.getOpeningTime());
+        verify(salonRepo, never()).save(any());
+    }
+
+    @Test
+    void newHoursAreComparedWithEachOtherNotWithTheOldClosingTime() {
+        User owner = new User();
+        owner.setId(14L);
+        owner.setUserName("owner");
+        Salon salon = legacySalon(owner);
+        UpdateSalonRequest request = updateFrom(salon);
+        request.setOpeningTime(LocalTime.of(19, 0));
+        request.setClosingTime(LocalTime.of(23, 0));
+
+        assertTrue(service.updateSalon(request, 1L, 14L).isSuccess());
+
+        request.setOpeningTime(LocalTime.of(22, 0));
+        request.setClosingTime(LocalTime.of(21, 0));
+        assertFalse(service.updateSalon(request, 1L, 14L).isSuccess());
     }
 
     private Salon ownedSalon(long ownerId) {
