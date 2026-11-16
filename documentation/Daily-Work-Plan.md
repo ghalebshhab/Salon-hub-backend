@@ -156,3 +156,15 @@ does not claim video-duration support, remote-content validation or replacement-
 Full backend verification passed (270 tests, zero failures/errors/skips, executable JAR
 packaged); see the status document for verification and deployment review. Item 2 remains IN
 PROGRESS.
+
+November 16 continuation persists Cloudinary video duration metadata for employee work media.
+The storage adapter reads a finite, non-negative numeric `duration` only from video upload
+responses; it ignores malformed or negative values. The service saves that value with the
+employee-owned gallery entry and returns it in the public gallery DTO so clients can present
+video context without probing the provider. Existing rows remain nullable, and Hibernate
+schema update adds the nullable column at deployment. This records provider metadata only;
+it does not enforce a maximum video duration or close remote-content validation, replacement
+cleanup, or transaction-orphan gaps. Item 2 remains IN PROGRESS.
+Focused provider/service tests passed 143 cases; full `mvnw.cmd -B verify` passed 273 tests
+with zero failures, errors, or skips and packaged the executable JAR. No live Cloudinary
+credentials were available, so all provider checks used mocked HTTP responses.
