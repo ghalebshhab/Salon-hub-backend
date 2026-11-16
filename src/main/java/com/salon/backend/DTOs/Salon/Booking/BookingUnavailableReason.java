@@ -9,6 +9,8 @@ public final class BookingUnavailableReason {
     public static final String BUSY = "BUSY";
     public static final String NO_TIME_LEFT_TODAY = "NO_TIME_LEFT_TODAY";
     public static final String NO_QUALIFIED_EMPLOYEE = "NO_QUALIFIED_EMPLOYEE";
+    /** The whole salon is closed that day (holiday or closure). */
+    public static final String SALON_CLOSED = "SALON_CLOSED";
 
     private BookingUnavailableReason() {
     }

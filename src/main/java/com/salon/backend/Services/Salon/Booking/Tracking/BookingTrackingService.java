@@ -25,4 +25,7 @@ public interface BookingTrackingService {
     ApiResponse<BookingTrackingResponse> extendService(Long bookingId, ExtendServiceRequest request, Long staffId);
 
     ApiResponse<BookingTrackingResponse> completeService(Long bookingId, Long staffId);
+
+    /** Records that the customer did not come. Staff only, from 15 minutes after the start. */
+    ApiResponse<BookingTrackingResponse> markNoShow(Long bookingId, Long staffId);
 }

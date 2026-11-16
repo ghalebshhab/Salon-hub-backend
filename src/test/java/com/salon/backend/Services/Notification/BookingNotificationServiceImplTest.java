@@ -9,6 +9,7 @@ import com.salon.backend.Entities.salons.bookings.BookingRescheduleStatus;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Notification.UserNotificationRepo;
+import com.salon.backend.Services.Salon.Booking.BookingTimePolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -104,6 +105,57 @@ class BookingNotificationServiceImplTest {
                         .map(UserNotification::getTargetPath)
                         .toList()
         );
+    }
+
+    @Test
+    void anExpiredRequestTellsTheCustomerAndTheOwner() {
+        Booking booking = booking();
+        booking.setStatus(BookingStatus.EXPIRED);
+
+        bookingNotificationService.bookingExpired(booking);
+
+        ArgumentCaptor<UserNotification> saved = ArgumentCaptor.forClass(UserNotification.class);
+        verify(notificationRepo, times(2)).save(saved.capture());
+        assertEquals(
+                List.of(1L, 2L),
+                saved.getAllValues().stream().map(n -> n.getRecipient().getId()).toList()
+        );
+        assertTrue(saved.getAllValues().stream()
+                .allMatch(n -> n.getEventType() == NotificationEventType.BOOKING_EXPIRED));
+    }
+
+    @Test
+    void theDayReminderGoesOnlyToTheCustomerAndSaysTomorrow() {
+        Booking booking = booking();
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(user(4L, "Salon", "Employee"));
+
+        bookingNotificationService.bookingReminder(
+                booking, BookingTimePolicy.ReminderType.DAY, LocalDate.now());
+
+        ArgumentCaptor<UserNotification> saved = ArgumentCaptor.forClass(UserNotification.class);
+        verify(notificationRepo).save(saved.capture());
+        assertEquals(1L, saved.getValue().getRecipient().getId());
+        assertEquals("booking:20:reminder:day:customer", saved.getValue().getEventKey());
+        assertTrue(saved.getValue().getMessage().contains("tomorrow at 13:00"));
+    }
+
+    @Test
+    void theSoonReminderAlsoTellsTheAssignedEmployee() {
+        Booking booking = booking();
+        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setAssignedEmployee(user(4L, "Salon", "Employee"));
+
+        bookingNotificationService.bookingReminder(
+                booking, BookingTimePolicy.ReminderType.SOON, booking.getBookingDate());
+
+        ArgumentCaptor<UserNotification> saved = ArgumentCaptor.forClass(UserNotification.class);
+        verify(notificationRepo, times(2)).save(saved.capture());
+        assertEquals(
+                List.of(1L, 4L),
+                saved.getAllValues().stream().map(n -> n.getRecipient().getId()).toList()
+        );
+        assertTrue(saved.getAllValues().get(0).getMessage().contains("today at 13:00"));
     }
 
     @Test

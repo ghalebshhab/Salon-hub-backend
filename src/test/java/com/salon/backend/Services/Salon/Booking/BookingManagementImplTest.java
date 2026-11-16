@@ -21,6 +21,12 @@ import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
 import com.salon.backend.Services.Notification.BookingNotificationService;
+import com.salon.backend.Entities.payments.PaymentMethod;
+import com.salon.backend.Entities.payments.PaymentStatus;
+import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
+import com.salon.backend.Services.Payment.PaymentPolicy;
+import com.salon.backend.Services.Payment.PaymentSettingsService;
+import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,10 +66,14 @@ class BookingManagementImplTest {
     @Mock private BookingAvailabilityService bookingAvailabilityService;
     @Mock private BookingRescheduleProposalRepo rescheduleProposalRepo;
     @Spy private BookingResponseMapper responseMapper = new BookingResponseMapper();
+    @Mock private PaymentSettingsService paymentSettingsService;
+    @Spy private BookingPaymentLifecycle paymentLifecycle =
+            new BookingPaymentLifecycle(new PaymentPolicy(0), Clock.systemDefaultZone());
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach
     void allowWorkingHoursUnlessATestOverridesThem() {
+        lenient().when(paymentSettingsService.defaultMethod(any())).thenReturn(PaymentMethod.CASH);
         lenient().when(scheduleAvailability.isSalonOpenFor(any(), any(), anyInt()))
                 .thenReturn(true);
         lenient().when(scheduleAvailability.isEmployeeAvailable(
@@ -108,7 +118,32 @@ class BookingManagementImplTest {
         assertEquals("Please call first", response.getData().note());
         assertEquals(List.of("Haircut", "Color"), response.getData().services().stream()
                 .map(item -> item.name()).toList());
+        assertEquals(PaymentMethod.CASH, response.getData().payment().method());
+        assertEquals(PaymentStatus.UNPAID, response.getData().payment().status());
+        assertEquals(19_500L, response.getData().payment().amountFils());
+        assertFalse(response.getData().payment().collectable(), "Nothing to collect before the service");
         verify(bookingRepo).save(any(Booking.class));
+    }
+
+    @Test
+    void aCardChoiceIsRefusedWhileTheSalonCannotTakeCards() {
+        User customer = activeUser(1L, UserRole.USER, null);
+        Salon salon = activeSalon(10L, 2L);
+        CreateBookingRequest base = validCreateRequest(10L, List.of(20L));
+        CreateBookingRequest request = new CreateBookingRequest(
+                base.salonId(), base.serviceIds(), base.assignedEmployeeId(), base.customerPhoneNumber(),
+                base.customerLocation(), base.bookingDate(), base.bookingTime(), base.note(),
+                PaymentMethod.CARD_PREPAID);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(customer));
+        when(salonRepo.findById(10L)).thenReturn(Optional.of(salon));
+        when(paymentSettingsService.methodError(salon, PaymentMethod.CARD_PREPAID))
+                .thenReturn("Card payment is not available yet. Choose cash");
+
+        ApiResponse<BookingResponse> response = bookingManagement.createBooking(request, 1L);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Card payment is not available yet. Choose cash", response.getMessage());
+        verify(bookingRepo, never()).save(any());
     }
 
     @Test
@@ -204,6 +239,27 @@ class BookingManagementImplTest {
         verify(bookingRepo).save(booking);
         verify(bookingNotificationService).bookingAccepted(booking);
         verify(bookingNotificationService).bookingAssignedToEmployee(booking);
+    }
+
+    @Test
+    void ownerCannotAcceptARequestAfterTheAnswerWindowEnds() {
+        Salon salon = activeSalon(10L, 2L);
+        Booking booking = booking(30L, salon, activeUser(1L, UserRole.USER, null));
+        booking.setBookingDate(LocalDateTime.now().plusDays(3).toLocalDate());
+        booking.setCreatedAt(LocalDateTime.now().minusHours(25));
+        when(salonRepo.findByOwnerId(2L)).thenReturn(salon);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingResponse> response = bookingManagement.acceptBooking(
+                30L,
+                new BookingActionRequest("Confirmed", 4L),
+                2L
+        );
+
+        assertFalse(response.isSuccess());
+        assertTrue(response.getMessage().startsWith("This request expired"));
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        verify(bookingRepo, never()).save(any());
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.EmployeeTimeOffRepo;
+import com.salon.backend.Repositories.Salon.SalonClosureRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
@@ -63,6 +64,7 @@ class BookingAvailabilityServiceImplTest {
     @Mock private EmployeeScheduleRepo scheduleRepo;
     @Mock private BookingRepo bookingRepo;
     @Mock private EmployeeTimeOffRepo timeOffRepo;
+    @Mock private SalonClosureRepo closureRepo;
     @Mock private EmployeeScheduleAvailability scheduleAvailability;
 
     private BookingAvailabilityServiceImpl availabilityService;
@@ -77,6 +79,7 @@ class BookingAvailabilityServiceImplTest {
                 scheduleRepo,
                 bookingRepo,
                 timeOffRepo,
+                closureRepo,
                 scheduleAvailability,
                 CLOCK
         );
@@ -295,6 +298,34 @@ class BookingAvailabilityServiceImplTest {
         assertTrue(response.getData().slots().isEmpty());
         assertEquals("TIME_OFF", response.getData().unavailableReason());
         assertEquals(date.plusDays(2), response.getData().nextAvailableDate());
+    }
+
+    @Test
+    void aClosedSalonDayHasNoTimesAndTheNextOpenDayIsSuggested() {
+        LocalDate date = LocalDate.of(2026, 10, 18);
+        Salon salon = salon(LocalTime.of(9, 0), LocalTime.of(11, 0));
+        SalonService service = service(20L, salon, 30);
+        User requester = user(1L, UserRole.USER, null);
+        User employee = user(2L, UserRole.Employee, salon);
+
+        arrangeAvailability(salon, service, requester, List.of(employee));
+        when(capabilityRepo.findByEmployeeIdIn(any())).thenReturn(List.of(capability(employee, service)));
+        lenient().when(bookingRepo.findByAssignedEmployeeIdInAndBookingDateAndStatusIn(any(), any(), any()))
+                .thenReturn(List.of());
+        when(closureRepo.isSalonClosedOn(any(), any())).thenAnswer(invocation -> {
+            LocalDate asked = invocation.getArgument(1);
+            return asked.isBefore(date.plusDays(3));
+        });
+
+        ApiResponse<BookingAvailabilityResponse> response = availabilityService.getAvailability(
+                new BookingAvailabilityRequest(10L, List.of(20L), date, null),
+                1L
+        );
+
+        assertTrue(response.isSuccess());
+        assertTrue(response.getData().slots().isEmpty());
+        assertEquals("SALON_CLOSED", response.getData().unavailableReason());
+        assertEquals(date.plusDays(3), response.getData().nextAvailableDate());
     }
 
     @Test

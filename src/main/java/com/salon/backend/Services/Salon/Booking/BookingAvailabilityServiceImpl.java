@@ -22,6 +22,7 @@ import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Repositories.Salon.EmployeeScheduleRepo;
 import com.salon.backend.Repositories.Salon.EmployeeServiceCapabilityRepo;
 import com.salon.backend.Repositories.Salon.EmployeeTimeOffRepo;
+import com.salon.backend.Repositories.Salon.SalonClosureRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
@@ -74,6 +75,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     private final EmployeeScheduleRepo scheduleRepo;
     private final BookingRepo bookingRepo;
     private final EmployeeTimeOffRepo timeOffRepo;
+    private final SalonClosureRepo closureRepo;
     private final EmployeeScheduleAvailability scheduleAvailability;
     private final Clock clock;
 
@@ -211,6 +213,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             return false;
         }
         AvailabilityData data = loadAvailabilityData(
+                salon,
                 eligibleEmployees,
                 bookingDate,
                 excludedBookingId
@@ -236,7 +239,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                 serviceIdsOf(booking),
                 null
         );
-        AvailabilityData data = loadAvailabilityData(qualified, booking.getBookingDate(), booking.getId());
+        AvailabilityData data = loadAvailabilityData(
+                booking.getSalon(), qualified, booking.getBookingDate(), booking.getId());
         return qualified.stream()
                 .map(employee -> {
                     String reason = unavailableReason(employee, data, booking);
@@ -262,7 +266,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
         if (employee == null) {
             return BookingUnavailableReason.NO_QUALIFIED_EMPLOYEE;
         }
-        AvailabilityData data = loadAvailabilityData(List.of(employee), booking.getBookingDate(), booking.getId());
+        AvailabilityData data = loadAvailabilityData(
+                booking.getSalon(), List.of(employee), booking.getBookingDate(), booking.getId());
         return unavailableReason(employee, data, booking);
     }
 
@@ -300,10 +305,10 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             LocalDate date,
             int duration,
             Long excludedBookingId) {
-        if (eligibleEmployees.isEmpty()) {
+        if (eligibleEmployees.isEmpty() || closureRepo.isSalonClosedOn(salon.getId(), date)) {
             return List.of();
         }
-        AvailabilityData data = loadAvailabilityData(eligibleEmployees, date, excludedBookingId);
+        AvailabilityData data = loadAvailabilityData(salon, eligibleEmployees, date, excludedBookingId);
         List<BookingAvailabilitySlotResponse> slots = new ArrayList<>();
         LocalTime candidate = salon.getOpeningTime();
         while (candidate != null && scheduleAvailability.isSalonOpenFor(salon, candidate, duration)) {
@@ -349,6 +354,9 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             LocalDate date,
             int duration,
             Long requestedEmployeeId) {
+        if (closureRepo.isSalonClosedOn(salon.getId(), date)) {
+            return BookingUnavailableReason.SALON_CLOSED;
+        }
         if (eligibleEmployees.isEmpty()) {
             return BookingUnavailableReason.NO_QUALIFIED_EMPLOYEE;
         }
@@ -386,6 +394,9 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     }
 
     private String unavailableReason(User employee, AvailabilityData data, Booking booking) {
+        if (data.salonClosed()) {
+            return BookingUnavailableReason.SALON_CLOSED;
+        }
         if (data.employeesOff().contains(employee.getId())) {
             return BookingUnavailableReason.TIME_OFF;
         }
@@ -475,12 +486,14 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     }
 
     private AvailabilityData loadAvailabilityData(
+            Salon salon,
             List<User> employees,
             LocalDate bookingDate,
             Long excludedBookingId) {
+        boolean salonClosed = salon != null && closureRepo.isSalonClosedOn(salon.getId(), bookingDate);
         Set<Long> employeeIds = employees.stream().map(User::getId).collect(Collectors.toSet());
-        if (employeeIds.isEmpty()) {
-            return new AvailabilityData(Map.of(), Map.of(), Set.of());
+        if (employeeIds.isEmpty() || salonClosed) {
+            return new AvailabilityData(Map.of(), Map.of(), Set.of(), salonClosed);
         }
 
         Map<Long, EmployeeSchedule> schedules = scheduleRepo.findByEmployeeIdIn(employeeIds)
@@ -499,7 +512,7 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
                         || !excludedBookingId.equals(booking.getId()))
                 .collect(Collectors.groupingBy(booking -> booking.getAssignedEmployee().getId()));
         Set<Long> employeesOff = new HashSet<>(timeOffRepo.findEmployeeIdsOffOn(employeeIds, bookingDate));
-        return new AvailabilityData(schedules, bookingsByEmployee, employeesOff);
+        return new AvailabilityData(schedules, bookingsByEmployee, employeesOff, false);
     }
 
     private List<User> availableEmployeesAt(
@@ -509,6 +522,9 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
             LocalDate bookingDate,
             LocalTime bookingTime,
             int durationMinutes) {
+        if (data.salonClosed()) {
+            return List.of();
+        }
         return employees.stream()
                 .filter(employee -> !data.employeesOff().contains(employee.getId()))
                 .filter(employee -> scheduleAvailability.isEmployeeAvailable(
@@ -605,7 +621,8 @@ public class BookingAvailabilityServiceImpl implements BookingAvailabilityServic
     private record AvailabilityData(
             Map<Long, EmployeeSchedule> schedules,
             Map<Long, List<Booking>> bookingsByEmployee,
-            Set<Long> employeesOff
+            Set<Long> employeesOff,
+            boolean salonClosed
     ) {
     }
 }

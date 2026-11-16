@@ -76,6 +76,13 @@ public class BookingTrackingController {
         return trackingService.extendService(bookingId, request, currentUser.getId());
     }
 
+    @PostMapping("/no-show")
+    public ApiResponse<BookingTrackingResponse> markNoShow(
+            @PathVariable Long bookingId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return trackingService.markNoShow(bookingId, currentUser.getId());
+    }
+
     @PostMapping("/service/complete")
     public ApiResponse<BookingTrackingResponse> completeService(
             @PathVariable Long bookingId,

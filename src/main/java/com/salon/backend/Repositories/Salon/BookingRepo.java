@@ -77,6 +77,42 @@ public interface BookingRepo extends JpaRepository<Booking, Long> {
     @Query("SELECT COALESCE(SUM(booking.totalPrice), 0) FROM Booking booking WHERE booking.status = :status")
     BigDecimal sumBookingValueByStatus(@Param("status") BookingStatus status);
 
+    /**
+     * Pending requests that passed their answer deadline: older than the
+     * response window, or whose appointment start is already reached.
+     */
+    @Query("""
+            SELECT booking.id FROM Booking booking
+            WHERE booking.status = :status
+              AND (booking.createdAt <= :createdBefore
+                   OR booking.bookingDate < :today
+                   OR (booking.bookingDate = :today AND booking.bookingTime <= :nowTime))
+            """)
+    List<Long> findOverduePendingIds(
+            @Param("status") BookingStatus status,
+            @Param("createdBefore") LocalDateTime createdBefore,
+            @Param("today") LocalDate today,
+            @Param("nowTime") java.time.LocalTime nowTime
+    );
+
+    @Query("""
+            SELECT booking.id FROM Booking booking
+            WHERE booking.status = :status
+              AND booking.bookingDate BETWEEN :fromDate AND :toDate
+            """)
+    List<Long> findIdsByStatusAndDateRange(
+            @Param("status") BookingStatus status,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
+
+    long countBySalonIdAndBookingDateBetweenAndStatusIn(
+            Long salonId,
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<BookingStatus> statuses
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT booking FROM Booking booking WHERE booking.id = :id")
     Optional<Booking> findByIdForUpdate(@Param("id") Long id);

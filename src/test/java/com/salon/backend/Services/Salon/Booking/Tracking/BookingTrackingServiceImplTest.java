@@ -11,6 +11,8 @@ import com.salon.backend.Entities.salons.bookings.JourneyStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Services.Notification.BookingNotificationService;
+import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
+import com.salon.backend.Services.Payment.PaymentPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,7 +60,8 @@ class BookingTrackingServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new BookingTrackingServiceImpl(
-                bookingRepo, new DistanceTravelTimeEstimator(), notificationService, CLOCK);
+                bookingRepo, new DistanceTravelTimeEstimator(), notificationService, CLOCK,
+                new BookingPaymentLifecycle(new PaymentPolicy(0), CLOCK));
         customer = user(1L, "Lina");
         employee = user(2L, "Sara");
         owner = user(3L, "Omar");
@@ -182,6 +185,83 @@ class BookingTrackingServiceImplTest {
 
         assertEquals("OWNER", service.getTracking(30L, 3L).getData().viewerRole());
         assertFalse(service.getTracking(30L, 99L).isSuccess());
+    }
+
+    @Test
+    void theEmployeeMarksANoShowFifteenMinutesAfterTheStart() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 45));
+        booking.getTracking().setJourneyStatus(JourneyStatus.ON_THE_WAY);
+        booking.getTracking().setCustomerLatitude(31.98);
+        booking.getTracking().setCustomerLongitude(35.87);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        ApiResponse<BookingTrackingResponse> response = service.markNoShow(30L, 2L);
+
+        assertTrue(response.isSuccess());
+        assertEquals(BookingStatus.NO_SHOW, booking.getStatus());
+        assertEquals(LocalDateTime.of(TODAY, LocalTime.of(10, 0)), booking.getNoShowAt());
+        assertEquals(JourneyStatus.NOT_STARTED, booking.getTracking().getJourneyStatus());
+        assertNull(booking.getTracking().getCustomerLatitude(), "A no-show keeps no position");
+        assertFalse(response.getData().canMarkNoShow());
+        verify(notificationService).bookingNoShow(booking);
+    }
+
+    @Test
+    void aNoShowClosesTheUnpaidPaymentWithTheEmployeeAsActor() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 45));
+        booking.setTotalPrice(new java.math.BigDecimal("15.00"));
+        new BookingPaymentLifecycle(new PaymentPolicy(0), CLOCK)
+                .open(booking, com.salon.backend.Entities.payments.PaymentMethod.CASH);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        assertTrue(service.markNoShow(30L, 2L).isSuccess());
+
+        assertEquals(com.salon.backend.Entities.payments.PaymentStatus.VOIDED, booking.getPayment().getStatus());
+        assertEquals(employee, booking.getPayment().getTransactions().get(0).getActor());
+    }
+
+    @Test
+    void aNoShowIsRejectedBeforeTheGracePeriodEnds() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 50));
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        assertFalse(service.markNoShow(30L, 2L).isSuccess());
+        assertEquals(BookingStatus.ACCEPTED, booking.getStatus());
+        verify(notificationService, never()).bookingNoShow(any());
+    }
+
+    @Test
+    void aCheckedInCustomerIsNeverANoShow() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 0));
+        booking.getTracking().setJourneyStatus(JourneyStatus.ARRIVED);
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        assertFalse(service.markNoShow(30L, 3L).isSuccess());
+        assertEquals(BookingStatus.ACCEPTED, booking.getStatus());
+    }
+
+    @Test
+    void onlyTheAssignedEmployeeOrTheOwnerCanMarkANoShow() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 0));
+        when(bookingRepo.findByIdForUpdate(30L)).thenReturn(Optional.of(booking));
+
+        assertFalse(service.markNoShow(30L, 1L).isSuccess(), "The customer cannot mark a no-show");
+        assertFalse(service.markNoShow(30L, 99L).isSuccess());
+        assertEquals(BookingStatus.ACCEPTED, booking.getStatus());
+    }
+
+    @Test
+    void theStaffViewShowsWhenANoShowBecomesPossible() {
+        Booking booking = acceptedBooking(LocalTime.of(9, 50));
+        when(bookingRepo.findById(30L)).thenReturn(Optional.of(booking));
+
+        BookingTrackingResponse staffView = service.getTracking(30L, 3L).getData();
+        assertFalse(staffView.canMarkNoShow());
+        assertEquals(LocalDateTime.of(TODAY, LocalTime.of(10, 5)), staffView.noShowAllowedFrom());
+
+        BookingTrackingResponse customerView = service.getTracking(30L, 1L).getData();
+        assertFalse(customerView.canMarkNoShow());
+        assertNull(customerView.noShowAllowedFrom());
     }
 
     private Booking acceptedBooking(LocalTime time) {

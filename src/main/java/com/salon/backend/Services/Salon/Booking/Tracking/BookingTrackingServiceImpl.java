@@ -12,7 +12,9 @@ import com.salon.backend.Entities.salons.bookings.JourneyStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Salon.BookingRepo;
 import com.salon.backend.Services.Notification.BookingNotificationService;
+import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
 import com.salon.backend.Services.Salon.Booking.BookingResponseMapper;
+import com.salon.backend.Services.Salon.Booking.BookingTimePolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,7 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
     private final TravelTimeEstimator travelTimeEstimator;
     private final BookingNotificationService notificationService;
     private final Clock clock;
+    private final BookingPaymentLifecycle paymentLifecycle;
 
     @Override
     @Transactional(readOnly = true)
@@ -253,7 +256,51 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
         return ApiResponse.success("Service completed", toResponse(booking, role));
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<BookingTrackingResponse> markNoShow(Long bookingId, Long staffId) {
+        Booking booking = bookingId == null ? null : bookingRepo.findByIdForUpdate(bookingId).orElse(null);
+        String role = staffRole(booking, staffId);
+        if (role == null) {
+            return ApiResponse.error("Booking assigned to you was not found");
+        }
+        String error = noShowError(booking, now());
+        if (error != null) {
+            return ApiResponse.error(error);
+        }
+        LocalDateTime now = now();
+        booking.setStatus(BookingStatus.NO_SHOW);
+        booking.setNoShowAt(now);
+        booking.setUpdatedAt(now);
+        BookingTracking tracking = booking.getTracking();
+        tracking.setJourneyStatus(JourneyStatus.NOT_STARTED);
+        tracking.setCustomerLocationUpdatedAt(null);
+        tracking.clearCustomerPosition();
+        paymentLifecycle.closeWithoutPayment(
+                booking,
+                "Customer did not come",
+                OWNER.equals(role) ? booking.getSalon().getOwner() : booking.getAssignedEmployee()
+        );
+        bookingRepo.save(booking);
+        notificationService.bookingNoShow(booking);
+        return ApiResponse.success("Marked as no-show", toResponse(booking, role));
+    }
+
     // ---------- rules ----------
+
+    private String noShowError(Booking booking, LocalDateTime now) {
+        if (booking.getStatus() != BookingStatus.ACCEPTED) {
+            return "Only a confirmed appointment that has not started can be marked as no-show";
+        }
+        if (booking.getTracking().journeyStatusOrDefault() == JourneyStatus.ARRIVED) {
+            return "The customer is checked in, so this is not a no-show";
+        }
+        if (now.isBefore(BookingTimePolicy.noShowAllowedFrom(booking))) {
+            return "You can mark a no-show " + BookingTimePolicy.NO_SHOW_GRACE.toMinutes()
+                    + " minutes after the start time";
+        }
+        return null;
+    }
 
     private String journeyWindowError(Booking booking) {
         if (booking.getStatus() != BookingStatus.ACCEPTED) {
@@ -438,6 +485,10 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
                         && !now.isBefore(appointmentStart(booking).minus(EARLY_START)),
                 staff && (booking.getStatus() == BookingStatus.IN_PROGRESS
                         || booking.getStatus() == BookingStatus.ACCEPTED),
+                staff && noShowError(booking, now) == null,
+                staff && booking.getStatus() == BookingStatus.ACCEPTED
+                        ? BookingTimePolicy.noShowAllowedFrom(booking)
+                        : null,
                 now
         );
     }

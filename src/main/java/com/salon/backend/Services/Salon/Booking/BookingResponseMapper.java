@@ -4,8 +4,10 @@ import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleProposalResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingServiceItemResponse;
 import com.salon.backend.Entities.salons.bookings.Booking;
+import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.salons.bookings.BookingTracking;
 import com.salon.backend.Entities.users.User;
+import com.salon.backend.Services.Payment.PaymentRules;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -72,7 +74,12 @@ public class BookingResponseMapper {
                 tracking.getExpectedEndAt(),
                 booking.getCompletedAt(),
                 booking.getSalon().getLatitude(),
-                booking.getSalon().getLongitude()
+                booking.getSalon().getLongitude(),
+                booking.getStatus() == BookingStatus.PENDING
+                        ? BookingTimePolicy.responseDeadline(booking)
+                        : null,
+                booking.getNoShowAt(),
+                PaymentRules.summary(booking)
         );
     }
 

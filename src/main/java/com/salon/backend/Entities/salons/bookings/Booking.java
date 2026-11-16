@@ -1,5 +1,6 @@
 package com.salon.backend.Entities.salons.bookings;
 
+import com.salon.backend.Entities.payments.BookingPayment;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.users.User;
 import jakarta.persistence.CascadeType;
@@ -16,6 +17,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -114,6 +116,15 @@ public class Booking {
     private LocalDateTime completedAt;
 
     private LocalDateTime cancelledAt;
+
+    /** When staff recorded that the customer did not come. */
+    @Column(name = "no_show_at")
+    private LocalDateTime noShowAt;
+
+    /** Payment of this booking. Null only for bookings made before payments existed. */
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "payment_id", unique = true)
+    private BookingPayment payment;
 
     @Embedded
     private BookingTracking tracking = new BookingTracking();

@@ -25,6 +25,9 @@ import com.salon.backend.Repositories.Salon.SalonServiceRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
 import com.salon.backend.Services.Notification.BookingNotificationService;
+import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
+import com.salon.backend.Services.Payment.PaymentSettingsService;
+import com.salon.backend.Entities.payments.PaymentMethod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +57,8 @@ public class BookingManagementImpl implements BookingManagement {
     private final BookingAvailabilityService bookingAvailabilityService;
     private final BookingRescheduleProposalRepo rescheduleProposalRepo;
     private final BookingResponseMapper responseMapper;
+    private final PaymentSettingsService paymentSettingsService;
+    private final BookingPaymentLifecycle paymentLifecycle;
 
     @Override
     @Transactional
@@ -80,6 +85,14 @@ public class BookingManagementImpl implements BookingManagement {
         ApiResponse<Void> requestValidation = validateCreateRequest(request);
         if (!requestValidation.isSuccess()) {
             return ApiResponse.error(requestValidation.getMessage());
+        }
+
+        PaymentMethod paymentMethod = request.paymentMethod() == null
+                ? paymentSettingsService.defaultMethod(salon)
+                : request.paymentMethod();
+        String paymentError = paymentSettingsService.methodError(salon, paymentMethod);
+        if (paymentError != null) {
+            return ApiResponse.error(paymentError);
         }
 
         Set<Long> uniqueServiceIds = new LinkedHashSet<>(request.serviceIds());
@@ -177,6 +190,7 @@ public class BookingManagementImpl implements BookingManagement {
             return ApiResponse.error("Selected appointment time is no longer available");
         }
 
+        paymentLifecycle.open(booking, paymentMethod);
         bookingRepo.save(booking);
         bookingNotificationService.bookingRequested(booking);
 
@@ -256,6 +270,10 @@ public class BookingManagementImpl implements BookingManagement {
         }
         if (!LocalDateTime.of(booking.getBookingDate(), booking.getBookingTime()).isAfter(LocalDateTime.now())) {
             return ApiResponse.error("A booking with a past appointment time cannot be accepted");
+        }
+        if (BookingTimePolicy.isResponseOverdue(booking, LocalDateTime.now())) {
+            return ApiResponse.error("This request expired because the salon did not answer within "
+                    + BookingTimePolicy.RESPONSE_WINDOW.toHours() + " hours");
         }
 
         ApiResponse<Void> actionValidation = validateOwnerAction(request, false);
@@ -337,6 +355,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setDecidedAt(now);
         booking.setUpdatedAt(now);
         cancelPendingRescheduleProposals(booking, now);
+        paymentLifecycle.closeWithoutPayment(booking, "Booking rejected", booking.getSalon().getOwner());
         bookingRepo.save(booking);
         bookingNotificationService.bookingRejected(booking);
 
@@ -361,6 +380,7 @@ public class BookingManagementImpl implements BookingManagement {
         booking.setUpdatedAt(now);
         booking.getTracking().clearCustomerPosition();
         cancelPendingRescheduleProposals(booking, now);
+        paymentLifecycle.closeWithoutPayment(booking, "Booking cancelled by the customer", booking.getCustomer());
         bookingRepo.save(booking);
         bookingNotificationService.bookingCancelled(booking);
 

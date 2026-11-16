@@ -51,6 +51,8 @@ public record BookingTrackingResponse(
         boolean canShareJourney,
         boolean canStartService,
         boolean canCompleteService,
+        boolean canMarkNoShow,
+        LocalDateTime noShowAllowedFrom,
         LocalDateTime serverTime
 ) {
 }

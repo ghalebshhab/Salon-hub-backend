@@ -1,5 +1,7 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Services.Salon.Booking.BookingTimePolicy;
+
 import com.salon.backend.Entities.notifications.NotificationEventType;
 import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.notifications.UserNotification;
@@ -259,6 +261,103 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
                 "booking:" + booking.getId() + ":completed",
                 "Your appointment at " + booking.getSalon().getName()
                         + " is complete. Share a review to help other guests.",
+                customerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingExpired(Booking booking) {
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_EXPIRED,
+                "booking:" + booking.getId() + ":expired:customer",
+                booking.getSalon().getName() + " did not answer your request for "
+                        + booking.getBookingDate() + " at " + booking.getBookingTime()
+                        + " in time. The request expired; you can book another time.",
+                customerBookingPath(booking)
+        );
+        saveNotification(
+                booking,
+                booking.getSalon().getOwner(),
+                NotificationEventType.BOOKING_EXPIRED,
+                "booking:" + booking.getId() + ":expired:owner",
+                "The request from " + fullName(booking.getCustomer()) + " for "
+                        + booking.getBookingDate() + " at " + booking.getBookingTime()
+                        + " expired without an answer.",
+                ownerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingReminder(
+            Booking booking,
+            BookingTimePolicy.ReminderType type,
+            java.time.LocalDate today) {
+        if (type == null) {
+            return;
+        }
+        String when = booking.getBookingDate().equals(today)
+                ? "today at " + booking.getBookingTime()
+                : booking.getBookingDate().equals(today.plusDays(1))
+                        ? "tomorrow at " + booking.getBookingTime()
+                        : "on " + booking.getBookingDate() + " at " + booking.getBookingTime();
+        String suffix = type == BookingTimePolicy.ReminderType.SOON
+                ? " Share your trip when you leave so the salon knows when you arrive."
+                : " Cancel early if your plans change.";
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_REMINDER,
+                "booking:" + booking.getId() + ":reminder:" + type.name().toLowerCase() + ":customer",
+                "Reminder: your appointment at " + booking.getSalon().getName() + " is " + when + "." + suffix,
+                customerBookingPath(booking)
+        );
+        User employee = booking.getAssignedEmployee();
+        if (type == BookingTimePolicy.ReminderType.SOON && employee != null) {
+            saveNotification(
+                    booking,
+                    employee,
+                    NotificationEventType.BOOKING_REMINDER,
+                    "booking:" + booking.getId() + ":reminder:soon:employee",
+                    "Coming up: " + fullName(booking.getCustomer()) + " " + when + ".",
+                    employeeBookingPath(booking)
+            );
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bookingNoShow(Booking booking) {
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_NO_SHOW,
+                "booking:" + booking.getId() + ":no-show",
+                booking.getSalon().getName() + " marked your appointment on "
+                        + booking.getBookingDate() + " at " + booking.getBookingTime()
+                        + " as missed. Contact the salon if this is a mistake.",
+                customerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void paymentReceived(Booking booking) {
+        if (booking.getPayment() == null) {
+            return;
+        }
+        String amount = java.math.BigDecimal.valueOf(booking.getPayment().getAmountFils(), 3).toPlainString()
+                + " " + booking.getPayment().getCurrency();
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.PAYMENT_RECEIVED,
+                "booking:" + booking.getId() + ":payment:paid",
+                booking.getSalon().getName() + " received your payment of " + amount
+                        + ". Your receipt is ready in My bookings.",
                 customerBookingPath(booking)
         );
     }

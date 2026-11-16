@@ -1,5 +1,6 @@
 package com.salon.backend.DTOs.Salon.Booking;
 
+import com.salon.backend.DTOs.Payment.PaymentSummaryResponse;
 import com.salon.backend.Entities.salons.bookings.BookingStatus;
 import com.salon.backend.Entities.salons.bookings.JourneyStatus;
 
@@ -45,6 +46,11 @@ public record BookingResponse(
         LocalDateTime expectedEndAt,
         LocalDateTime completedAt,
         Double salonLatitude,
-        Double salonLongitude
+        Double salonLongitude,
+        /** Latest time for the salon to answer; only while the request is pending. */
+        LocalDateTime responseDeadline,
+        LocalDateTime noShowAt,
+        /** Null for bookings made before payments existed. */
+        PaymentSummaryResponse payment
 ) {
 }

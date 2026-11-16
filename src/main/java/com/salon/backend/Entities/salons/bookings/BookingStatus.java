@@ -7,5 +7,9 @@ public enum BookingStatus {
     IN_PROGRESS,
     REJECTED,
     CANCELLED,
-    COMPLETED
+    COMPLETED,
+    /** The salon did not answer a pending request in time. */
+    EXPIRED,
+    /** The customer did not come to a confirmed appointment. */
+    NO_SHOW
 }
