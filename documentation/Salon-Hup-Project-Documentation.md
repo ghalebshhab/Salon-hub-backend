@@ -4,8 +4,8 @@
 | --- | --- |
 | **Product** | Salonhub (earlier documents use the name "Salon Hup") |
 | **Document type** | Product, design and engineering specification |
-| **Document version** | 2.0.1 |
-| **Last updated** | 15 November 2026 |
+| **Document version** | 2.3.0 |
+| **Last updated** | 16 November 2026 |
 | **Product status** | Active development, not yet released to production |
 | **Owner and author** | Ghaleb Shhab |
 | **Source file** | `backend/documentation/Salon-Hup-Project-Documentation.md` |
@@ -29,7 +29,7 @@ This document is the single maintained description of Salonhub. It follows the p
 - **Partial** means that a foundation exists but production controls are not complete.
 - **Planned** means an approved direction with no implementation. Planned behavior is never described as current behavior.
 - Diagrams use Mermaid. GitHub and most Markdown viewers render them directly.
-- Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
+- Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Version 2.1.0 updated the booking, schedule, location and notification parts of these chapters. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
 
 ## Contents
 
@@ -66,7 +66,13 @@ The product consists of three applications that share one API:
 | Admin dashboard | Next.js 16, TypeScript, Tailwind CSS 4 | Platform administration, analytics and moderation |
 | Backend API | Spring Boot 4.1, Java 17, JPA, MySQL | Identity, business rules, persistence and integrations |
 
-**Current state.** All core journeys are implemented and covered by automated tests (221 backend tests and 177 web tests at the last full run). The product is not yet in production. The main open items are payments, managed database migrations, durable token revocation, monitoring, and continuous integration for the backend and admin dashboard. Chapter 28 lists them.
+**Bookings in real time.** A customer books in four guided steps and can let the salon assign the professional. After the owner confirms, the customer and the employee follow the same appointment live: the customer can share the trip to the salon with an arrival estimate, and the employee shows when the service starts and when it will end.
+
+**The appointment life cycle runs by itself.** A request that the salon does not answer in 24 hours expires, so it never blocks a professional. Customers get a reminder one day and two hours before a confirmed visit. Owners can close the whole salon for holidays, and staff can record a no-show when a customer does not come.
+
+**Payments, first step.** The customer chooses how to pay when booking. Cash works today: after the service, the employee or the owner records **Cash received**, and the customer gets a receipt. Each payment keeps a ledger of what happened and who did it. Owners see what they collected, what guests still owe, and set their payment rules. Card payment is designed but stays locked until a payment provider is chosen.
+
+**Current state.** All core journeys are implemented and covered by automated tests (311 backend tests and 218 web tests at the last full run, 16 November 2026). The product is not yet in production. The main open items are card payments (they need a provider), managed database migrations, durable token revocation, monitoring, and continuous integration for the backend and admin dashboard. Chapter 28 lists them.
 
 ## 2. Vision, goals and principles
 
@@ -80,6 +86,8 @@ One trusted place for the salon business in Jordan: a customer books with confid
 - Publish only salons that an administrator approved.
 - Let customers book real, server-calculated appointment times.
 - Let owners assign qualified, available employees and complete appointments.
+- Show the customer and the employee the live state of each confirmed appointment.
+- Keep employee time off out of the bookable calendar.
 - Publish reviews only from completed visits.
 - Help owners recruit, and help professionals find work that fits their profile.
 - Keep employment history correct when an employee moves between salons.
@@ -99,6 +107,8 @@ One trusted place for the salon business in Jordan: a customer books with confid
 - **Safe evolution:** implemented behavior, planned behavior, and known production gaps remain visibly separated.
 - **Grounded assistance:** Lamsa states only what the database returns. The language model writes the sentence; it does not supply facts.
 - **Safe community:** each post, comment, salon and member can be reported, and an administrator records the decision.
+- **Location by consent:** the customer's position is shared only after the customer starts a trip, only with the assigned employee and the owner, and is deleted on arrival, completion or cancellation.
+- **Honest times:** each time that the product shows (free slot, arrival estimate, service end) comes from the server and is labelled as an estimate where it is one.
 
 ## 3. Users, roles and stakeholders
 
@@ -106,10 +116,10 @@ One trusted place for the salon business in Jordan: a customer books with confid
 
 | Persona | Need | Main journeys |
 | --- | --- | --- |
-| Customer | Find a good salon nearby and book without phone calls | Discover, book, follow the booking, review |
+| Customer | Find a good salon nearby and book without phone calls | Discover, book in four steps, get directions, share the trip, follow the service live, review |
 | Beauty professional | Find work and show skills | Career profile, job discovery, applications, employment, work gallery |
-| Salon owner | Fill the calendar and the team, and see performance | Salon setup, services, team, schedules, bookings, hiring, dashboard |
-| Salon employee | Know the day's appointments | Assigned bookings, schedule, leave and transfer |
+| Salon owner | Fill the calendar and the team, and see performance | Salon setup and map location, services, team, schedules, time off, assign-and-accept bookings, hiring, dashboard |
+| Salon employee | Know the day's appointments and when each client arrives | Assigned bookings, customer arrival estimate, start, extend and complete a service, leave and transfer |
 | Administrator | Keep the platform trustworthy | Salon approval, blocking, reports, analytics, activity |
 | Guest | Understand the platform before sign-up | Home page, public salon pages, community reading rules, Lamsa in guide mode |
 
@@ -141,6 +151,8 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 - Customer accounts, salon owners, salon employees and platform administrators.
 - Salon onboarding with administrative approval and reversible blocking.
 - Public salon discovery, service catalogs, appointment booking and verified reviews.
+- Salon location on a map, with directions for customers.
+- Employee time off, and live tracking of confirmed appointments.
 - Career profiles, hiring posts, ranked applications and employment workflows.
 - Community: posts, comments, likes, friends and salon follows.
 - Content reports and administrative moderation.
@@ -149,8 +161,10 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 
 ### 4.2 Outside the current implementation
 
-- Online payments, refunds, invoices and financial reconciliation.
-- Holidays, planned employee time off, automated reminders and recurring appointments.
+- Card payments, refunds, invoices and financial reconciliation with a provider. Cash payments, receipts and the payment ledger are implemented (section 5.12).
+- Recurring appointments.
+- Partial-day employee absences (time off covers whole days only).
+- Turn-by-turn routing inside Salonhub. Directions open in Google Maps, and the arrival estimate is calculated from distance.
 - Real-time chat, and ratings for single employees or services.
 - Native mobile applications and mobile push notifications.
 - Subscription plans and multi-tenant billing.
@@ -163,11 +177,15 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 | Identity and access | Implemented | Registration, email verification with resend cooldown, login, logout, password recovery, JWT sessions, role checks, blocked-account enforcement |
 | Unified profile and career mode | Implemented | One profile for each person; career data extends it; completion score |
 | Salon onboarding and governance | Implemented | Salon request, admin approval or rejection with reason, correction and resubmission, reversible blocking |
-| Salon profile, location and media | Implemented | Salon page, Google Maps location inside Jordan, cover image, employee work gallery through Cloudinary |
+| Salon profile, location and media | Implemented | Salon page, map pin chosen in a Google Maps dialog and saved on its own, map and directions on the public page, cover image, employee work gallery through Cloudinary |
 | Service catalog | Implemented | Owner-managed services with price and duration; public list of active services |
 | Team, capabilities and schedules | Implemented | Employee directory, service capabilities, weekly working periods |
-| Appointment booking | Implemented | Server-calculated 15-minute slots, request, owner decision, employee assignment, customer-approved reschedule, completion |
-| Notification inbox | Implemented | Durable booking and friend events, unread count, read operations, polling |
+| Employee time off | Implemented | Whole-day absences that the owner adds; the booking calendar skips them and the owner sees affected appointments |
+| Appointment booking | Implemented | Four-step wizard, server-calculated 15-minute slots, "Let the salon assign" option, reason and next free day when a date is full, owner assign-and-accept, customer-approved reschedule, completion |
+| Appointment life cycle automation | Implemented | Unanswered requests expire after 24 hours, reminders one day and two hours before a confirmed visit, no-show marking 15 minutes after the start, answer deadline shown to customer and owner |
+| Salon holidays | Implemented | Whole-day closures of the full salon; the booking calendar skips them, guests see them on the salon page, and the owner sees the appointments inside them |
+| Live appointment tracking | Implemented | Customer trip sharing with distance and arrival estimate, automatic arrival, service start, extension and completion, live progress for customer, employee and owner |
+| Notification inbox | Implemented | Durable booking, reminder, expiry, live-tracking and friend events, unread count, read operations, polling |
 | Verified reviews | Implemented | One review for each completed booking; public list and summary |
 | Hiring | Implemented | Hiring posts, personalized discovery, ranked applications, owner decisions, post life cycle |
 | Employment, leave and transfer | Implemented | Requests, invitations, leave, transfer between salons |
@@ -179,7 +197,7 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 | Lamsa AI assistant | Implemented | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
 | Design system | Implemented | Plum and gold identity, light and dark themes, shared tokens, motion rules, accessible focus states |
 | Interactive prototype | Implemented | `/prototype` shows the main journeys with sample data |
-| Payments | Planned | No implementation |
+| Payments | Partial | Method choice when booking, cash received by staff, receipts, payment ledger, unpaid list, owner money summary and payment settings. Card methods are designed and locked until a provider is connected |
 | Production operations | Partial | Docker image and hosting exist; managed migrations, monitoring and durable token revocation remain |
 
 ### 5.1 Community
@@ -222,7 +240,20 @@ A command palette opens from the navigation bar. It searches a catalog of pages 
 
 ### 5.5 Salon location and media
 
-Salon creation and editing accept an optional full HTTPS Google Maps URL together with latitude and longitude. The backend requires the three values together, accepts Google Maps hosts only, and validates the coordinates against Jordan's geographic bounds. Public salon pages present the city as a separate, readable link that opens the saved map location without allowing it to collide with the salon name.
+**Choosing the location.** On the salon edit page the owner selects **Select location on map**. A dialog opens with a Google Maps view. The owner searches for a place, drops the pin, or uses the current device position, and then saves. The pin is saved through its own endpoint (`PUT /api/salons/{salonId}/location`), so other profile fields, for example an old description that is shorter than the current rule, never block it. The owner can also remove the pin.
+
+| Rule | Value |
+| --- | --- |
+| Coordinates | Latitude and longitude are required together, or both are null to remove the pin |
+| Allowed area | Inside Jordan: latitude 29.0 to 33.5, longitude 34.8 to 39.4 |
+| Precision | Rounded to 7 decimal places (about 1 cm) |
+| Map link | Built by the server as `https://www.google.com/maps/search/?api=1&query=<lat>,<lng>`. The client never sends a link, so no foreign or unsafe URL can be stored |
+| City | Optional. A supported Jordan city that the map detects replaces the profile city; any other value is ignored |
+| Errors | Shown inside the dialog, because a toast message is hidden below an open modal dialog |
+
+**Showing the location.** The public salon page shows a location card with an embedded map (no API key needed). A guest opens a larger map view in a dialog and selects **Directions**, which opens Google Maps with the route from the current position to the salon. When the browser does not share the position, Google Maps asks for the start point.
+
+Salon creation and the full salon edit still accept an optional HTTPS Google Maps URL with latitude and longitude for backward compatibility. The backend requires the three values together, accepts Google Maps hosts only, and validates the coordinates against Jordan's geographic bounds.
 
 Salon cover images and employee portfolio media use a backend `MediaStorageService` abstraction implemented with Cloudinary's authenticated upload API. Cloudinary credentials remain backend environment variables. React never receives the API secret. Device files are selected through native image/video inputs, previewed locally, validated again by the server, uploaded to Cloudinary, and persisted as HTTPS delivery URLs plus provider public IDs. Public image delivery adds automatic format, quality, crop, and size transformations. Replacing a salon cover removes the previous managed Cloudinary asset; deleting employee media requires that the authenticated employee owns the database record.
 
@@ -237,11 +268,186 @@ The public employee directory uses a dedicated public DTO. It may show name, spe
 | `GET` | `/api/media/salons/{salonId}/work` | Public | Return the accepted salon's paginated public work gallery |
 | `DELETE` | `/api/media/work/{mediaId}` | Publishing employee | Remove an owned gallery record and its managed Cloudinary asset |
 
-### 5.6 Administration
+### 5.6 Booking wizard
+
+The customer opens a salon page and selects **Book**. The wizard at `/salons/:salonId/book` has four steps. A summary panel stays beside the steps on large screens and below them on small screens.
+
+| Step | What the customer does | Rules |
+| --- | --- | --- |
+| 1. Service | Selects one to ten services | Only active services of the salon; total price and duration update at once |
+| 2. Professional | Selects a professional, or **Let the salon assign** | Only active employees who can do every selected service. With **Let the salon assign** the owner picks the employee later |
+| 3. Date and time | Selects a date chip, then a free time | Times are inside salon hours, on a 15-minute grid, at least 30 minutes ahead on the same day. Employees on time off or busy are removed |
+| 4. Review | Checks the summary, adds a note and the start location, and sends | The server checks the time again before it saves the request |
+
+When a date has no free time, the server returns the reason and the next free date within 14 days. The wizard shows a short message and a button that goes to that date.
+
+| Reason code | Message to the customer |
+| --- | --- |
+| `TIME_OFF` | The selected professional is on time off that day |
+| `NOT_WORKING` | The selected professional does not work that day |
+| `FULLY_BOOKED` | All qualified professionals are booked that day |
+| `NO_TIME_LEFT_TODAY` | No time is left today after the 30-minute notice |
+| `NO_QUALIFIED_EMPLOYEE` | No professional can do all of the selected services |
+
+After sending, the customer sees a confirmation and the booking in **My bookings** with the status `PENDING`. The owner and, when one was chosen, the employee receive a notification.
+
+### 5.7 Employee time off
+
+The owner adds time off on the employee setup page (`/owner/employees/:employeeId/setup`). Time off covers whole days, and both dates are included.
+
+| Rule | Value |
+| --- | --- |
+| Length | 1 to 90 days |
+| Planning window | Must include today or a later day, and must start within one year |
+| Overlap | Not allowed with another time off of the same employee |
+| Reason | Optional, up to 255 characters, visible to the owner only |
+| Effect on booking | The employee does not appear for those days, and the wizard shows `TIME_OFF` with the next free date |
+| Existing appointments | The response counts the pending and confirmed appointments inside the new time off, so the owner can reassign them |
+
+### 5.8 Owner assignment and confirmation
+
+The owner opens a pending booking and selects **Assign and accept**. A dialog lists the employees who can do every service of the booking. Each employee shows **Available**, or the reason why not (`TIME_OFF`, `NOT_WORKING`, `BUSY`). The owner cannot accept without an employee. Acceptance repeats all availability checks inside a lock, so two owners or two tabs cannot give one employee two appointments at the same time.
+
+On acceptance:
+
+1. The booking becomes `ACCEPTED` with the assigned employee.
+2. The customer receives `BOOKING_ACCEPTED`.
+3. The employee receives `BOOKING_ASSIGNED`.
+
+A pending request that names an employee holds that time. A second customer therefore cannot request the same time with the same employee.
+
+### 5.9 Live appointment tracking
+
+A confirmed appointment has one live view. Each person sees it in their own booking list: **My bookings** (customer), **My appointments** (employee) and **Salon bookings** (owner). The view refreshes every 15 seconds while the page is visible.
+
+```mermaid
+flowchart LR
+    acc["ACCEPTED"] --> trip{"Customer shares trip?"}
+    trip -- yes --> way["ON_THE_WAY<br/>distance + arrival estimate"]
+    trip -- no --> wait["Waiting at salon time"]
+    way --> arr["ARRIVED<br/>within 80 m, or by button"]
+    wait --> start
+    arr --> start["Employee starts service<br/>IN_PROGRESS"]
+    start --> ext["Extend 5 to 60 min"]
+    ext --> start
+    start --> done["COMPLETED<br/>customer can review"]
+```
+
+| Topic | Rule |
+| --- | --- |
+| Trip sharing window | From 3 hours before the appointment until its planned end |
+| Position updates | The browser sends the position about every 12 seconds while moving, and at least every 45 seconds. The server ignores updates closer than 8 seconds |
+| Arrival estimate | Straight-line distance × 1.35 road factor, at 28 km/h city speed, plus 2 minutes. Shown as an estimate |
+| Arrival | Automatic within 80 m of the salon, or when the customer selects **I've arrived** |
+| Privacy | Only the assigned employee and the owner see the customer's position, and only while `ON_THE_WAY`. The server deletes the coordinates on arrival, stop, completion or cancellation |
+| Start | The assigned employee or the owner. Earliest 60 minutes before the appointment, on the same day. One employee can serve one client at a time |
+| Extend | 5 to 60 minutes at a time, at most 120 minutes over the plan |
+| Complete | From `ACCEPTED` or `IN_PROGRESS`. The customer can then write a review |
+| Customer sees | Employee state: waiting for assignment, available, busy with another client (no details of that client), serving you, finished. Remaining time, progress and expected end |
+| Employee sees | Whether the customer is on the way, distance, arrival estimate and expected arrival time, and a directions link to the customer's position |
+
+| Event | Receiver |
+| --- | --- |
+| `BOOKING_CUSTOMER_ON_THE_WAY` | Assigned employee |
+| `BOOKING_CUSTOMER_ARRIVED` | Assigned employee |
+| `BOOKING_SERVICE_STARTED` | Customer |
+| `BOOKING_COMPLETED` | Customer |
+
+The arrival estimate sits behind a `TravelTimeEstimator` interface. A routing provider with traffic data can replace the distance estimate without a change to the API.
+
+### 5.10 Appointment life cycle and salon holidays
+
+Version 2.2.0 closes the gaps of the booking life cycle. A background job on the API checks every minute. Each booking is changed in its own transaction, and each notification has a unique event key, so a repeated run sends nothing twice.
+
+```mermaid
+flowchart LR
+    req["PENDING request"] --> ans{"Salon answers<br/>before the deadline?"}
+    ans -- no --> exp["EXPIRED<br/>customer and owner told"]
+    ans -- yes --> acc["ACCEPTED"]
+    acc --> r1["Reminder 1 day before"]
+    r1 --> r2["Reminder 2 hours before<br/>customer and employee"]
+    r2 --> visit{"Customer comes?"}
+    visit -- yes --> live["Live service<br/>section 5.9"]
+    visit -- "no, 15 min after start" --> ns["NO_SHOW<br/>customer told"]
+```
+
+| Rule | Value |
+| --- | --- |
+| Answer deadline | 24 hours after the request, but never later than the appointment start |
+| Expiry | At the deadline, a `PENDING` request becomes `EXPIRED`. Open reschedule proposals are cancelled. The held employee time becomes free |
+| Late accept | The API rejects an accept after the deadline, also before the job runs |
+| Deadline in the interface | The customer sees "The salon answers by …". The owner sees "Answer by … · time left"; under 3 hours it is marked urgent |
+| Reminders | `DAY` from 24 hours before, to the customer. `SOON` from 2 hours before, to the customer and the assigned employee. A later reminder replaces an earlier one that was not sent |
+| No-show | The assigned employee or the owner can mark a confirmed appointment `NO_SHOW` from 15 minutes after the start, when the customer is not checked in. It cannot be undone |
+| Salon holiday length | 1 to 60 days, both dates included |
+| Holiday planning window | Must include today or a later day, and must start within one year |
+| Holiday overlap | Not allowed with another closure of the same salon |
+| Holiday note | Optional, up to 255 characters, shown to guests |
+| Effect on booking | No times on closed days; the wizard shows `SALON_CLOSED` with the next open date, and the owner cannot assign an employee for a closed day |
+| Existing appointments | The response counts the pending and confirmed appointments inside the new closure, so the owner can move or cancel them |
+
+The owner manages holidays on the salon edit page in the panel **Days the salon is closed**. The public salon page shows upcoming closures under the description; on a closed day it shows "Closed today".
+
+| Event | Receiver |
+| --- | --- |
+| `BOOKING_EXPIRED` | Customer and owner |
+| `BOOKING_REMINDER` | Customer (`DAY` and `SOON`) and assigned employee (`SOON`) |
+| `BOOKING_NO_SHOW` | Customer |
+
+### 5.11 Administration
 
 The admin dashboard is a separate application so that administrative code and sessions stay apart from the public web application. It contains these pages: sign-in, overview, analytics, activity, reports, salons, salon detail, users, person detail and administrator profile.
 
 The analytics endpoint returns totals for users (active, blocked, owners, employees, career profiles), salons by state, bookings by state, gross and completed booking value, and a monthly trend.
+
+### 5.12 Payments
+
+Version 2.3.0 delivers step A of payments: everything that works without a card provider. Steps B and C add card payment later, on the same data model.
+
+| Step | Scope | State |
+| --- | --- | --- |
+| A. Cash and records | Method choice in the wizard, payment record and ledger, **Cash received**, receipts, unpaid list, owner summary, owner settings, commission field | Implemented |
+| B. Card after the service | Payment link after the service, provider webhook confirms the payment | Planned, needs a provider |
+| C. Card now | Hold at booking, capture after the service, release on cancel, refunds, late-cancel and no-show fees | Planned, needs a provider |
+
+```mermaid
+flowchart LR
+    book["Customer books<br/>chooses a method"] --> open["Payment UNPAID"]
+    open --> svc{"Service<br/>started or done?"}
+    svc -- yes --> cash["Staff: Cash received"]
+    cash --> paid["PAID<br/>receipt SH-salon-number"]
+    open -- "rejected, cancelled,<br/>expired, no-show" --> void["VOIDED<br/>no charge"]
+```
+
+| Rule | Value |
+| --- | --- |
+| Money | Stored as whole fils (1 JOD = 1000 fils), never as floating point. The interface shows three decimals, for example `19.500 JOD` |
+| Methods | `CASH`, `CARD_POSTPAID` (card after the service), `CARD_PREPAID` (card now). Card methods need a connected provider; until then the API rejects them and the wizard shows them locked as "Coming soon" |
+| Default | When the request has no method, the salon's first available method is used (cash) |
+| Amount | Copied from the booking total when the booking is created. Later price changes do not change it |
+| Who records cash | The assigned employee or the salon owner. Never the customer |
+| When | Only while the service runs or after it is complete, and only for an unpaid payment that is not paid by card in advance |
+| Repeat | Recording cash twice returns the same receipt and changes nothing |
+| Method change | A guest who chose card after the service can still pay cash; the ledger keeps a `METHOD_CHANGED` entry |
+| Receipt number | `SH-{salon id}-{payment id}`, for example `SH-1-000042` |
+| Closing | Rejected, cancelled, expired and no-show bookings close their payment as `VOIDED` with a ledger entry. Nothing is charged |
+| Free cancellation | 24 hours by default; the owner can set 0 to 168 hours |
+| Fees | Late-cancel and no-show fee percents (0 to 100) are stored now and apply only to card-now bookings in step C. Cash guests never pay a fee |
+| Commission | Stored on each payment as a rate and an amount. The rate is `0` and comes from configuration (`PAYMENT_COMMISSION_BPS`); a change applies only to new payments |
+| Payouts | Each salon receives its own money (sub-merchant model in step B and C). Salonhub holds no money |
+| Card data | Never on Salonhub servers; the provider's hosted page will collect it |
+
+| Screen | Who | What it shows |
+| --- | --- | --- |
+| Booking wizard, step 4 | Customer | Three payment cards (cash, card after, card now), the total, and the free-cancellation rule |
+| My Bookings | Customer | Method, amount and payment state on each booking; **Receipt** after payment |
+| Salon Bookings and My appointments | Owner and employee | The same payment line, with **Cash received** when collecting is allowed, and **Receipt** after payment |
+| Payments (`/owner/payments`) | Owner | Collected, cash, card, still unpaid and net for today, 7 days, this month or 30 days; finished-but-unpaid list; payment settings |
+| Receipt | All three | Salon, guest, appointment, method, lines and total. The owner also sees commission, net and the ledger |
+
+| Event | Receiver |
+| --- | --- |
+| `PAYMENT_RECEIVED` | Customer |
 
 ---
 
@@ -270,8 +476,21 @@ The analytics endpoint returns totals for users (active, blocked, owners, employ
 | FR-15 | Owners can see one operational dashboard for the owned salon | Implemented |
 | FR-16 | Users can search pages and people from each page | Implemented |
 | FR-17 | An assistant answers questions and gives suggestions from live platform data only | Implemented |
-| FR-18 | Customers can pay for appointments online | Planned |
+| FR-18 | Customers can pay for appointments online | Partial: method choice and cash are implemented; card needs a provider |
 | FR-19 | Operators can deploy, monitor, migrate, back up and recover the system | Partial |
+| FR-20 | Owners can set the salon location on a map, and visitors can view it and get directions | Implemented |
+| FR-21 | Owners can record whole-day employee time off, and booking availability excludes it | Implemented |
+| FR-22 | Customers can let the salon assign the employee, and the owner cannot accept a booking without one | Implemented |
+| FR-23 | When a date is full, customers see the reason and the next free date | Implemented |
+| FR-24 | Customers can share their trip, and the assigned employee sees the distance and arrival estimate | Implemented |
+| FR-25 | Customers can follow the service progress and expected end, and staff can start, extend and complete it | Implemented |
+| FR-26 | A pending request that the salon does not answer in 24 hours expires, and both sides are told | Implemented |
+| FR-27 | Customers receive reminders one day and two hours before a confirmed appointment | Implemented |
+| FR-28 | Owners can close the whole salon on chosen days, and nobody can book on those days | Implemented |
+| FR-29 | Staff can record a no-show 15 minutes after the start of a confirmed appointment | Implemented |
+| FR-30 | Staff can record a cash payment once, and the customer receives a receipt | Implemented |
+| FR-31 | Owners can see collected and unpaid money for a period and set accepted methods, free-cancel hours and fees | Implemented |
+| FR-32 | Every payment change is kept in an append-only ledger with the person who made it | Implemented |
 
 ### 6.2 Non-functional requirements
 
@@ -285,13 +504,15 @@ The analytics endpoint returns totals for users (active, blocked, owners, employ
 | Security | TLS, managed secrets, least privilege, dependency scanning, and authorization tests | Partial |
 | Reliability | Transactional state changes, idempotency where required, and recovery procedures | Partial |
 | Data integrity | Versioned migrations, constraints, locking, and production backup validation | Partial |
+| Privacy of location | Customer position only with consent, only to the assigned staff, deleted after the trip | Implemented for live tracking |
+| Freshness | Live appointment data at most 15 seconds old while the page is visible | Implemented through polling; push delivery is planned |
 | Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Planned |
 | Accessibility | Frontend journeys should target WCAG 2.2 AA | Frontend responsibility; not yet verified |
 | Localization | Define supported languages, locale-sensitive dates, and message strategy | Planned |
 
 ## 7. Delivery history
 
-The product was built in small reviewed slices. The backend repository starts on 8 July 2026 and holds 138 commits; the web application repository holds 166 commits (14 November 2026).
+The product was built in small reviewed slices. The backend repository starts on 8 July 2026 and holds 147 commits; the web application repository holds 180 commits (16 November 2026).
 
 | Phase | Period | Delivered |
 | --- | --- | --- |
@@ -301,6 +522,9 @@ The product was built in small reviewed slices. The backend repository starts on
 | 4. Trust and experience | Late October to early November 2026 | Verified registration and password recovery, owner dashboard, plum and gold design system, salon location and media |
 | 5. Community and administration | November 2026 | Community, friend notifications, moderation reports, admin dashboard with analytics and activity, global search, community workspace redesign |
 | 6. Assistance | November 2026 | Lamsa assistant (API, chat page, floating chat, home page picks), refined buttons, focus states, card motion and application background |
+| 7. Live appointments | 16 November 2026 | Map location picker and directions, four-step booking wizard, employee time off, owner assign-and-accept, live trip and service tracking, six new notification events, safe update of old salon fields, enum-to-text column upgrade |
+| 8. Appointment life cycle | 16 November 2026 | Automatic expiry of unanswered requests, answer deadline in the interface, day and two-hour reminders, salon holidays, no-show marking, three new notification events |
+| 12, step A. Payments without a provider | 16 November 2026 | Payment method in the wizard, payment record and ledger, cash received, receipts, unpaid list, owner payments page and settings, commission field kept at 0 |
 
 ```mermaid
 timeline
@@ -311,24 +535,26 @@ timeline
     Early November : Verified sign-up and recovery : Owner dashboard : Design system and media
     November : Community and moderation : Admin dashboard : Global search
     Mid November : Lamsa assistant : Interface refinements
+    16 November : Map location and directions : Booking wizard and time off : Live trip and service tracking : Request expiry and reminders : Salon holidays and no-show : Cash payments and receipts
 ```
 
 Chapter 31 holds the detailed revision history of this document.
 
 ## 8. Roadmap and next phases
 
-The phases below are in priority order. A phase is added to chapter 7 after it is delivered and approved.
+The phases below are in priority order. The numbers continue after the delivered phases. A phase is added to chapter 7 after it is delivered and approved.
 
 | Phase | Goal | Main work | State |
 | --- | --- | --- | --- |
-| 7. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Planned |
-| 8. API documentation | Give integrators one contract | OpenAPI description from the controllers, generated API client shared by both web applications | Planned |
-| 9. Scheduling depth | Cover real salon calendars | Holidays, employee time off, reminders, calendar views, recurring appointments | Planned |
-| 10. Payments | Earn revenue from bookings | Payment provider, refunds, invoices, reconciliation | Planned, needs business approval |
-| 11. Outbound notifications | Reach users outside the application | Email templates, push delivery | Planned |
-| 12. Reviews and reputation | Richer trust signals | Employee and service ratings | Planned |
-| 13. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Planned |
-| 14. Mobile | Native reach | Mobile applications on the same API | Not yet planned in detail |
+| 9. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Planned |
+| 10. API documentation | Give integrators one contract | OpenAPI description from the controllers, generated API client shared by both web applications | Planned |
+| 11. Scheduling depth | Cover real salon calendars | Partial-day absences, calendar views, recurring appointments, owner-set answer windows, no-show history and deposits | Planned (time off delivered in phase 7; salon holidays, reminders, expiry and no-show in phase 8) |
+| 12. Payments | Earn revenue from bookings | Step B: card after the service with a payment link and webhook. Step C: card now with hold, capture, release, refunds and fees. Then invoices and reconciliation | Step A delivered (2.3.0); B and C need a provider decision |
+| 13. Outbound notifications | Reach users outside the application | Email templates, push delivery, live updates over WebSocket or server-sent events instead of polling | Planned |
+| 14. Reviews and reputation | Richer trust signals | Employee and service ratings | Planned |
+| 15. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Planned |
+| 16. Mobile | Native reach | Mobile applications on the same API, background trip sharing | Not yet planned in detail |
+| 17. Routing accuracy | Better arrival estimates | Routing provider with live traffic behind the existing `TravelTimeEstimator` interface | Planned |
 
 > **Reserved for later phases.** New phases are added to this table first, then described in a subsection of this chapter with goal, scope, acceptance criteria and dependencies.
 
@@ -345,13 +571,13 @@ The phases below are in priority order. A phase is added to chapter 7 after it i
 | R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
 | R-06 | Missing retention and deletion policy creates privacy ambiguity | Medium | High | Approve data-governance policy before launch |
 | R-07 | Production logs and monitoring are not yet designed | High | High | Implement observability requirements and runbooks |
-| R-08 | Holidays and employee time-off exceptions are not implemented | Medium | High | Add dated salon closures and employee absence records to the availability calculation |
-| R-09 | Payment processing and reconciliation are not implemented | High | Certain | Approve payment methods and provider before defining secure payment APIs |
+| R-08 | Resolved in version 2.2.0: salon-wide holidays | Medium | Resolved | Salon closures remove whole days from availability and assignment |
+| R-09 | Card processing and reconciliation are not implemented; cash and receipts are (2.3.0) | High | Certain | Choose a provider with sub-merchant payouts and a hosted card page, then build steps B and C behind the existing `PaymentGateway` interface |
 | R-10 | Employee and service ratings are not implemented | Low | High | Approve per-booking rating dimensions and edit policy before extending verified reviews |
 | R-11 | Frontend salon-media calls have no matching backend routes | Medium | Certain | Define media ownership, storage, moderation, DTOs, and persistence before enabling the page |
 | R-12 | Swagger UI security paths exist without the Springdoc runtime dependency | Low | Certain | Add and configure a compatible Springdoc/OpenAPI dependency before publishing Live API Test |
 | R-13 | Resolved: Spring Security 401/403 responses use the application `ApiResponse` envelope | Medium | Resolved | Custom authentication entry point and access-denied handler preserve status codes and clear messages; nine filter-chain integration tests cover rejected and permitted requests |
-| R-14 | Dashboard financial values are operational summaries rather than settled payment records | High | High | Label them as booking revenue estimates until payment capture, refunds, fees, and reconciliation are implemented |
+| R-14 | The owner dashboard still shows booking value, not received money | Medium | High | The Payments page (2.3.0) shows settled payment records; move the dashboard revenue card to the same source |
 
 ### Entity exposure
 
@@ -381,11 +607,41 @@ Hibernate currently uses automatic schema update. Production environments should
 
 | ID | Risk | Effect | Mitigation |
 | --- | --- | --- | --- |
-| R-15 | Schema changes use Hibernate `ddl-auto=update` plus hand-written SQL files; no migration tool applies them in order | A deployment can leave the database different from the code | Adopt a migration tool (phase 7) and make the SQL files in `database/migrations` its first versions |
-| R-16 | Only the web application has continuous integration | A broken backend or admin build can reach the main branch | Add build-and-test workflows for both repositories (phase 7) |
+| R-15 | Schema changes use Hibernate `ddl-auto=update` plus hand-written SQL files; no migration tool applies them in order | A deployment can leave the database different from the code | Adopt a migration tool (phase 9) and make the SQL files in `database/migrations` its first versions |
+| R-16 | Only the web application has continuous integration | A broken backend or admin build can reach the main branch | Add build-and-test workflows for both repositories (phase 9) |
 | R-17 | The assistant depends on an external AI service | An outage or a cost increase affects AI replies | Guide mode answers without the service; a rate limit caps use; the model name is configuration |
 | R-18 | User-written community content | Harmful content can stay visible until an administrator acts | Reports and admin review exist; automatic filtering is not implemented |
 | R-19 | One author wrote the product | Knowledge is concentrated in one person | This document, the tests and the enforced code structure reduce the dependence |
+
+### Risks added in version 2.1.0
+
+| ID | Risk | Effect | Mitigation |
+| --- | --- | --- | --- |
+| R-20 | The customer's live position is personal data | Misuse or a leak harms the customer | Sharing starts only by customer action, is visible to the assigned staff only, and the server deletes coordinates after the trip. A written retention policy is still needed (chapter 22) |
+| R-21 | The arrival estimate uses distance, not real roads or traffic | The employee can see an estimate that is too short or too long | The interface labels it as an estimate; a routing provider can replace it (phase 17) |
+| R-22 | Live views poll every 15 seconds | Many open pages create load on the API | Polling stops when the tab is hidden; push delivery is planned (phase 13) |
+| R-23 | `LegacyEnumColumnUpgrade` changes three MySQL columns from `ENUM` to `VARCHAR` on start-up | A failed change at deploy time stops new status values from saving | The change keeps all stored values, runs only when the column is still `ENUM`, and logs each conversion. Check the deploy log once. A migration tool replaces it in phase 9 |
+| R-24 | A pending request that names an employee holds that time | A customer who never gets a decision blocks the employee | The owner sees pending requests first; resolved in version 2.2.0: requests expire 24 hours after creation, or at the appointment start |
+
+### Risks added in version 2.2.0
+
+| ID | Risk | Effect | Mitigation |
+| --- | --- | --- | --- |
+| R-25 | The life cycle job runs inside each API instance | Two instances do the same checks; a stopped instance delays expiry and reminders | Each change locks the booking and checks its state again, and event keys stop duplicate notices. Accept rejects overdue requests even when the job is late. A shared scheduler lock (for example ShedLock) is planned with phase 9 |
+| R-26 | A no-show is the staff's decision and cannot be undone | A wrong mark can upset a customer who came late | It is allowed only 15 minutes after the start and only when the customer is not checked in; the customer is told and is asked to contact the salon |
+| R-27 | The answer window is fixed at 24 hours for all salons | A slow salon loses requests; a fast salon could use a shorter window | The value is one constant in `BookingTimePolicy`; an owner setting is planned (phase 11) |
+| R-28 | The database connection uses `serverTimezone=UTC` while the server clock uses local time | Raw SQL reads show times 3 hours behind the application | The application converts both ways, so its own reads are correct. Use the API, not raw SQL, to check times; agree one time zone in phase 9 |
+
+### Risks added in version 2.3.0
+
+| ID | Risk | Effect | Mitigation |
+| --- | --- | --- | --- |
+| R-29 | **Cash received** depends on the staff's word | A wrong or false record shows money that the salon does not have | Only the assigned employee or the owner can record it; the ledger keeps who and when; the customer is told at once and can object; the owner sees every entry |
+| R-30 | No card provider is chosen | Steps B and C cannot start; card methods stay locked | The `PaymentGateway` interface, card statuses and ledger types exist; the choice needs a business decision (local acquirer support, sub-merchant payouts, fees) |
+| R-31 | Bookings made before 2.3.0 have no payment record | They show no payment line and are not in the unpaid list or the totals | Intended: no back-fill guesses money that was never recorded. The owner can see them in Salon Bookings as before |
+| R-32 | The commission rate is server configuration | A wrong value affects every new payment until a restart | The value is validated at start (0 to 10000 basis points); each payment stores its own rate and amount, so a change never rewrites history |
+
+---
 
 ---
 
@@ -412,7 +668,8 @@ flowchart LR
     cloud["Cloudinary<br/>media storage"]
     mail["SMTP<br/>email codes"]
     ai["Anthropic Claude<br/>reply wording"]
-    maps["Google Maps<br/>location links"]
+    maps["Google Maps<br/>map embed and directions"]
+    geo["Browser geolocation<br/>trip sharing"]
 
     customer --> web
     pro --> web
@@ -424,7 +681,8 @@ flowchart LR
     api --> cloud
     api --> mail
     api -.->|"optional"| ai
-    web -.->|"opens link"| maps
+    web -.->|"embed, opens route"| maps
+    web -.->|"customer consent"| geo
 ```
 
 The API is the only business gateway. Both web applications hold no business rules that the API does not enforce again.
@@ -500,6 +758,12 @@ ESLint enforces these rules: `shared` cannot import `features` or `app`; views c
 | The assistant loads facts first and lets the model write only the wording | No invented salons, ratings or jobs |
 | Media goes through a backend storage abstraction | The Cloudinary secret never reaches the browser, and the provider can be replaced |
 | Secrets come from environment variables | No production secret is committed |
+| The server builds the map link from the coordinates | No client-supplied URL is stored or shown to visitors |
+| The salon pin has its own endpoint | An old profile field that breaks a newer rule cannot block a location change |
+| Live tracking is a separate controller and an embedded `BookingTracking` value | The booking life cycle stays simple, and tracking fields are cleared in one place |
+| Arrival estimate behind the `TravelTimeEstimator` interface | A routing provider can replace the distance estimate without an API change |
+| Enum columns are stored as `VARCHAR` | New status values can be added without a database `ALTER` for each value |
+| Polling every 15 seconds only while the tab is visible | Live data without a socket server; low cost while the user is away |
 
 ## 11. Application behaviour and flows
 
@@ -510,8 +774,10 @@ flowchart LR
     guest(["Guest"]) --> u1["Browse salons and services"]
     guest --> u2["Ask Lamsa in guide mode"]
     guest --> u3["Register and verify email"]
+    guest --> u4["View salon map and get directions"]
 
-    cust(["Customer"]) --> c1["Book an appointment"]
+    cust(["Customer"]) --> c1["Book an appointment in four steps"]
+    cust --> c6["Share the trip and follow the service live"]
     cust --> c2["Accept or reject a new time"]
     cust --> c3["Review a completed visit"]
     cust --> c4["Post, comment, follow, add friends"]
@@ -520,11 +786,13 @@ flowchart LR
     prof(["Professional"]) --> p1["Keep a career profile"]
     prof --> p2["Find and apply to jobs"]
     prof --> p3["Join, leave or transfer salon"]
-    prof --> p4["See assigned bookings"]
+    prof --> p4["See assigned bookings and customer arrival"]
+    prof --> p5["Start, extend and complete a service"]
 
     own(["Owner"]) --> o1["Request and manage a salon"]
-    own --> o2["Manage services, team and schedules"]
-    own --> o3["Decide, assign and complete bookings"]
+    own --> o6["Pick the salon location on a map"]
+    own --> o2["Manage services, team, schedules and time off"]
+    own --> o3["Assign and accept, follow and complete bookings"]
     own --> o4["Publish hiring posts and decide applications"]
     own --> o5["Read the owner dashboard"]
 
@@ -543,17 +811,20 @@ flowchart TD
     home --> reg["Register"] --> verify["Verify email code"] --> login["Sign in"]
     salon --> needlogin{"Signed in?"}
     needlogin -- no --> login
-    needlogin -- yes --> book["Choose services and a time"]
+    needlogin -- yes --> book["Wizard: service, professional<br/>or let the salon assign, time, review"]
     login --> book
     book --> pending["Booking PENDING"]
     pending --> decision{"Owner decision"}
-    decision -- accept --> accepted["ACCEPTED<br/>employee assigned"]
+    decision -- assign and accept --> accepted["ACCEPTED<br/>employee assigned"]
     decision -- reject --> rejected["REJECTED with note"]
     decision -- new time --> proposal["Reschedule proposal"]
     proposal --> custdec{"Customer answer"}
     custdec -- accept --> accepted
     custdec -- reject --> pending
-    accepted --> done["COMPLETED"]
+    accepted --> trip["Customer shares trip<br/>employee sees ETA"]
+    trip --> running["IN_PROGRESS<br/>live progress"]
+    accepted --> running
+    running --> done["COMPLETED"]
     done --> review["Customer writes a review"]
 
     login --> career["Turn on career profile"] --> jobs["Hiring posts ranked for the profile"]
@@ -622,17 +893,21 @@ flowchart TD
     e --> f["For each time: find active employees"]
     f --> g{"Qualified for every selected service?"}
     g -- no --> x["Employee not eligible"]
-    g -- yes --> h{"Working for the full interval?"}
+    g -- yes --> t{"On time off that day?"}
+    t -- yes --> x
+    t -- no --> h{"Working for the full interval?"}
     h -- no --> x
-    h -- yes --> i{"Free of accepted bookings?"}
+    h -- yes --> i{"Free of PENDING, ACCEPTED<br/>and IN_PROGRESS bookings?"}
     i -- no --> x
     i -- yes --> j["Employee eligible for this time"]
     j --> k{"At least one eligible employee?"}
     k -- yes --> l["Time offered to the customer"]
     k -- no --> m["Time hidden"]
+    m --> n{"No time at all that day?"}
+    n -- yes --> r["Return reason code and<br/>next free date (14 days)"]
 ```
 
-The same checks run again when the customer submits the booking.
+The same checks run again when the customer submits the booking and when the owner accepts it. A running service that is extended holds the employee until its new expected end.
 
 ### 11.6 Booking sequence
 
@@ -651,13 +926,18 @@ sequenceDiagram
     W->>A: Create booking
     A->>A: Re-check the slot
     A->>D: Save booking PENDING with price and duration snapshot
+    A->>D: Notify owner (BOOKING_REQUESTED)
     O->>W: Open pending bookings
-    O->>A: Accept and assign employee
-    A->>D: Lock employee, check conflicts
-    A->>D: Save ACCEPTED + notification (one transaction)
-    A-->>C: Notification in inbox
-    O->>A: Complete appointment
-    A->>D: Save COMPLETED
+    O->>A: GET assignable-employees
+    A-->>O: Qualified employees with Available or reason
+    O->>A: Accept with the chosen employee
+    A->>D: Lock employee, check time off, schedule and conflicts
+    A->>D: Save ACCEPTED + notifications (one transaction)
+    A-->>C: BOOKING_ACCEPTED in inbox
+    A->>D: BOOKING_ASSIGNED for the employee
+    Note over C,O: Live tracking, see section 11.12
+    O->>A: Complete appointment (owner or employee)
+    A->>D: Save COMPLETED + BOOKING_COMPLETED
     C->>A: Create review for the completed booking
 ```
 
@@ -671,8 +951,15 @@ stateDiagram-v2
     PENDING --> CANCELLED: customer cancels
     ACCEPTED --> CANCELLED: customer cancels
     ACCEPTED --> ACCEPTED: customer accepts a reschedule proposal
-    ACCEPTED --> COMPLETED: owner completes
+    ACCEPTED --> IN_PROGRESS: employee or owner starts service
+    IN_PROGRESS --> IN_PROGRESS: extend 5 to 60 minutes
+    ACCEPTED --> COMPLETED: owner or employee completes
+    IN_PROGRESS --> COMPLETED: owner or employee completes
+    PENDING --> EXPIRED: no answer within 24 hours
+    ACCEPTED --> NO_SHOW: staff marks 15 min after start
     REJECTED --> [*]
+    EXPIRED --> [*]
+    NO_SHOW --> [*]
     CANCELLED --> [*]
     COMPLETED --> [*]
 ```
@@ -763,6 +1050,52 @@ sequenceDiagram
     W-->>U: Go to the related page
 ```
 
+A booking notification opens the booking list with `?bookingId=<id>`. The list scrolls to that booking and highlights it.
+
+### 11.12 Live appointment tracking
+
+```mermaid
+sequenceDiagram
+    actor C as Customer
+    participant W as Web application
+    participant A as API
+    actor E as Employee
+    C->>W: Start trip (up to 3 h before)
+    W->>A: POST tracking/journey/start (position)
+    A->>A: Distance x 1.35 at 28 km/h + 2 min
+    A-->>E: BOOKING_CUSTOMER_ON_THE_WAY
+    loop about every 12 s while moving
+        W->>A: PUT tracking/journey/position
+    end
+    alt within 80 m or customer selects "I've arrived"
+        A->>A: ARRIVED, delete coordinates
+        A-->>E: BOOKING_CUSTOMER_ARRIVED
+    end
+    E->>A: POST tracking/service/start
+    A-->>C: BOOKING_SERVICE_STARTED, expected end
+    opt the work needs more time
+        E->>A: POST tracking/service/extend (5 to 60 min)
+    end
+    E->>A: POST tracking/service/complete
+    A-->>C: BOOKING_COMPLETED, review is open
+    loop every 15 s while the page is visible
+        W->>A: GET tracking
+    end
+```
+
+### 11.13 Employee time off
+
+```mermaid
+flowchart LR
+    o(["Owner"]) --> add["Add time off<br/>start, end, reason"]
+    add --> v{"Valid?<br/>1-90 days, not past,<br/>no overlap"}
+    v -- no --> err["Error message"]
+    v -- yes --> save["Save time off"]
+    save --> count["Count pending and confirmed<br/>appointments in the period"]
+    count --> warn["Owner reassigns them"]
+    save --> avail["Availability skips the employee<br/>reason TIME_OFF"]
+```
+
 ## 12. Domain model
 
 ### 12.1 Entity relationships
@@ -775,6 +1108,9 @@ erDiagram
     USER ||--o{ EMPLOYEE_SERVICE : "can perform"
     SALON_SERVICE ||--o{ EMPLOYEE_SERVICE : "performed by"
     USER ||--o{ EMPLOYEE_SCHEDULE : "works on"
+    USER ||--o{ EMPLOYEE_TIME_OFF : "is away on"
+    SALON ||--o{ EMPLOYEE_TIME_OFF : records
+    SALON ||--o{ SALON_CLOSURE : "is closed on"
     USER ||--o{ BOOKING : requests
     SALON ||--o{ BOOKING : receives
     BOOKING ||--|{ BOOKING_SERVICE : snapshots
@@ -847,13 +1183,33 @@ An employee schedule belongs to one employee and contains zero or more weekly wo
 
 The owner may configure up to 28 periods per employee. Every period must have a valid day and time range, remain inside the salon's opening hours, and avoid overlap with another period on the same day. Adjacent periods are valid. An employee without a saved schedule inherits the salon opening hours for backward compatibility; an explicitly saved empty schedule makes that employee unavailable for the entire week. Schedule records are removed when an accepted leave or transfer removes the employee from the salon.
 
+### Employee time off
+
+An employee time off record (table `employee_time_off`) stores the employee, the salon, an inclusive start date and end date, an optional reason of up to 255 characters, and the creation time. An index on employee, start date and end date keeps the availability check fast. The weekly schedule says when an employee normally works; time off removes whole dates from it. Rules are in section 5.7.
+
+### Salon closure
+
+A salon closure (table `salon_closure`) stores the salon, an inclusive start date and end date, an optional reason of up to 255 characters, and the creation time. An index on salon, start date and end date keeps the availability check fast. Rules are in section 5.10.
+
+### Booking payment and ledger
+
+A booking payment (table `booking_payment`) belongs to one booking through the booking's unique `payment_id` column. It stores the method, status, amount, refunded amount and commission in whole fils, the currency (`JOD`), the commission rate in basis points, a unique receipt number, the paid time, the person who confirmed it, an optimistic-lock version and audit times. An index on status and paid time serves the owner summary.
+
+Each change adds a payment transaction (table `payment_transaction`): type (`CASH_RECEIVED`, `AUTHORIZE`, `CAPTURE`, `VOID`, `REFUND`, `METHOD_CHANGED`), amount, a unique idempotency key, an optional provider reference, the actor, an optional note and the time. Rows are only added, never changed. Bookings made before version 2.3.0 have no payment.
+
+### Salon payment settings
+
+Salon payment settings (table `salon_payment_settings`, one row per salon) store which methods the salon accepts, the free-cancel hours and the late-cancel and no-show fee percents. A salon without a row uses the defaults: cash only, 24 hours, no fees.
+
 ### Booking and service snapshot
 
 A booking links the authenticated customer to one accepted, unblocked salon, an optional assigned employee, one or more service-item snapshots, and its reschedule-proposal history. It stores the current date and time, customer contact and location, customer note, owner note, total price, total duration, status, decision time, completion time, cancellation time, and audit timestamps.
 
-Each booking service item copies the source service ID, name, price, and duration at booking creation. Later salon-service edits therefore do not rewrite historical booking totals or labels. Booking status values are `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, and `COMPLETED`.
+Each booking service item copies the source service ID, name, price, and duration at booking creation. Later salon-service edits therefore do not rewrite historical booking totals or labels. Booking status values are `PENDING`, `ACCEPTED`, `IN_PROGRESS`, `REJECTED`, `CANCELLED`, `COMPLETED`, `EXPIRED` and `NO_SHOW`. The booking also stores the no-show time (`no_show_at`).
 
-An employee cannot hold two overlapping `ACCEPTED` bookings on the same date. Acceptance and accepted-booking reassignment lock the selected employee, compare the complete appointment interval against existing accepted appointments, and allow directly adjacent appointments. Pending requests remain visible and do not reserve capacity before the owner accepts them.
+An employee cannot hold two overlapping busy bookings on the same date. Busy statuses are `PENDING` (when the request names the employee), `ACCEPTED` and `IN_PROGRESS`. Acceptance and reassignment lock the selected employee, compare the complete appointment interval against the busy appointments, and allow directly adjacent appointments. A running service that is extended uses its new expected end.
+
+A booking also embeds a `BookingTracking` value for the live view: journey status (`NOT_STARTED`, `ON_THE_WAY`, `ARRIVED`), journey start time, customer latitude and longitude, position update time, distance in metres, arrival estimate in minutes, arrival time, service start time and expected end time. The customer coordinates, distance and estimate exist only while the customer is on the way; the server clears them on arrival, stop, completion and cancellation.
 
 ### Booking reschedule proposal
 
@@ -863,9 +1219,24 @@ The current appointment and booking status remain unchanged while a proposal is 
 
 ### User notification
 
-A user notification belongs to exactly one recipient and one booking. It stores the event type, message, unique event key, salon ID and name snapshots, booking date and time, optional proposed date and time, booking-status snapshot, frontend target path, creation time, and optional read time. Supported booking event types include acceptance, rejection, reschedule proposal and decision, employee reassignment, and cancellation.
+A user notification belongs to exactly one recipient and one booking. It stores the event type, message, unique event key, salon ID and name snapshots, booking date and time, optional proposed date and time, booking-status snapshot, frontend target path, creation time, and optional read time. Supported booking event types:
 
-The recipient is resolved from trusted booking relationships rather than accepted from the client. Acceptance, rejection, suggested-time, and reassignment events go to the customer. A customer cancellation notifies the salon owner and the assigned employee when present. Every publisher method requires an active transaction, so the booking transition and its notifications commit or roll back together. Deterministic event keys plus a database uniqueness constraint make retried actions idempotent.
+| Event type | Receiver | When |
+| --- | --- | --- |
+| `BOOKING_REQUESTED` | Salon owner | A customer sends a booking request |
+| `BOOKING_ACCEPTED` | Customer | The owner accepts the request |
+| `BOOKING_ASSIGNED` | Assigned employee | The owner accepts with this employee |
+| `BOOKING_REJECTED`, `BOOKING_TIME_SUGGESTED` | Customer | The owner rejects, optionally with a suggested time |
+| `BOOKING_RESCHEDULE_PROPOSED` | Customer | The owner proposes a new time |
+| `BOOKING_RESCHEDULE_ACCEPTED`, `BOOKING_RESCHEDULE_REJECTED` | Owner, and the employee after acceptance | The customer answers a proposal |
+| `BOOKING_EMPLOYEE_REASSIGNED` | Customer | The owner changes the employee |
+| `BOOKING_CANCELLED` | Owner and assigned employee | The customer cancels |
+| `BOOKING_CUSTOMER_ON_THE_WAY` | Assigned employee | The customer starts trip sharing |
+| `BOOKING_CUSTOMER_ARRIVED` | Assigned employee | The customer arrives |
+| `BOOKING_SERVICE_STARTED` | Customer | The service starts |
+| `BOOKING_COMPLETED` | Customer | The service is complete; the review is open |
+
+The recipient is resolved from trusted booking relationships rather than accepted from the client. Every publisher method requires an active transaction, so the booking transition and its notifications commit or roll back together. Deterministic event keys plus a database uniqueness constraint make retried actions idempotent.
 
 ### Salon review
 
@@ -923,7 +1294,16 @@ Known identity fields including name, username, email, phone number, role, and u
 | Booking | PENDING | Owner accepts valid request | ACCEPTED | No; customer may cancel |
 | Booking | PENDING | Owner rejects with required note | REJECTED | No |
 | Booking | PENDING or ACCEPTED | Customer cancels owned booking | CANCELLED | No |
-| Booking | ACCEPTED | Owner completes appointment | COMPLETED | No |
+| Booking | ACCEPTED | Assigned employee or owner starts the service | IN_PROGRESS | No |
+| Booking | ACCEPTED or IN_PROGRESS | Assigned employee or owner completes the appointment | COMPLETED | No |
+| Booking | PENDING | Answer deadline passes (life cycle job) | EXPIRED | No; the customer books again |
+| Booking | ACCEPTED | Assigned employee or owner marks a no-show, 15 minutes after the start | NO_SHOW | No |
+| Booking payment | UNPAID | Staff record cash while the service runs or after it | PAID | No; refunds come in step C |
+| Booking payment | UNPAID | Booking is rejected, cancelled, expired or a no-show | VOIDED | No |
+| Booking payment | UNPAID or AUTHORIZED | Provider confirms a hold or a charge (steps B and C) | AUTHORIZED or PAID | Planned |
+| Booking payment | PAID | Refund (step C) | PARTIALLY_REFUNDED or REFUNDED | Planned |
+| Booking journey | NOT_STARTED | Customer starts trip sharing | ON_THE_WAY | Yes, customer stops sharing |
+| Booking journey | ON_THE_WAY | Within 80 m, or customer confirms | ARRIVED | No |
 | Hiring post | Open | Positions filled or owner closes post | Closed | Conditional reopen |
 | Hiring post | Open | Expiration time passes | Expired | Yes, with future date and valid positions |
 | Employment request | Requested | Receiver accepts available applicant | Accepted | Employment ends through leave workflow |
@@ -941,12 +1321,25 @@ Known identity fields including name, username, email, phone number, role, and u
 - A booking contains at least one and at most ten unique active services from its salon.
 - A requested appointment must be in the future and its complete duration must fit inside salon opening hours.
 - An assigned employee must be active in the booking salon, support every selected service, and work for the complete appointment interval.
-- An employee cannot be assigned to overlapping accepted appointment intervals; directly adjacent appointments remain valid.
+- An employee cannot be assigned to overlapping busy appointment intervals (`PENDING` with that employee, `ACCEPTED`, `IN_PROGRESS`); directly adjacent appointments remain valid.
+- An employee on time off for a date is not available on that date.
+- A booking cannot be accepted without an assigned employee.
+- An employee serves one client at a time: a second service cannot start while one is `IN_PROGRESS`.
+- A service runs at most 120 minutes longer than planned.
+- Customer coordinates exist only while the journey is `ON_THE_WAY` and are visible only to the assigned employee and the owner.
+- Time off periods of one employee do not overlap.
+- Closures of one salon do not overlap, and nobody can book or be assigned on a closed day.
+- A pending request cannot be accepted after its answer deadline.
+- A customer who is checked in (`ARRIVED`) cannot be marked as a no-show.
+- A booking made from version 2.3.0 has exactly one payment, and its amount equals the booking total at creation.
+- A payment moves only along its allowed transitions; `VOIDED` and `REFUNDED` are final, and received money is refunded, never voided.
+- Cash is recorded only by the assigned employee or the owner, only for an `IN_PROGRESS` or `COMPLETED` booking, and only once.
+- A card method cannot be chosen or enabled while no payment provider is configured.
 - Replacing an already assigned employee requires a nonblank owner explanation of at most 1000 characters.
 - Notification recipients always come from authenticated or booking-owned server data; inbox reads and read-state updates are restricted to that recipient.
 - A logical booking event has one unique notification event key, and its persistence shares the booking transaction.
 - A missing employee schedule inherits salon hours; a saved empty schedule represents no availability.
-- Only a pending booking can be accepted or rejected, only a pending or accepted owned booking can be cancelled, and only an accepted booking can be completed.
+- Only a pending booking can be accepted or rejected, only a pending or accepted owned booking can be cancelled, and only an accepted or in-progress booking can be completed.
 - Booking service names, prices, and durations are immutable snapshots of the selected services at request time.
 - Only the customer who owns a completed booking may create its single salon review.
 - Review ratings are integers from one through five; comments are optional and limited to 2000 characters.
@@ -1095,7 +1488,7 @@ Each feature holds only the layers that it needs: `pages`, `components`, `hooks`
 | Customer | `/salons/:salonId/book`, `/my-bookings`, `/notifications`, `/account/security` |
 | Career | `/profile/career`, `/hiring-posts/:postId/apply`, `/my-applications`, `/employment` |
 | Community | `/community`, `/community/discover`, `/community/requests`, `/community/following`, `/community/new`, `/community/people/:userId` |
-| Owner | `/owner/dashboard`, `/owner/create-salon`, `/owner/my-salon`, `/owner/my-salon/edit`, `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit`, `/owner/employees`, `/owner/employees/:employeeId/setup`, `/owner/employment`, `/owner/bookings`, `/owner/create-hiring-post`, `/owner/applications` |
+| Owner | `/owner/dashboard`, `/owner/create-salon`, `/owner/my-salon`, `/owner/my-salon/edit`, `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit`, `/owner/employees`, `/owner/employees/:employeeId/setup`, `/owner/employment`, `/owner/bookings`, `/owner/payments`, `/owner/create-hiring-post`, `/owner/applications` |
 | Employee | `/employee/bookings` |
 
 Route guards give navigation behavior only. The API enforces authorization for each operation.
@@ -1127,6 +1520,7 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 | Route transition | Shows the branded navigation overlay for links, redirects, programmatic navigation, and history changes | Protected resources still enforce authentication and role authorization |
 | Unauthorized session | Clears matching current credentials on HTTP 401; HTTP 403 does not sign the user out | Security may reject unauthenticated or unauthorized calls before the controller |
 | Booking decisions | Polls customer bookings every 30 seconds only while the page is visible and reports accepted or rejected transitions | Persists booking state and owner note; returns scoped booking DTOs |
+| Live tracking | Polls `GET /api/bookings/{id}/tracking` every 15 seconds while visible; sends the customer position through browser geolocation only after the customer starts the trip | Returns a viewer-shaped tracking DTO; hides the customer position from the customer view and other clients' details from everyone |
 | Notification inbox | Connected inbox, bell, polling, unread count, and read controls | Persists recipient-scoped booking events and exposes paginated inbox, unread-count, and read-state APIs |
 | Mapping differences | Salon and hiring adapters normalize backend field names for views | Keeps stable DTO names and pagination metadata |
 
@@ -1151,7 +1545,11 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 | Salon request and owner management | Implemented | Implemented | Connected |
 | Hiring discovery, application, and decisions | Implemented | Implemented | Connected for current UI actions; edit, reopen, and cancel-join APIs have no current page control |
 | Employee directory, capabilities, and schedules | Implemented | Implemented | Connected |
-| Booking creation and customer, owner, employee views | Implemented | Implemented | Connected |
+| Booking creation and customer, owner, employee views | Implemented (four-step wizard) | Implemented | Connected |
+| Salon map location and directions | Location picker dialog, public map card and directions | Location-only endpoint, server-built link | Connected |
+| Employee time off | Time off panel on the employee setup page | Time off API and availability filter | Connected |
+| Owner assign-and-accept | Accept dialog with available employees and reasons | Assignable-employees endpoint, required employee on accept | Connected |
+| Live appointment tracking | Customer, employee and owner live cards, trip sharing | Tracking API, distance estimator, six notification events | Connected |
 | Booking assignment explanation | Implemented | Implemented | Connected; explanation is required when replacing an assigned employee |
 | Persistent notification inbox | Implemented | Implemented | Connected with signed-in polling and refresh when the application becomes active |
 | Server-calculated booking availability | Implemented | Implemented | Connected; the booking page renders qualified employees and selectable 15-minute slots |
@@ -1182,6 +1580,8 @@ Forgot-password requests return the same success response whether or not an acco
 6. `PUT /api/profile/career` validates and stores the career section, then enables career mode on the same profile.
 7. The hiring feed loads open, unexpired posts from accepted salons with available positions. Career users receive personalized labels and ordering; normal-profile users receive the standard filtered feed plus a prompt to enable career mode.
 8. A career user applies with only an optional application note. The backend obtains identity and career data from the database and stores an application snapshot.
+9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
+10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
 
 ### Owner dashboard journey
 
@@ -1190,21 +1590,20 @@ An authenticated owner opens `/owner/dashboard`. The route guard requires an act
 ### Shared interaction-feedback journey
 
 When a user starts a foreground operation, the relevant feature hook supplies an action-specific message to the shared loading service. The Signature Snip overlay appears only when the operation lasts beyond the short delay, keeps the underlying page visually present but de-emphasized, and remains active until all overlapping operations finish. On success, the page updates and a success message may be shown. On failure, the client displays the exact useful backend reason from `ApiResponse`; transport-only failures receive a clear network, timeout, authentication, authorization, not-found, or server message. Navigation uses the separate Salonhub brand loader and covers declarative links, redirects, programmatic navigation, and browser history movement.
-9. The salon owner reviews every application ordered by match level and score, then accepts or rejects it.
-10. Acceptance reuses employment rules: an available applicant joins immediately, while an existing employee enters the transfer and leave workflow.
 
 ### End-to-end appointment journey
 
 1. A customer opens an accepted salon and receives its active services and active employees with their service capabilities.
-2. The customer selects one to ten unique services, a future date and time, and optionally an employee qualified for every selected service.
-3. The backend calculates immutable price and duration totals, checks salon hours, and checks the selected employee's complete working interval.
-4. The booking is stored as `PENDING`, and the customer sees it in personal booking history.
-5. The salon owner receives the request in the pending queue, may assign a qualified available employee, and accepts or rejects the request.
-6. Acceptance repeats capability and schedule validation. Rejection stores a required owner note and may include a suggested time.
+2. In the wizard the customer selects one to ten unique services, then an employee qualified for every selected service or **Let the salon assign**, then a free date and time.
+3. The backend calculates immutable price and duration totals, checks salon hours, time off, and the selected employee's complete working interval.
+4. The booking is stored as `PENDING`, the owner receives `BOOKING_REQUESTED`, and the customer sees it in personal booking history.
+5. The salon owner opens the request, selects a qualified available employee, and accepts, or rejects the request.
+6. Acceptance repeats capability, time off and schedule validation and requires an employee. The customer receives `BOOKING_ACCEPTED`, the employee `BOOKING_ASSIGNED`. Rejection stores a required owner note and may include a suggested time.
 7. The assigned employee sees the booking in the employee-scoped list. The customer may cancel while it remains pending or accepted.
-8. After the appointment, the owner marks an accepted booking `COMPLETED`.
-9. The customer may create one verified salon review linked to that completed booking.
-10. Public salon pages may display visible reviews and the aggregate average while preserving administrative block and restore behavior.
+8. On the appointment day the customer may share the trip. The employee sees the distance and arrival estimate, and is told when the customer arrives.
+9. The employee or owner starts the service (`IN_PROGRESS`), may extend it, and completes it (`COMPLETED`). The customer follows the progress and the expected end.
+10. The customer may create one verified salon review linked to that completed booking.
+11. Public salon pages may display visible reviews and the aggregate average while preserving administrative block and restore behavior.
 
 ### Unified profile and career mode
 
@@ -1259,15 +1658,72 @@ When no employee schedule has ever been configured, booking validation treats th
 
 ### Appointment availability, request, and decision
 
-An authenticated customer first requests availability using a salon ID, one to ten unique service IDs, a date, and an optional employee ID. The backend calculates the total duration, finds employees who support every selected service, loads their weekly schedules and accepted bookings in batches, and returns selectable times at 15-minute intervals. A same-day slot must start at least 30 minutes after the current server time. Pending requests do not reserve capacity.
+An authenticated customer first requests availability using a salon ID, one to ten unique service IDs, a date, and an optional employee ID. The backend calculates the total duration, finds employees who support every selected service, removes employees on time off, loads their weekly schedules and busy bookings (`PENDING` with that employee, `ACCEPTED`, `IN_PROGRESS`) in batches, and returns selectable times at 15-minute intervals. A same-day slot must start at least 30 minutes after the current server time. When no time is free, the response adds `unavailableReason` and `nextAvailableDate` (searched up to 14 days ahead).
 
 When no employee is selected, a slot is returned when at least one fully qualified employee is free, and the response lists every eligible employee for that time. When an employee is selected, only that employee's availability is considered. An employee without a configured schedule inherits the salon hours; an explicitly empty schedule means unavailable all week.
 
 The customer creates the booking using one returned time plus the salon, services, location, optional phone override, optional note, and optional employee ID. The backend loads the customer and salon, verifies every service is active and belongs to that salon, defaults the phone number from the profile when omitted, calculates price and duration, and saves service snapshots. It revalidates the exact slot before persistence so elapsed time, a newly accepted appointment, or a manipulated request cannot create an unavailable booking.
 
-If the customer selects an employee, that employee must be active in the salon, support every selected service, and work for the complete appointment interval. The complete interval must also fit within salon opening hours. The owner may accept a pending request, reject it with a required note, or assign a qualified available employee to a pending or accepted booking. Replacing an employee who is already assigned requires an owner explanation, which is stored as the customer-visible owner note. Acceptance and assignment repeat capability and schedule validation because availability may have changed since creation.
+If the customer selects an employee, that employee must be active in the salon, support every selected service, not be on time off, and work for the complete appointment interval. The complete interval must also fit within salon opening hours. The owner may accept a pending request with an employee (the API rejects acceptance without one), reject it with a required note, or assign a qualified available employee to a pending or accepted booking. `GET /api/bookings/{bookingId}/assignable-employees` lists the qualified employees for the exact booking time with `available` and a `reason` (`TIME_OFF`, `NOT_WORKING` or `BUSY`). Replacing an employee who is already assigned requires an owner explanation, which is stored as the customer-visible owner note. Acceptance and assignment repeat capability and schedule validation because availability may have changed since creation.
 
-Customers receive their own booking history and can cancel an owned pending or accepted booking. Salon owners receive all owned-salon bookings or a pending-only queue. Employees receive only bookings assigned to them. The owner completes an accepted booking after the visit. Business outcomes continue through the shared `ApiResponse` envelope.
+Customers receive their own booking history and can cancel an owned pending or accepted booking. Salon owners receive all owned-salon bookings or a pending-only queue. Employees receive only bookings assigned to them. The owner completes an accepted or in-progress booking after the visit. Business outcomes continue through the shared `ApiResponse` envelope.
+
+### Employee time off workflow
+
+1. The owner opens the employee setup page and the **Time off** panel.
+2. The owner enters a start date, an end date and an optional reason.
+3. The API checks that the salon is accepted and owned, that the employee works there, and the rules of section 5.7.
+4. The API saves the record and returns it with `affectedBookings`, the number of pending and confirmed appointments of this employee inside the period.
+5. The panel lists upcoming time off. The owner can remove a record; availability returns at once.
+
+### Salon holiday workflow
+
+1. The owner opens the salon edit page and the panel **Days the salon is closed**.
+2. The owner enters a start date, an end date and an optional note for guests.
+3. The API checks that the caller owns this accepted, unblocked salon, and the rules of section 5.10.
+4. The API saves the closure and returns it with `affectedBookings`. When it is more than zero, the panel links to **Salon Bookings** so the owner can move or cancel those appointments.
+5. The public salon page and the booking wizard use the closure at once. The owner can remove it; the days open again.
+
+### Request expiry and reminder workflow
+
+1. Every minute, the life cycle job finds `PENDING` requests whose answer deadline has passed.
+2. For each one, it locks the booking, checks the state and the deadline again, sets `EXPIRED`, cancels open reschedule proposals and notifies the customer and the owner.
+3. Then it loads the confirmed appointments of today and tomorrow and sends the reminder that is due (`DAY` or `SOON`). The event key `booking:{id}:reminder:{type}:{receiver}` makes each reminder unique.
+
+### No-show workflow
+
+1. From 15 minutes after the start, the live card of a confirmed appointment shows **Customer did not come** to the assigned employee and the owner. Before that, it shows the time from which it is possible.
+2. The person confirms in a dialog. The API sets `NO_SHOW`, clears any shared position and notifies the customer.
+3. For a past appointment that is not live, the owner finds the same action next to **Mark Completed** in **Salon Bookings**.
+4. The payment of the booking closes as `VOIDED`, with the staff member as the actor.
+
+### Payment workflow
+
+1. In step 4 of the wizard the customer sees the payment cards and chooses one. The request carries `paymentMethod`; the API checks it against the salon settings and the provider state, then creates the booking and an `UNPAID` payment in one transaction.
+2. When the service starts or ends, the booking card of the assigned employee and the owner shows **Cash received**. The person confirms the amount in a dialog.
+3. The API locks the booking, checks the person and the state, sets `PAID`, stores the time, the person and the receipt number, adds a `CASH_RECEIVED` ledger row with the key `booking:{id}:cash`, and notifies the customer (`PAYMENT_RECEIVED`).
+4. The customer, the employee and the owner can open the receipt. The owner also sees the ledger.
+5. A finished appointment that is still unpaid stays in the owner's **Finished but not paid** list until someone records the money.
+
+### Salon location workflow
+
+1. The owner opens **Select location on map** on the salon edit page.
+2. The owner searches, drops the pin, or uses the device position. The dialog shows the address and the detected city.
+3. The web application sends `PUT /api/salons/{salonId}/location` with latitude, longitude and the optional city.
+4. The API checks ownership and the Jordan bounds, rounds the coordinates, builds the Google Maps link, and saves the three values.
+5. The public salon page shows the map card, the larger map dialog and the **Directions** link.
+
+### Live tracking workflow
+
+1. The customer opens **My bookings**. From 3 hours before a confirmed appointment, the card offers **I'm on my way**.
+2. The browser asks for location permission. The customer's position goes to `journey/start` and then to `journey/position`.
+3. The API calculates distance and arrival estimate and notifies the employee once (`BOOKING_CUSTOMER_ON_THE_WAY`).
+4. Within 80 m of the salon, or when the customer selects **I've arrived**, the journey becomes `ARRIVED`, the coordinates are deleted and the employee is notified.
+5. The employee (or owner) selects **Start service**. The customer receives `BOOKING_SERVICE_STARTED` and sees a progress bar and the expected end.
+6. The employee may add 5 to 60 minutes when the work needs more time. The customer sees the new end.
+7. The employee selects **Complete service**. The customer receives `BOOKING_COMPLETED` and can write a review.
+
+The customer can stop sharing at any time (`journey/stop`). The server then deletes the stored position.
 
 ### Customer-approved booking rescheduling
 
@@ -1490,13 +1946,15 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | slotIntervalMinutes | Server-owned interval; currently 15 minutes |
 | minimumLeadMinutes | Server-owned same-day notice; currently 30 minutes |
 | slots[].time | A start time whose complete duration fits salon and employee availability |
-| slots[].eligibleEmployees | Qualified active employees without an accepted overlap at that time |
+| slots[].eligibleEmployees | Qualified active employees without a busy overlap or time off at that time |
+| unavailableReason | Set only when no slot exists: `TIME_OFF`, `NOT_WORKING`, `FULLY_BOOKED`, `NO_TIME_LEFT_TODAY` or `NO_QUALIFIED_EMPLOYEE` |
+| nextAvailableDate | Set only when no slot exists: the first date within 14 days that has a free time, or null |
 
 #### Owner booking action fields
 
 | Field | Rule |
 | --- | --- |
-| assignedEmployeeId | Optional during acceptance and a required path value during explicit assignment; employee must pass salon, capability, and schedule checks |
+| assignedEmployeeId | Required during acceptance when the booking has no employee yet, and a required path value during explicit assignment; employee must pass salon, capability, time off and schedule checks |
 | ownerNote | Optional for first assignment and acceptance; required when replacing an already assigned employee; maximum 1000 characters |
 
 #### Reschedule proposal contract
@@ -1510,6 +1968,56 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 | current appointment | Remains unchanged while the proposal is pending or after rejection |
 | acceptance | Revalidates capacity and updates the appointment while preserving booking status |
 | history | Every proposal remains in the booking response with status and timestamps |
+
+### Employee time off contract
+
+| Field | Rule |
+| --- | --- |
+| startDate | Required date; inclusive |
+| endDate | Required date; inclusive; not before `startDate` and not before today |
+| length | 1 to 90 days |
+| planning window | `startDate` no later than one year from today |
+| reason | Optional; trimmed; up to 255 characters |
+| overlap | Rejected when it overlaps another time off of the same employee |
+| affectedBookings (response) | Count of `PENDING` and `ACCEPTED` appointments of the employee inside the period |
+
+### Salon closure contract
+
+| Field | Rule |
+| --- | --- |
+| startDate | Required date; inclusive |
+| endDate | Required date; inclusive; not before `startDate` and not before today |
+| length | 1 to 60 days |
+| planning window | `startDate` no later than one year from today |
+| reason | Optional; trimmed; up to 255 characters; public |
+| overlap | Rejected when it overlaps another closure of the same salon |
+| affectedBookings (response) | Count of `PENDING` and `ACCEPTED` appointments of the salon inside the period; `null` in the public list |
+
+### Salon location contract
+
+| Field | Rule |
+| --- | --- |
+| latitude, longitude | Both set, or both null to remove the pin; inside Jordan (29.0 to 33.5, 34.8 to 39.4); rounded to 7 decimals |
+| city | Optional; replaces the profile city only when it is a supported Jordan city |
+| googleMapsUrl (response) | Built by the server from the coordinates; never accepted from the client on this route |
+
+### Live tracking contract
+
+| Field | Rule |
+| --- | --- |
+| position latitude, longitude | Both set or both null; valid world coordinates. Null means the customer declined to share |
+| extend minutes | Integer 5 to 60; total overrun at most 120 minutes |
+| viewerRole (response) | `CUSTOMER`, `EMPLOYEE` or `OWNER`, from the authenticated user |
+| journeyStatus | `NOT_STARTED`, `ON_THE_WAY`, `ARRIVED` |
+| distanceMeters, etaMinutes, expectedArrivalAt | Set only while `ON_THE_WAY` |
+| customerLatitude, customerLongitude | Only for `EMPLOYEE` and `OWNER`, only while `ON_THE_WAY` |
+| etaSource | `DISTANCE_ESTIMATE` |
+| employeeState | `AWAITING_EMPLOYEE`, `AVAILABLE`, `BUSY_WITH_ANOTHER_CLIENT`, `SERVING_YOU`, `FINISHED`; another client's details are never sent |
+| employeeBusyUntil | Expected end of the employee's current other service, when busy |
+| serviceStartedAt, expectedEndAt, remainingMinutes, progressPercent | Set while and after `IN_PROGRESS` |
+| canShareJourney, canStartService, canCompleteService, canMarkNoShow | Server decision for the viewer; the interface shows actions only when true |
+| noShowAllowedFrom | Start time plus 15 minutes; only for staff and only while `ACCEPTED` |
+| serverTime | Server clock, so the client calculates countdowns without clock drift |
 
 ### Salon review contract
 
@@ -1551,6 +2059,8 @@ The current product decision is to represent business outcomes through `ApiRespo
 | Employee discovery | No | Active salon team | Owned salon team | Active salon team | Active salon team |
 | Employee capabilities and schedules | No | No | Owned salon employees | No | No special access |
 | Booking | No | Own bookings and actions | Owned salon decisions | Assigned bookings | No special access |
+| Employee time off | No | No | Owned salon employees | No | No special access |
+| Live tracking | No | Own booking: trip sharing and view | View, start, extend, complete | Assigned booking: view, start, extend, complete | No special access |
 | Notification inbox | No | Own notifications only | Own notifications only | Own notifications only | Own notifications only |
 | Salon reviews | Public salon list and summary | Own creation, list, and deletion | Public read | Public read | Public read |
 | Employment and leave | No | Applicable requests | Owned salon decisions | Applicable requests | No special access |
@@ -1589,6 +2099,10 @@ The current product decision is to represent business outcomes through `ApiRespo
 | GET | `/api/salons/mine` | Return the authenticated owner's salon, rejection reason, and resubmission counters |
 | POST | `/api/salons/create` | Request creation of a salon |
 | PUT | `/api/salons/{salonId}/edit` | Update an owned salon |
+| PUT | `/api/salons/{salonId}/location` | Set or remove only the map pin of an owned salon |
+| GET | `/api/salons/{salonId}/closures` | List upcoming closures of an active salon (public) |
+| POST | `/api/salons/{salonId}/closures` | Add a closure to the owned salon; returns `affectedBookings` |
+| DELETE | `/api/salons/{salonId}/closures/{closureId}` | Remove a closure of the owned salon |
 | POST | `/api/salons/{salonId}/resubmit` | Resubmit a rejected owned salon, up to three times |
 | DELETE | `/api/salons/{salonId}` | Soft-delete the authenticated owner's salon |
 
@@ -1612,6 +2126,9 @@ The current product decision is to represent business outcomes through `ApiRespo
 | PUT | `/api/salon-employees/{employeeId}/services` | Replace one owned employee's validated service-capability set | Accepted salon owner |
 | GET | `/api/salon-employees/{employeeId}/schedule` | Read configured weekly periods or inherited salon hours | Accepted salon owner |
 | PUT | `/api/salon-employees/{employeeId}/schedule` | Replace one owned employee's weekly working periods | Accepted salon owner |
+| GET | `/api/salon-employees/{employeeId}/time-off` | List the employee's current and future time off | Accepted salon owner |
+| POST | `/api/salon-employees/{employeeId}/time-off` | Add whole-day time off and return affected appointments | Accepted salon owner |
+| DELETE | `/api/salon-employees/time-off/{timeOffId}` | Remove a time off record | Accepted salon owner |
 
 ### Appointment bookings
 
@@ -1623,7 +2140,8 @@ The current product decision is to represent business outcomes through `ApiRespo
 | GET | `/api/bookings/my-salon` | Return all bookings for the authenticated owner's salon | Accepted salon owner |
 | GET | `/api/bookings/my-salon/pending` | Return the owner's pending queue ordered by appointment time | Accepted salon owner |
 | GET | `/api/bookings/employee/my` | Return bookings assigned to the authenticated employee | Active employee |
-| PUT | `/api/bookings/{bookingId}/accept` | Accept a pending booking after current capability and availability checks | Booking salon owner |
+| GET | `/api/bookings/{bookingId}/assignable-employees` | List qualified employees for the booking time with availability and reason | Booking salon owner |
+| PUT | `/api/bookings/{bookingId}/accept` | Accept a pending booking with an employee after current capability, time off and availability checks | Booking salon owner |
 | PUT | `/api/bookings/{bookingId}/reject` | Reject a pending booking with a required owner note | Booking salon owner |
 | PUT | `/api/bookings/{bookingId}/cancel` | Cancel an owned pending or accepted booking | Booking customer |
 | PUT | `/api/bookings/{bookingId}/complete` | Complete an accepted appointment | Booking salon owner |
@@ -1632,6 +2150,34 @@ The current product decision is to represent business outcomes through `ApiRespo
 | POST | `/api/bookings/{bookingId}/reschedule-proposals` | Create one pending date-and-time proposal | Booking salon owner |
 | PUT | `/api/bookings/{bookingId}/reschedule-proposals/{proposalId}/accept` | Accept an owned proposal after current availability revalidation | Booking customer |
 | PUT | `/api/bookings/{bookingId}/reschedule-proposals/{proposalId}/reject` | Reject an owned proposal and preserve the original appointment | Booking customer |
+
+### Live appointment tracking
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| GET | `/api/bookings/{bookingId}/tracking` | Live view shaped for the viewer | Booking customer, assigned employee, salon owner |
+| POST | `/api/bookings/{bookingId}/tracking/journey/start` | Start trip sharing, optionally with the first position | Booking customer |
+| PUT | `/api/bookings/{bookingId}/tracking/journey/position` | Send the current position | Booking customer |
+| POST | `/api/bookings/{bookingId}/tracking/journey/arrived` | Mark arrival | Booking customer |
+| POST | `/api/bookings/{bookingId}/tracking/journey/stop` | Stop sharing and delete the position | Booking customer |
+| POST | `/api/bookings/{bookingId}/tracking/service/start` | Start the service | Assigned employee or salon owner |
+| POST | `/api/bookings/{bookingId}/tracking/service/extend` | Add 5 to 60 minutes | Assigned employee or salon owner |
+| POST | `/api/bookings/{bookingId}/tracking/service/complete` | Complete the appointment | Assigned employee or salon owner |
+| POST | `/api/bookings/{bookingId}/tracking/no-show` | Mark a confirmed appointment as missed, 15 minutes after the start | Assigned employee or salon owner |
+
+### Payments
+
+| Method | Route | Purpose | Access |
+| --- | --- | --- | --- |
+| GET | `/api/salons/{salonId}/payment-options` | Methods a customer can choose now, the default method, currency and free-cancel hours | Public |
+| GET | `/api/bookings/{bookingId}/payment` | Receipt and payment state; the owner also gets commission, net and the ledger | Booking customer, assigned employee, salon owner |
+| POST | `/api/bookings/{bookingId}/payment/cash` | Record cash received; repeating it returns the same receipt | Assigned employee or salon owner |
+| GET | `/api/salons/{salonId}/payment-settings` | Read accepted methods, free-cancel hours, fees, provider state and commission rate | Owner of that salon |
+| PUT | `/api/salons/{salonId}/payment-settings` | Save the settings; card methods need a provider | Owner of that salon |
+| GET | `/api/owner/payments/summary?from&to` | Collected, cash, card, refunded, commission and net for a period (default: this month, at most one year), plus all unpaid finished work | `OWNER` role, active salon |
+| GET | `/api/owner/payments/outstanding?page&size` | Finished appointments with an unpaid payment, newest first (size 1 to 100) | `OWNER` role, active salon |
+
+`POST /api/bookings` takes an optional `paymentMethod` (`CASH`, `CARD_POSTPAID`, `CARD_PREPAID`). Each booking response has a `payment` object (method, status, `amountFils`, currency, paid time, receipt number, `collectable`), or `null` for bookings made before version 2.3.0.
 
 ### Notification inbox
 
@@ -1797,7 +2343,8 @@ For controller and business validation failures, the API uses `{ "success": fals
 | `GET /api/salons/{salonId}` | Public | Path: `salonId` | Salon DTO | Salon missing or unavailable |
 | `GET /api/salons/mine` | Authenticated owner | None | Owned salon, status, rejection reason, resubmission count | No owned salon |
 | `POST /api/salons/create` | Authenticated user | Body: salon name, description, phone, email, city, employee limit, opening/closing time, profile picture URL; legacy `ownerId` is ignored and the JWT principal is authoritative | Requested salon DTO | Existing ownership/request, invalid hours or fields |
-| `PUT /api/salons/{salonId}/edit` | Salon owner | Path: `salonId`; body: editable salon fields | Updated salon DTO | Not owner, salon missing, invalid fields/status |
+| `PUT /api/salons/{salonId}/edit` | Salon owner | Path: `salonId`; body: editable salon fields | Updated salon DTO | Not owner, salon missing, invalid changed fields, closing time not after opening time. An unchanged old value is accepted even when it breaks a newer rule |
+| `PUT /api/salons/{salonId}/location` | Salon owner | Path: `salonId`; body: `latitude`, `longitude`, optional `city` | Salon DTO with `latitude`, `longitude`, server-built `googleMapsUrl`, `city` | Not owner, only one coordinate, outside Jordan |
 | `POST /api/salons/{salonId}/resubmit` | Rejected salon owner | Path: `salonId` | Requested salon DTO with updated counters | Not rejected, not owner, or three-resubmission limit reached |
 | `DELETE /api/salons/{salonId}` | Salon owner | Path: `salonId` | Confirmation string/null | Not owner or salon missing |
 | `POST /api/dashboard/login` | Public admin login | Body: `adminEmail`, `adminPassword` | JWT token | Invalid credentials, non-admin, or blocked admin |
@@ -1827,21 +2374,37 @@ For controller and business validation failures, the API uses `{ "success": fals
 | `PUT /api/salon-employees/{employeeId}/services` | Accepted salon owner | Path: `employeeId`; body: `serviceIds[]` | Replaced capability DTO | Employee/service mismatch, inactive service, duplicates |
 | `GET /api/salon-employees/{employeeId}/schedule` | Accepted salon owner | Path: `employeeId` | Weekly periods plus inherited-hours indicator | Employee not in owned salon |
 | `PUT /api/salon-employees/{employeeId}/schedule` | Accepted salon owner | Path: `employeeId`; body: `periods[{dayOfWeek,startTime,endTime}]`; multiple periods can describe split working shifts | Validated weekly schedule DTO | More than 28 periods, overlap, invalid interval, outside salon hours |
+| `GET /api/salon-employees/{employeeId}/time-off` | Accepted salon owner | Path: `employeeId` | Time off list: `id`, `employeeId`, `startDate`, `endDate`, `reason`, `affectedBookings` | Employee not in owned salon |
+| `POST /api/salon-employees/{employeeId}/time-off` | Accepted salon owner | Path: `employeeId`; body: `startDate`, `endDate`, optional `reason` | Saved time off with `affectedBookings` | Missing dates, end before start, past period, longer than 90 days, more than one year ahead, overlap, reason too long |
+| `DELETE /api/salon-employees/time-off/{timeOffId}` | Accepted salon owner | Path: `timeOffId` | `null` with "Time off removed" | Time off not in owned salon |
 
 ### Booking, notification, and review contracts
 
 | Endpoint | Access | Request data | Success data | Main errors shown in `message` |
 | --- | --- | --- | --- | --- |
-| `POST /api/bookings/availability` | Authenticated user | Body: `salonId`, `serviceIds[]`, `bookingDate`, optional `employeeId` | Total duration, 15-minute interval, 30-minute lead, and ordered slots with eligible employee summaries | Inactive salon/service, duplicate or excessive services, past date, selected employee not fully qualified |
+| `POST /api/bookings/availability` | Authenticated user | Body: `salonId`, `serviceIds[]`, `bookingDate`, optional `employeeId` | Total duration, 15-minute interval, 30-minute lead, ordered slots with eligible employee summaries, and `unavailableReason` plus `nextAvailableDate` when the day is full | Inactive salon/service, duplicate or excessive services, past date, selected employee not fully qualified |
 | `POST /api/bookings` | Authenticated customer | Body: `salonId`, `serviceIds[]`, optional `assignedEmployeeId`, `customerPhoneNumber`, `customerLocation`, `bookingDate`, `bookingTime`, optional `note` | Pending booking DTO with service price/duration snapshots | Past or off-grid time, stale/unavailable slot, unavailable salon/employee, unsupported service, schedule conflict |
-| `GET /api/bookings/my` | Booking customer | None | Customer booking DTO list | Authentication failure; empty list is valid |
+| `GET /api/bookings/my` | Booking customer | None | Customer booking DTO list; each booking DTO also has `responseDeadline` (only while `PENDING`) and `noShowAt` | Authentication failure; empty list is valid |
 | `GET /api/bookings/my-salon` | Accepted salon owner | None | All owned-salon booking DTOs | No accepted owned salon |
 | `GET /api/bookings/my-salon/pending` | Accepted salon owner | None | Pending booking DTOs ordered by appointment | No accepted owned salon |
 | `GET /api/bookings/employee/my` | Active employee | None | Assigned booking DTO list | Caller is not an active employee |
-| `PUT /api/bookings/{bookingId}/accept` | Booking salon owner | Path: `bookingId`; optional body: `ownerNote`, `assignedEmployeeId` | Accepted booking DTO; customer notification committed atomically | Not owner, wrong state, pending reschedule decision, expired time, employee no longer eligible, overlapping accepted appointment |
+| `GET /api/bookings/{bookingId}/assignable-employees` | Booking salon owner | Path: `bookingId` | List of `id`, `fullName`, `specialty`, `available`, `reason` | Not owner or booking missing |
+| `PUT /api/bookings/{bookingId}/accept` | Booking salon owner | Path: `bookingId`; body: `assignedEmployeeId` (required when none is set), optional `ownerNote` | Accepted booking DTO; customer and employee notifications committed atomically | Not owner, wrong state, no employee chosen, pending reschedule decision, expired time, answer deadline passed, employee on time off or no longer eligible, overlapping busy appointment |
 | `PUT /api/bookings/{bookingId}/reject` | Booking salon owner | Path: `bookingId`; body: required `ownerNote` | Rejected booking DTO | Blank/long note, not owner, wrong state |
 | `PUT /api/bookings/{bookingId}/cancel` | Booking customer | Path: `bookingId` | Cancelled booking DTO | Not customer or state cannot be cancelled |
-| `PUT /api/bookings/{bookingId}/complete` | Booking salon owner | Path: `bookingId` | Completed booking DTO | Not owner, not accepted, or appointment not eligible for completion |
+| `PUT /api/bookings/{bookingId}/complete` | Booking salon owner | Path: `bookingId` | Completed booking DTO | Not owner, not accepted or in progress, or appointment not eligible for completion |
+| `GET /api/bookings/{bookingId}/tracking` | Customer, assigned employee or owner of the booking | Path: `bookingId` | Tracking DTO (see the live tracking contract in chapter 18) | Booking missing or caller not a participant |
+| `POST .../tracking/journey/start` | Booking customer | Optional body: `latitude`, `longitude` | Tracking DTO with `ON_THE_WAY` | Not confirmed, outside the 3-hour window, already arrived, invalid position |
+| `PUT .../tracking/journey/position` | Booking customer | Body: `latitude`, `longitude` | Tracking DTO with new distance and estimate | Sharing not active, invalid position |
+| `POST .../tracking/journey/arrived` | Booking customer | None | Tracking DTO with `ARRIVED` | Outside the window |
+| `POST .../tracking/journey/stop` | Booking customer | None | Tracking DTO; position deleted | Booking not owned |
+| `POST .../tracking/service/start` | Assigned employee or owner | None | Tracking DTO with `IN_PROGRESS` and `expectedEndAt` | Not confirmed, no employee, wrong day, more than 60 minutes early, employee busy with another client |
+| `POST .../tracking/service/extend` | Assigned employee or owner | Body: `minutes` 5 to 60 | Tracking DTO with new `expectedEndAt` | Not running, minutes out of range, more than 120 minutes over plan |
+| `POST .../tracking/service/complete` | Assigned employee or owner | None | Tracking DTO with `COMPLETED` | Not confirmed or running |
+| `POST .../tracking/no-show` | Assigned employee or owner | None | Tracking DTO with `NO_SHOW` | Not confirmed, customer checked in, less than 15 minutes after the start |
+| `GET /api/salons/{salonId}/closures` | Public | Path: `salonId` | Upcoming closures: `id`, `salonId`, `startDate`, `endDate`, `reason` | Salon not active |
+| `POST /api/salons/{salonId}/closures` | Salon owner | Body: `startDate`, `endDate`, optional `reason` | Closure with `affectedBookings` | Not the owner, past or reversed dates, longer than 60 days, more than a year ahead, overlap |
+| `DELETE /api/salons/{salonId}/closures/{closureId}` | Salon owner | Paths: salon and closure IDs | None | Not the owner, closure of another salon |
 | `PUT /api/bookings/{bookingId}/assign-employee/{employeeId}` | Booking salon owner | Paths: booking and employee IDs; optional body `ownerNote`, required when replacing an assignment, max 1000 chars | Booking DTO with assigned employee and explanation | Not owner, employee unqualified/unavailable, conflict, missing reassignment explanation |
 | `POST /api/bookings/{bookingId}/reschedule-availability` | Booking salon owner | Path: `bookingId`; body: required `bookingDate` | Duration, slot interval, lead time, and available slots derived from the booking | Not owner, terminal/past booking, invalid date, employee no longer qualified |
 | `POST /api/bookings/{bookingId}/reschedule-proposals` | Booking salon owner | Path: `bookingId`; body: `proposedDate`, `proposedTime`, optional `note` | Pending proposal DTO; customer notification committed atomically | Not owner, duplicate pending proposal, unchanged or unavailable time, terminal/past booking |
@@ -1950,6 +2513,31 @@ Local development can load an ignored `.env` file and use a persistent H2 databa
 - The Anthropic API key and the Cloudinary secret exist only in the backend environment.
 - Text that a user sends to the assistant is treated as data. The model receives only the loaded records and has no tools and no write access.
 
+### Additions in version 2.1.0
+
+- Every tracking route finds the viewer's role from the token and the booking (customer, assigned employee, salon owner). Any other user receives "Booking was not found", so the API does not show that the booking exists.
+- Only the customer can send a position. Only the assigned employee and the owner receive it, and only while the customer is on the way. A busy employee's other client is shown to a customer only as "busy with another client".
+- Booking, tracking and acceptance changes use pessimistic locks (`findByIdForUpdate`), so parallel requests cannot start two services or double-assign an employee.
+- Position updates closer than 8 seconds are ignored, which limits write load from one browser.
+- The salon map link is built on the server, so a stored link cannot point to another site.
+- Time off and location routes check that the caller owns an accepted, unblocked salon and that the employee works in it.
+
+### Additions in version 2.2.0
+
+- Reading salon closures is public, because guests must see them before they book. Adding and removing closures needs the owner of that accepted, unblocked salon; the salon in the path must be the caller's salon.
+- No-show uses the same viewer rules as the other tracking actions: only the assigned employee or the owner. Any other user receives "Booking was not found".
+- The life cycle job runs without a user. It changes only bookings whose state and deadline it checks again under a row lock.
+
+### Additions in version 2.3.0
+
+- No card data reaches Salonhub. Card steps will use the provider's hosted page; the server keeps only the provider reference.
+- The server sets every amount from the booking total. The client sends only the method.
+- **Cash received** locks the booking row and checks the person (assigned employee or owner) and the state again. A unique idempotency key on each ledger row stops a double record.
+- Payment rows have an optimistic-lock version, so two parallel changes cannot both win.
+- The customer never sees the commission, the net or the ledger. Any other user receives "Booking was not found".
+- Owner payment routes need the `OWNER` role and an accepted, unblocked salon; the salon in the path must be the caller's salon.
+- In step B the provider webhook is the source of truth for card results; the browser redirect never marks a payment as paid.
+
 ## 22. Data protection and governance
 
 ### Data classification
@@ -1960,6 +2548,9 @@ Local development can load an ignored `.env` file and use a persistent H2 databa
 | Personal information | Name, email, username, phone, date of birth | Return only through approved DTOs and authorized routes |
 | Career information | Skills, experience, résumé URL, portfolio URL, biography | User-controlled profile data; snapshot only when applying |
 | Business information | Salon profile, location, hours, hiring posts | Publish only for accepted and active salons |
+| Live location | Customer latitude and longitude during a trip | Collect only after the customer starts sharing; show only to the assigned employee and owner; delete on arrival, stop, completion or cancellation |
+| Staff absence | Employee time off dates and reason | Owner only; never shown to customers (they see only that no time is free) |
+| Payment records | Amounts, method, receipt number, ledger with actors | Customer sees own receipt; staff see the receipt of their bookings; the owner sees ledger, commission and net. Never store card numbers |
 | Workflow history | Applications, employment requests, leave decisions, rejection reasons | Preserve for product history and future audit requirements |
 
 The current implementation does not yet define retention periods, user data export, consent records, or permanent erasure rules. Those policies must be agreed before production because they affect database relationships, audit history, and regulatory obligations.
@@ -1992,6 +2583,8 @@ The current implementation does not yet define retention periods, user data expo
 | `CORS_ALLOWED_ORIGINS` | Allowed web origins | Required in deployed environments |
 | `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` | Lamsa AI replies | Optional; without a key Lamsa uses guide mode |
 | `SERVER_PORT` | API port (8081 in the local profile) | Optional |
+| `salon.booking.lifecycle-delay-ms`, `salon.booking.lifecycle-initial-delay-ms` | Pause between life cycle runs (default 60000) and the first delay after start-up (default 30000) | Optional |
+| `PAYMENT_COMMISSION_BPS` | Salonhub commission on new payments in basis points (100 = 1%); 0 to 10000, default 0 | Optional |
 
 ### Web variables
 
@@ -2011,7 +2604,29 @@ All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 | Backend API | Multi-stage Docker image (Java 17), built for Render, which supplies the port |
 | Database | MySQL |
 | Admin dashboard | Next.js application; hosting is not yet recorded in this document |
-| Database changes | Hibernate `update`, plus SQL scripts in `backend/database/migrations` (five files, 31 October to 9 November 2026) that are applied by hand |
+| Database changes | Hibernate `update`, plus SQL scripts in `backend/database/migrations` (five files, 31 October to 9 November 2026) that are applied by hand, plus the start-up runner `LegacyEnumColumnUpgrade` |
+
+### Deploy notes for version 2.1.0
+
+- Hibernate `update` creates the `employee_time_off` table and the new tracking columns on `salon_booking`.
+- On the first start, `LegacyEnumColumnUpgrade` converts `salon_booking.status`, `user_notification.event_type` and `user_notification.booking_status` from MySQL `ENUM` to `VARCHAR`. Stored values stay the same. Without this, the new values `IN_PROGRESS` and the six new event types cannot be saved. The runner does nothing when the columns are already `VARCHAR`, and logs each conversion.
+- Deploy the API before the web application, or at the same time, because the new web pages call the new routes.
+- After the deploy, check the log for the conversion lines and run one booking from request to review.
+
+### Deploy notes for version 2.2.0
+
+- Hibernate `update` creates the `salon_closure` table and the `salon_booking.no_show_at` column.
+- `EXPIRED`, `NO_SHOW` and the three new event types fit the `VARCHAR` columns that version 2.1.0 created. No column change is needed.
+- On the first run after the deploy, the job expires every old pending request at once and notifies its customer and owner. Tell salon owners before the release.
+- Deploy the API before the web application, or at the same time.
+
+### Deploy notes for version 2.3.0
+
+- Hibernate `update` creates the tables `booking_payment`, `payment_transaction` and `salon_payment_settings`, and the column `salon_booking.payment_id`.
+- `PAYMENT_RECEIVED` fits the `VARCHAR` event column. No column change is needed.
+- Old bookings keep `payment_id` empty and show no payment line. Nothing is back-filled.
+- Leave `PAYMENT_COMMISSION_BPS` unset (0) until the business decides a commission.
+- Deploy the API before the web application, because the wizard sends `paymentMethod` and reads `payment`.
 
 ### Release procedure (target)
 
@@ -2022,17 +2637,25 @@ All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 5. Deploy to production with health checks and a rollback rule.
 6. Check logs, email delivery, database health and the core journeys.
 
-Steps 2, 3 and 5 depend on roadmap phase 7.
+Steps 2, 3 and 5 depend on roadmap phase 9.
 
 ## 25. Testing and quality
 
-| Application | Evidence (14 November 2026) | Tooling |
+| Application | Evidence (16 November 2026) | Tooling |
 | --- | --- | --- |
-| Backend | 221 tests pass in 45 test classes | JUnit, Spring test context, H2 |
-| Web application | 177 tests pass in 39 files; lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
+| Backend | 311 tests pass | JUnit, Spring test context, H2 |
+| Web application | 218 tests pass; lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
 | Admin dashboard | Not measured for this version | |
 
-The backend and web numbers include the Lamsa assistant work.
+Version 2.1.0 added tests for the map location rules, time off rules, availability reasons and next free date, assign-and-accept, the distance estimator, tracking rules (window, arrival radius, early start, extension limits, one client at a time), the safe salon update, the booking wizard model and trip sharing.
+
+Version 2.2.0 added tests for the time policy (deadline, reminders, no-show time), the life cycle service (expire, keep, skip, `DAY` and `SOON` reminders), salon closure rules and ownership, `SALON_CLOSED` with the next open date, the no-show rules (too early, checked in, wrong person), the late-accept guard, the new notifications, and the web model (labels, deadline, urgency, no-show time, date ranges).
+
+Version 2.3.0 added tests for money in fils and rounding, the commission rule, receipt numbers, payment transitions, payment settings (defaults, card lock, validation, ownership), cash received (success, repeat, method change, too early, card in advance, closed, wrong person), the receipt view per role, the owner summary and paging, payment closing on expiry and no-show, the card refusal at booking, and the web payment model, method picker and payment line. A manual check against the running API confirmed the public payment options (cash only, 24 hours) and that owner and booking payment routes reject anonymous calls; the signed-in screens were not checked in the browser.
+
+A second manual run on 16 November 2026 against the local API and MySQL covered: the job expired a request that was more than 24 hours old and notified the customer and the owner; it sent a one-day reminder for a confirmed appointment of the next day; a salon closure showed on the public salon page.
+
+A manual end-to-end run on 16 November 2026 covered: owner adds time off → wizard shows `TIME_OFF` and the next free date → customer books with **Let the salon assign** → owner assigns and accepts → customer and employee notifications → trip sharing with a 5.9 km, 20-minute estimate → automatic arrival → start, extend by 10 minutes, complete → review.
 
 | Layer | Purpose | State |
 | --- | --- | --- |
@@ -2086,7 +2709,7 @@ Every feature should move through a small reviewable slice:
 | Source code | Three repositories: web application, backend API, admin dashboard |
 | Database | MySQL schema created by the entities, plus five SQL scripts |
 | Brand | Salonhub name, comb-arc mark, Lamsa name and mark, plum and gold design system |
-| Tests | 221 backend tests and 177 web tests |
+| Tests | 256 backend tests and 200 web tests |
 | Documentation | This document, repository README files, `THIRD_PARTY_NOTICES.md` in the web application |
 | Build and hosting | Dockerfile for the API, Vercel configuration for the web application, GitHub Actions workflow for the web application |
 
@@ -2098,7 +2721,8 @@ Every feature should move through a small reviewable slice:
 | SMTP provider | Verification and recovery codes | Yes |
 | Cloudinary | Salon covers and work galleries | For uploads |
 | Anthropic API | Lamsa AI replies | No; guide mode works without it |
-| Google Maps | Location links (no API key) | No |
+| Google Maps | Map embed, location links and directions (no API key) | No |
+| Browser geolocation | Trip sharing and "use my position" in the location picker | No; the product works without it |
 | Vercel and Render | Current hosting | Replaceable |
 
 A new owner needs their own accounts and keys for each service. No secret is stored in the repositories; the risk register records that earlier credentials in the repository history must be rotated.
@@ -2113,17 +2737,24 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 
 | Gap | Effect | Roadmap phase |
 | --- | --- | --- |
-| No migration tool | Schema changes are not repeatable | 7 |
-| Logout uses an in-memory token blacklist | A restart forgets revoked tokens | 7 |
-| No monitoring, metrics or error tracking | Problems are found late | 7 |
-| No CI for the backend and the admin dashboard | Regressions can reach the main branch | 7 |
-| Credentials from the repository history are not rotated | Security exposure | 7 |
-| No generated API description (OpenAPI) | Integrators read this document only | 8 |
-| No payments | No online revenue from bookings | 10 |
-| Email delivery uses plain SMTP with basic templates | Limited delivery reporting | 11 |
-| English interface only | Smaller reach in the home market | 13 |
-| No end-to-end or load tests | Unknown behavior under real traffic | 7 |
-| The PDF edition (`output/pdf`) is older than this version | Readers of the PDF see version 1.4.0 | Regenerate after the generator supports the new structure |
+| No migration tool | Schema changes are not repeatable | 9 |
+| Logout uses an in-memory token blacklist | A restart forgets revoked tokens | 9 |
+| No monitoring, metrics or error tracking | Problems are found late | 9 |
+| No CI for the backend and the admin dashboard | Regressions can reach the main branch | 9 |
+| Credentials from the repository history are not rotated | Security exposure | 9 |
+| No generated API description (OpenAPI) | Integrators read this document only | 10 |
+| No card payments (cash and receipts work) | Guests cannot pay online; no fees for late cancel or no-show | 12 (steps B and C) |
+| The owner dashboard revenue card uses booking value | It can differ from the Payments page | 12 |
+| Email delivery uses plain SMTP with basic templates | Limited delivery reporting | 13 |
+| The life cycle job runs on every API instance | With more than one instance, each one runs the job; row locks and event keys stop duplicates, but the work repeats | 9 |
+| Reminders reach users only inside the application | A customer who does not open Salonhub misses the reminder | 13 |
+| Live views use polling, not push | Up to 15 seconds delay and extra API load | 13 |
+| Trip sharing stops when the browser tab is closed or the phone locks | The employee can lose the arrival estimate | 16 |
+| Arrival estimate uses distance, not routing | The estimate can differ from real travel time | 17 |
+| No written retention rule for live location | Privacy review is open, although positions are deleted after each trip | 9 |
+| English interface only | Smaller reach in the home market | 15 |
+| No automated end-to-end or load tests | Unknown behavior under real traffic | 9 |
+| The PDF edition needs a manual build step | A reader can get an older PDF if a release forgets to rebuild it | Build it with `documentation/pdf-edition` in each documentation release (chapter 30) |
 
 ## 29. Glossary
 
@@ -2155,6 +2786,26 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 | Lamsa | The Salonhub AI assistant |
 | Guide mode | Lamsa replies that fixed templates write, without the AI service |
 | Governorate | One of the 12 administrative regions of Jordan |
+| Time off | Whole days on which an employee does not work, added by the owner |
+| Busy booking | A booking that holds employee time: `PENDING` with that employee, `ACCEPTED` or `IN_PROGRESS` |
+| Let the salon assign | The wizard option where the customer leaves the employee choice to the owner |
+| Assign and accept | The owner action that chooses the employee and confirms the booking in one step |
+| Next free date | The first date within 14 days that has a free time for the selected services and employee |
+| Trip sharing | The customer's choice to send the live position to the salon on the way to an appointment |
+| Arrival estimate (ETA) | Minutes to the salon from the distance estimate; labelled as an estimate |
+| Journey status | `NOT_STARTED`, `ON_THE_WAY` or `ARRIVED` for the customer's trip |
+| Service extension | Extra minutes that the employee adds to a running service |
+| Answer deadline | The latest time for the salon to accept or reject a request: 24 hours after it, but not after the start |
+| Expired request | A request that passed its answer deadline without a decision (`EXPIRED`) |
+| Reminder | An inbox notice one day (`DAY`) and two hours (`SOON`) before a confirmed appointment |
+| Salon closure | Whole days on which the full salon is closed, added by the owner and shown to guests |
+| No-show | A confirmed appointment that the customer missed, recorded by staff (`NO_SHOW`) |
+| Life cycle job | The background task that expires requests and sends reminders every minute |
+| Fils | One thousandth of a Jordanian dinar; all money is stored in whole fils |
+| Payment ledger | The append-only list of payment changes, each with a type, amount, actor and idempotency key |
+| Receipt number | The readable payment number `SH-{salon}-{payment}` shown on the receipt |
+| Basis point (bps) | One hundredth of a percent; the commission rate unit (100 bps = 1%) |
+| Payment provider | The card company (gateway) that Salonhub will connect in steps B and C |
 
 ## 30. Documentation maintenance
 
@@ -2164,6 +2815,7 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 - A delivered roadmap phase moves from chapter 8 to chapter 7.
 - Diagrams are Mermaid text in this file. Change the diagram in the same commit as the behavior.
 - Behavior that is not approved stays marked as planned.
+- The PDF edition (`output/pdf/Salon-Hup-Project-Documentation.pdf`) is built from this file by the scripts in `documentation/pdf-edition`. It has A4 pages, a cover, a contents list with page numbers, and "Page N of M" in each footer. Rebuild it in the same change as the text. Version 2.3.0 has 111 pages.
 
 Versions use `major.minor.patch`: patch for a correction, minor for a feature or a large section, major for a new structure.
 
@@ -2171,6 +2823,9 @@ Versions use `major.minor.patch`: patch for a correction, minor for a feature or
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 2.3.0 | 16 November 2026 | Delivered step A of phase 12 "Payments": method choice in the wizard (card methods locked until a provider exists), payment record in fils with an append-only ledger, **Cash received** for the assigned employee and the owner, receipts for customer, employee and owner, payment closing on reject, cancel, expiry and no-show, owner Payments page with period summary, unpaid list and settings, commission stored and kept at 0, and the `PAYMENT_RECEIVED` notice. Added section 5.12, FR-30 to FR-32, the payment workflow, three entities, payment transitions and invariants, seven API routes, security and data rules, risks R-29 to R-32, deploy notes and test evidence (311 backend, 218 web). Updated R-09 and R-14 |
+| 2.2.0 | 16 November 2026 | Added phase 8 "Appointment life cycle": automatic expiry of unanswered requests after 24 hours, answer deadline in the interface, day and two-hour reminders, salon holidays with a public notice and the `SALON_CLOSED` reason, no-show marking, statuses `EXPIRED` and `NO_SHOW`, and three notification events. Added section 5.10 (administration is now 5.11), FR-26 to FR-29, three workflows, the salon closure contract, four API routes, risks R-25 to R-28, deploy notes and test evidence (284 backend, 206 web). Resolved R-08 and R-24. Renumbered roadmap phases to 9 to 17 |
+| 2.1.0 | 16 November 2026 | Added phase 7 "Live appointments": map location picker with its own endpoint and server-built link, public map and directions, four-step booking wizard with "Let the salon assign", unavailable reasons and next free date, employee time off, owner assign-and-accept, `IN_PROGRESS` status, live trip and service tracking, six notification events, safe update of unchanged old salon fields, and the enum-to-`VARCHAR` column upgrade. Added sections 5.6 to 5.9, 11.12, 11.13, three contracts, thirteen API routes, risks R-20 to R-24, deploy notes, and new test evidence (256 backend, 200 web). Renumbered roadmap phases to 8 to 16. New A4 PDF edition with cover, numbered contents and page numbers, built by `documentation/pdf-edition` |
 | 2.0.1 | 15 November 2026 | Marked the Lamsa assistant as implemented after its release to the main branches, and removed the "release pending" convention |
 | 2.0.0 | 14 November 2026 | New structure in five parts (product, planning, design, development, handover). Added community, moderation, admin dashboard, owner dashboard API, global search and the Lamsa assistant. Added delivery history, phased roadmap, buyer handover chapters and 17 Mermaid diagrams. Updated status, tests, configuration and deployment to the current state. Product name written as Salonhub. |
 | 1.4.2 | 1 November 2026 | Recorded salon location and media delivery, and frontend design tokens, typography and motion timings |
