@@ -8,5 +8,6 @@ public record MediaUploadResult(
         MediaResourceType resourceType,
         Integer width,
         Integer height,
-        Long bytes
+        Long bytes,
+        Double durationSeconds
 ) {}

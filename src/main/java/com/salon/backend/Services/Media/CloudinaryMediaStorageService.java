@@ -170,7 +170,8 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
                 "video".equals(type) ? MediaResourceType.VIDEO : MediaResourceType.IMAGE,
                 number(response.get("width")),
                 number(response.get("height")),
-                longNumber(response.get("bytes"))
+                longNumber(response.get("bytes")),
+                "video".equals(type) ? durationSeconds(response.get("duration")) : null
         );
         return ApiResponse.success("Media uploaded successfully", result);
     }
@@ -288,4 +289,9 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
     private int unsigned(byte value) { return value & 0xff; }
     private Integer number(Object value) { return value instanceof Number number ? number.intValue() : null; }
     private Long longNumber(Object value) { return value instanceof Number number ? number.longValue() : null; }
+    private Double durationSeconds(Object value) {
+        if (!(value instanceof Number number)) return null;
+        double duration = number.doubleValue();
+        return Double.isFinite(duration) && duration >= 0 ? duration : null;
+    }
 }

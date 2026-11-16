@@ -47,6 +47,8 @@ public class EmployeeWorkMedia {
 
     private Long bytes;
 
+    private Double durationSeconds;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 }

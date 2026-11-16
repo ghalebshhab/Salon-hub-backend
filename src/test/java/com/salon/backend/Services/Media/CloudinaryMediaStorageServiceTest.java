@@ -90,13 +90,30 @@ class CloudinaryMediaStorageServiceTest {
                 })
                 .andRespond(withSuccess("""
                         {"secure_url":"https://res.cloudinary.com/test-cloud/video/upload/work.mp4",
-                         "public_id":"salonhub/work", "resource_type":"video"}
+                         "public_id":"salonhub/work", "resource_type":"video", "duration":12.75}
                         """, MediaType.APPLICATION_JSON));
 
         var response = service.uploadRemote("https://drive.google.com/file/d/abc_123/view", null);
 
         assertTrue(response.isSuccess());
         assertEquals(MediaResourceType.VIDEO, response.getData().resourceType());
+        assertEquals(12.75, response.getData().durationSeconds());
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "\"not-a-number\""})
+    void invalidVideoDurationDoesNotBecomeStoredMetadata(String duration) {
+        server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
+                .andRespond(withSuccess("""
+                        {"secure_url":"https://res.cloudinary.com/test-cloud/video/upload/work.mp4",
+                         "public_id":"salonhub/work", "resource_type":"video", "duration":%s}
+                        """.formatted(duration), MediaType.APPLICATION_JSON));
+
+        var response = service.uploadRemote("https://drive.google.com/file/d/abc/view", "salonhub");
+
+        assertTrue(response.isSuccess());
+        assertNull(response.getData().durationSeconds());
         server.verify();
     }
 

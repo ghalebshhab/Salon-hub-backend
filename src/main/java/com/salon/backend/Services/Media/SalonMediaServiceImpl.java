@@ -159,6 +159,7 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         media.setWidth(result.width());
         media.setHeight(result.height());
         media.setBytes(result.bytes());
+        media.setDurationSeconds(result.durationSeconds());
         media.setCreatedAt(LocalDateTime.now());
         workMediaRepo.save(media);
         return ApiResponse.success("Work media published successfully", mapWorkMedia(media));
@@ -193,6 +194,6 @@ public class SalonMediaServiceImpl implements SalonMediaService {
                 ? null : employee.getCareerSkills().get(0);
         return new EmployeeWorkMediaResponse(media.getId(), employee.getId(), name, specialty, media.getSecureUrl(),
                 media.getResourceType(), media.getCaption(), media.getWidth(), media.getHeight(),
-                media.getCreatedAt());
+                media.getDurationSeconds(), media.getCreatedAt());
     }
 }

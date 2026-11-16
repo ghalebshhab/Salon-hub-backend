@@ -80,7 +80,8 @@ class SalonMediaServiceImplTest {
                 MediaResourceType.IMAGE,
                 1600,
                 900,
-                5000L
+                5000L,
+                null
         );
         when(salonRepo.findByOwnerId(owner.getId())).thenReturn(salon);
         when(storageService.upload(file, "salonhub/salon-covers"))
@@ -114,7 +115,8 @@ class SalonMediaServiceImplTest {
                 MediaResourceType.IMAGE,
                 900,
                 900,
-                4500L
+                4500L,
+                null
         );
         when(userRepo.findById(employee.getId())).thenReturn(Optional.of(employee));
         when(storageService.upload(file, "salonhub/employee-work"))
@@ -131,6 +133,25 @@ class SalonMediaServiceImplTest {
         assertEquals(employee, saved.getEmployee());
         assertEquals("Soft balayage", saved.getCaption());
         assertEquals(uploaded.publicId(), saved.getPublicId());
+    }
+
+    @Test
+    void publishedVideoPersistsAndReturnsProviderDuration() {
+        User employee = currentEmployee();
+        MediaUploadResult uploaded = new MediaUploadResult(
+                "https://res.cloudinary.com/demo/video/upload/work.mp4",
+                "salonhub/work-video", MediaResourceType.VIDEO, 1080, 1920, 4500L, 18.25);
+        MockMultipartFile file = new MockMultipartFile("file", "work.mp4", "video/mp4", new byte[]{1});
+        when(storageService.upload(file, "salonhub/employee-work"))
+                .thenReturn(ApiResponse.success("Uploaded", uploaded));
+
+        ApiResponse<EmployeeWorkMediaResponse> response = service.addWorkMedia(employee.getId(), file, null);
+
+        assertTrue(response.isSuccess());
+        ArgumentCaptor<EmployeeWorkMedia> captor = ArgumentCaptor.forClass(EmployeeWorkMedia.class);
+        verify(workMediaRepo).save(captor.capture());
+        assertEquals(18.25, captor.getValue().getDurationSeconds());
+        assertEquals(18.25, response.getData().durationSeconds());
     }
 
     @Test
@@ -268,7 +289,7 @@ class SalonMediaServiceImplTest {
         when(userRepo.findById(11L)).thenReturn(Optional.of(employee));
         MediaUploadResult uploaded = new MediaUploadResult(
                 "https://res.cloudinary.com/demo/image/upload/work.webp",
-                "salonhub/work-1", MediaResourceType.IMAGE, 900, 900, 4500L);
+                "salonhub/work-1", MediaResourceType.IMAGE, 900, 900, 4500L, null);
         when(storageService.upload(any(), eq("salonhub/employee-work")))
                 .thenReturn(ApiResponse.success("Uploaded", uploaded));
         when(storageService.uploadRemote(anyString(), eq("salonhub/employee-work")))

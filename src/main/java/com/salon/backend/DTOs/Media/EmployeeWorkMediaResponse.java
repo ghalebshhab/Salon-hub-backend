@@ -14,5 +14,6 @@ public record EmployeeWorkMediaResponse(
         String caption,
         Integer width,
         Integer height,
+        Double durationSeconds,
         LocalDateTime createdAt
 ) {}
