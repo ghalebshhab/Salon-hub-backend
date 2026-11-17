@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employment;
 
+import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
@@ -46,8 +47,15 @@ public class EmploymentServiceImpl implements EmploymentService {
     private final HiringPostRepo hiringPostRepo;
     private final EmployeeServiceCapabilityRepo capabilityRepo;
     private final EmployeeScheduleRepo scheduleRepo;
+    private final WorkforceEmailNotifier workforceEmails;
     @Override
     public ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId) {
+        var result = joinSalonInternal(request, senderId);
+        workforceEmails.requestSent(result);
+        return result;
+    }
+
+    private ApiResponse<EmployeeRequestResponse> joinSalonInternal(JoinSalonRequest request, Long senderId) {
         Optional<Salon> optionalsalon=salonRepo.findById(request.getSalonId());
         Optional<User> optionalUser=userRepo.findById(senderId);
 
@@ -113,6 +121,14 @@ public class EmploymentServiceImpl implements EmploymentService {
 @Override
 @Transactional
 public ApiResponse<EmployeeRequestResponse> acceptRequest(
+        AcceptRequest acceptRequest,
+        Long currentUserId) {
+    var result = acceptRequestInternal(acceptRequest, currentUserId);
+    workforceEmails.requestAccepted(result);
+    return result;
+}
+
+private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
         AcceptRequest acceptRequest,
         Long currentUserId) {
 
@@ -355,6 +371,12 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
 }
     @Override
     public ApiResponse<EmployeeRequestResponse> sentInvitation(SentInvitation sentInvitation, Long salonId, Long senderId) {
+        var result = sentInvitationInternal(sentInvitation, salonId, senderId);
+        workforceEmails.requestSent(result);
+        return result;
+    }
+
+    private ApiResponse<EmployeeRequestResponse> sentInvitationInternal(SentInvitation sentInvitation, Long salonId, Long senderId) {
      Optional<Salon> optionalsalon=salonRepo.findById(salonId);
      Optional<User> optionalSender=userRepo.findById(senderId);
      Optional<User> optionalReciever=userRepo.findById(sentInvitation.getUserId());
@@ -448,6 +470,14 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     @Override
     @Transactional
     public ApiResponse<EmployeeRequestResponse> rejectRequest(
+            RejectRequest rejectRequest,
+            Long currentUserId) {
+        var result = rejectRequestInternal(rejectRequest, currentUserId);
+        workforceEmails.requestRejected(result);
+        return result;
+    }
+
+    private ApiResponse<EmployeeRequestResponse> rejectRequestInternal(
             RejectRequest rejectRequest,
             Long currentUserId) {
 
@@ -601,6 +631,14 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     public ApiResponse<LeaveRequestResponse> createLeaveRequest(
             CreateLeaveRequest request,
             Long currentUserId) {
+        var result = createLeaveRequestInternal(request, currentUserId);
+        workforceEmails.leaveRequested(result);
+        return result;
+    }
+
+    private ApiResponse<LeaveRequestResponse> createLeaveRequestInternal(
+            CreateLeaveRequest request,
+            Long currentUserId) {
 
         Optional<User> optionalEmployee = userRepo.findById(currentUserId);
         if (optionalEmployee.isEmpty()) {
@@ -653,6 +691,14 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     @Override
     @Transactional
     public ApiResponse<LeaveRequestResponse> acceptLeaveRequest(
+            Long requestId,
+            Long currentUserId) {
+        var result = acceptLeaveRequestInternal(requestId, currentUserId);
+        workforceEmails.leaveAccepted(result);
+        return result;
+    }
+
+    private ApiResponse<LeaveRequestResponse> acceptLeaveRequestInternal(
             Long requestId,
             Long currentUserId) {
 
@@ -882,8 +928,16 @@ public ApiResponse<EmployeeRequestResponse> acceptRequest(
     }
     @Override
     @Transactional
-    public ApiResponse<EmployeeRequestResponse>
-    acceptInvitationAndRequestLeave(
+    public ApiResponse<EmployeeRequestResponse> acceptInvitationAndRequestLeave(
+            Long requestId,
+            Long currentUserId,
+            String reason) {
+        var result = acceptInvitationAndRequestLeaveInternal(requestId, currentUserId, reason);
+        workforceEmails.requestAccepted(result);
+        return result;
+    }
+
+    private ApiResponse<EmployeeRequestResponse> acceptInvitationAndRequestLeaveInternal(
             Long requestId,
             Long currentUserId,
             String reason) {

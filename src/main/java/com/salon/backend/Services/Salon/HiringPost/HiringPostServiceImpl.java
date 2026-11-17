@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.HiringPost;
 
+import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.ApplyToHiringPostRequest;
 import com.salon.backend.DTOs.Salon.HiringPost.CreateHiringPostRequest;
@@ -59,6 +60,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final EmploymentService employmentService;
+    private final WorkforceEmailNotifier workforceEmails;
 
     @Override
     @Transactional(readOnly = true)
@@ -371,6 +373,15 @@ public class HiringPostServiceImpl implements HiringPostService {
     @Override
     @Transactional
     public ApiResponse<HiringApplicationResponse> applyToHiringPost(
+            Long hiringPostId,
+            ApplyToHiringPostRequest request,
+            Long applicantId) {
+        var result = applyToHiringPostInternal(hiringPostId, request, applicantId);
+        workforceEmails.applicationReceived(result);
+        return result;
+    }
+
+    private ApiResponse<HiringApplicationResponse> applyToHiringPostInternal(
             Long hiringPostId,
             ApplyToHiringPostRequest request,
             Long applicantId) {

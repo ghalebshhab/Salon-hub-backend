@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employment;
 
+import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.EmployeeRequestResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.JoinSalonRequest;
@@ -49,6 +50,7 @@ class EmploymentServiceImplTest {
     @Mock private HiringPostRepo hiringPostRepo;
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @Mock private EmployeeScheduleRepo scheduleRepo;
+    @Mock private WorkforceEmailNotifier workforceEmails;
 
     private EmploymentServiceImpl service;
 
@@ -61,7 +63,8 @@ class EmploymentServiceImplTest {
                 leaveRequestRepo,
                 hiringPostRepo,
                 capabilityRepo,
-                scheduleRepo
+                scheduleRepo,
+                workforceEmails
         );
     }
 
