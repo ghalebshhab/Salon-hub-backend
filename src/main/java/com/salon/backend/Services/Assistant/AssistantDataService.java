@@ -20,6 +20,7 @@ import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.Salon.SalonReviewRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.HiringPost.HiringPostService;
+import com.salon.backend.Services.Salon.SalonOpenStatusResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class AssistantDataService {
     private final HiringPostRepo hiringPostRepo;
     private final HiringPostService hiringPostService;
     private final UserRepo userRepo;
+    private final SalonOpenStatusResolver salonOpenStatusResolver;
 
     /** Visible salons with their rating, best first. */
     @Transactional(readOnly = true)
@@ -216,7 +218,7 @@ public class AssistantDataService {
                 salon.getProfilePictureUrl(),
                 average == null ? null : Math.round(average * 10) / 10.0,
                 count,
-                salon.getOpenningStatus() != SalonOpenningStatus.Closed,
+                salonOpenStatusResolver.resolve(salon) == SalonOpenningStatus.Open,
                 openSeats);
     }
 

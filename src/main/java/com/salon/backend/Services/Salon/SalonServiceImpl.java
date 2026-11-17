@@ -32,6 +32,7 @@ public class SalonServiceImpl implements SalonService {
     private  final UserRepo userRepo;
     private final AdminAuthorizationService adminAuthorizationService;
     private final SalonNotificationService salonNotificationService;
+    private final SalonOpenStatusResolver salonOpenStatusResolver;
     private final List<String> JordanCities = List.of(
             "Amman", "Zarqa", "Irbid", "Aqaba", "Jerash",
             "Madaba", "Ajloun", "As-Salt", "Al-Karak",
@@ -377,7 +378,7 @@ public class SalonServiceImpl implements SalonService {
                 salon.getClosingTime(),
                 salon.getProfilePictureUrl(),
                 salon.getStatus(),
-                salon.getOpenningStatus(),
+                salonOpenStatusResolver.resolve(salon),
                 salon.isBlockedByAdmin(),
                 salon.isBlockedByOwner(),
                 salon.getRejectionReason(),

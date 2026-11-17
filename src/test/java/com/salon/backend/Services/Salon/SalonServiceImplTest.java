@@ -33,6 +33,7 @@ class SalonServiceImplTest {
     @Mock private UserRepo userRepo;
     @Mock private AdminAuthorizationService adminAuthorizationService;
     @Mock private SalonNotificationService salonNotificationService;
+    @Mock private SalonOpenStatusResolver salonOpenStatusResolver;
     @InjectMocks private SalonServiceImpl service;
 
     @Test
