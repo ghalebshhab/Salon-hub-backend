@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Services.Email.NotificationEmailBridge;
 import com.salon.backend.Entities.community.Friendship;
 import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.notifications.NotificationEventType;
@@ -23,12 +24,13 @@ import static org.mockito.Mockito.*;
 class CommunityNotificationServiceImplTest {
 
     @Mock private UserNotificationRepo notificationRepo;
+    @Mock private NotificationEmailBridge emailBridge;
     private CommunityNotificationService service;
     private Friendship friendship;
 
     @BeforeEach
     void setUp() {
-        service = new CommunityNotificationServiceImpl(notificationRepo);
+        service = new CommunityNotificationServiceImpl(notificationRepo, emailBridge);
         User requester = user(11L, "Maya", "Stone", "maya");
         User addressee = user(22L, "Sara", "Lee", "sara");
         friendship = new Friendship();

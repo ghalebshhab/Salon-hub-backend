@@ -9,6 +9,7 @@ import com.salon.backend.Entities.salons.bookings.Booking;
 import com.salon.backend.Entities.salons.bookings.BookingRescheduleProposal;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Notification.UserNotificationRepo;
+import com.salon.backend.Services.Email.NotificationEmailBridge;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 public class BookingNotificationServiceImpl implements BookingNotificationService {
 
     private final UserNotificationRepo notificationRepo;
+    private final NotificationEmailBridge emailBridge;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -444,6 +446,7 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         notification.setTargetPath(targetPath);
         notification.setCreatedAt(LocalDateTime.now());
         notificationRepo.save(notification);
+        emailBridge.notificationSaved(notification);
     }
 
     private String customerBookingPath(Booking booking) {

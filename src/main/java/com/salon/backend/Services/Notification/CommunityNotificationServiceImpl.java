@@ -6,6 +6,7 @@ import com.salon.backend.Entities.notifications.NotificationEventType;
 import com.salon.backend.Entities.notifications.UserNotification;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Notification.UserNotificationRepo;
+import com.salon.backend.Services.Email.NotificationEmailBridge;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ public class CommunityNotificationServiceImpl implements CommunityNotificationSe
 
     private static final String COMMUNITY_PATH = "/community";
     private final UserNotificationRepo notificationRepo;
+    private final NotificationEmailBridge emailBridge;
 
     @Override
     public void friendRequestReceived(Friendship friendship) {
@@ -70,6 +72,7 @@ public class CommunityNotificationServiceImpl implements CommunityNotificationSe
         notification.setTargetPath(COMMUNITY_PATH);
         notification.setCreatedAt(LocalDateTime.now());
         notificationRepo.save(notification);
+        emailBridge.notificationSaved(notification);
     }
 
     private String displayName(User user) {

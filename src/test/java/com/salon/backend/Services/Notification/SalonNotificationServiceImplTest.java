@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Services.Email.NotificationEmailBridge;
 import com.salon.backend.Entities.notifications.NotificationDomain;
 import com.salon.backend.Entities.notifications.NotificationEventType;
 import com.salon.backend.Entities.notifications.UserNotification;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.verify;
 class SalonNotificationServiceImplTest {
 
     @Mock private UserNotificationRepo notificationRepo;
+    @Mock private NotificationEmailBridge emailBridge;
     @InjectMocks private SalonNotificationServiceImpl service;
 
     @Test

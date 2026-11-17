@@ -6,6 +6,7 @@ import com.salon.backend.Entities.notifications.UserNotification;
 import com.salon.backend.Entities.salons.Salon;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Repositories.Notification.UserNotificationRepo;
+import com.salon.backend.Services.Email.NotificationEmailBridge;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ public class SalonNotificationServiceImpl implements SalonNotificationService {
 
     private static final String MY_SALON_PATH = "/owner/my-salon";
     private final UserNotificationRepo notificationRepo;
+    private final NotificationEmailBridge emailBridge;
 
     @Override
     public void notifyRequestSubmitted(Salon salon) {
@@ -123,6 +125,7 @@ public class SalonNotificationServiceImpl implements SalonNotificationService {
         notification.setTargetPath(MY_SALON_PATH);
         notification.setCreatedAt(LocalDateTime.now());
         notificationRepo.save(notification);
+        emailBridge.notificationSaved(notification);
     }
 
     private String versionKey(Salon salon) {
