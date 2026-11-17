@@ -104,6 +104,33 @@ public class SalonMediaServiceImpl implements SalonMediaService {
         return ApiResponse.success("Work media deleted successfully", null);
     }
 
+    @Override
+    @Transactional
+    public ApiResponse<MediaUploadResponse> uploadProfilePicture(Long userId, MultipartFile file) {
+        User user = activeUser(userId);
+        if (user == null) return ApiResponse.error("Sign in with an active account to change your picture.");
+        ApiResponse<MediaUploadResult> uploaded = storageService.upload(file, "salonhub/user-avatars");
+        if (!uploaded.isSuccess()) return ApiResponse.error(uploaded.getMessage());
+        MediaUploadResult result = uploaded.getData();
+        if (result.resourceType() != MediaResourceType.IMAGE) {
+            storageService.delete(result.publicId(), "video");
+            return ApiResponse.error("Your profile picture must be an image.");
+        }
+        String previousPublicId = user.getProfilePicturePublicId();
+        user.setProfilePictureUrl(result.secureUrl());
+        user.setProfilePicturePublicId(result.publicId());
+        userRepo.save(user);
+        if (previousPublicId != null && !previousPublicId.equals(result.publicId())) {
+            storageService.delete(previousPublicId, "image");
+        }
+        return ApiResponse.success("Profile picture updated", mapUpload(result));
+    }
+
+    private User activeUser(Long userId) {
+        User user = userId == null ? null : userRepo.findById(userId).orElse(null);
+        return user != null && user.getStatus() == UserStatus.Active ? user : null;
+    }
+
     private ApiResponse<MediaUploadResponse> saveSalonCover(
             Salon salon, ApiResponse<MediaUploadResult> uploaded) {
         if (!uploaded.isSuccess()) return ApiResponse.error(uploaded.getMessage());

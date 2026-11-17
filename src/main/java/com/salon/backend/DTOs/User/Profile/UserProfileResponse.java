@@ -30,6 +30,7 @@ public record UserProfileResponse(
         boolean resumeUploaded,
         String portfolioUrl,
         String professionalBio,
-        Integer careerProfileCompletionPercentage
+        Integer careerProfileCompletionPercentage,
+        String profilePictureUrl
 ) {
 }

@@ -175,7 +175,8 @@ public class UserProfileServiceImpl implements UserProfileService {
                 user.getResumeUrl() != null,
                 user.getPortfolioUrl(),
                 user.getProfessionalBio(),
-                calculateCompletionPercentage(user)
+                calculateCompletionPercentage(user),
+                user.getProfilePictureUrl()
         );
     }
 

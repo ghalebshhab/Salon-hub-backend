@@ -455,7 +455,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     private CommunityAuthorResponse mapAuthor(User user) {
         String displayName = ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim();
-        return new CommunityAuthorResponse(user.getId(), user.getUserName(), displayName);
+        return new CommunityAuthorResponse(user.getId(), user.getUserName(), displayName, user.getProfilePictureUrl());
     }
 
     private CommunitySalonResponse mapSalon(Salon salon) {

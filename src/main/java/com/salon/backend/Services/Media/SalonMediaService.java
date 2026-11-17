@@ -13,4 +13,5 @@ public interface SalonMediaService {
     ApiResponse<EmployeeWorkMediaResponse> addWorkMediaFromDrive(Long employeeId, String url, String caption);
     ApiResponse<EmployeeWorkMediaPageResponse> getSalonWorkMedia(Long salonId, int page, int size);
     ApiResponse<Void> deleteWorkMedia(Long employeeId, Long mediaId);
+    ApiResponse<MediaUploadResponse> uploadProfilePicture(Long userId, MultipartFile file);
 }

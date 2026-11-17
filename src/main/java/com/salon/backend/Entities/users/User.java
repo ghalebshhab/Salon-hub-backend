@@ -83,6 +83,11 @@ public class User {
 
     private String portfolioUrl;
 
+    @Column(length = 1000)
+    private String profilePictureUrl;
+
+    private String profilePicturePublicId;
+
     @Column(length = 2000)
     private String professionalBio;
 

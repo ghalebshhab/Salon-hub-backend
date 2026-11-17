@@ -34,6 +34,13 @@ public class SalonMediaController {
         return salonMediaService.uploadSalonCoverFromDrive(currentUser.getId(), request.url());
     }
 
+    @PostMapping(value = "/profile-picture", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<MediaUploadResponse> uploadProfilePicture(
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonMediaService.uploadProfilePicture(currentUser.getId(), file);
+    }
+
     @PostMapping(value = "/work", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<EmployeeWorkMediaResponse> addWorkMedia(
             @RequestPart("file") MultipartFile file,

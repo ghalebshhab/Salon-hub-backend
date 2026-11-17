@@ -100,7 +100,7 @@ public class ModerationReportServiceImpl implements ModerationReportService {
         String full = ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim();
         return full.isBlank() ? user.getUserName() : full;
     }
-    private CommunityAuthorResponse author(User user) { return user == null ? null : new CommunityAuthorResponse(user.getId(), user.getUserName(), name(user)); }
+    private CommunityAuthorResponse author(User user) { return user == null ? null : new CommunityAuthorResponse(user.getId(), user.getUserName(), name(user), user.getProfilePictureUrl()); }
     private ModerationReportResponse map(ModerationReport report) {
         return new ModerationReportResponse(report.getId(), author(report.getReporter()), report.getTargetType(), report.getTargetId(),
                 report.getTargetLabel(), report.getReason(), report.getDetails(), report.getStatus(), report.getAdminNote(),
