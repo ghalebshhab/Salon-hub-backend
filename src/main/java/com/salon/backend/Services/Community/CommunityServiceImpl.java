@@ -11,6 +11,9 @@ import com.salon.backend.Repositories.Community.*;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Notification.CommunityNotificationService;
+import com.salon.backend.Services.Media.MediaStorageService;
+import com.salon.backend.Services.Media.MediaUploadResult;
+import org.springframework.web.multipart.MultipartFile;
 import com.salon.backend.Utils.UrlValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,6 +45,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final UserRepo userRepo;
     private final SalonRepo salonRepo;
     private final CommunityNotificationService communityNotificationService;
+    private final MediaStorageService mediaStorageService;
 
     @Override
     @Transactional(readOnly = true)
@@ -178,6 +182,10 @@ public class CommunityServiceImpl implements CommunityService {
         String mediaUrl = request == null ? null : normalize(request.mediaUrl());
         String validationError = validatePost(content, mediaUrl);
         if (validationError != null) return ApiResponse.error(validationError);
+        if (post.getMediaPublicId() != null && !java.util.Objects.equals(mediaUrl, post.getMediaUrl())) {
+            // The uploaded file was removed or replaced by a link: free it in Cloudinary.
+            deleteStoredMedia(post);
+        }
         post.setContent(content);
         post.setMediaUrl(mediaUrl);
         post.setUpdatedAt(LocalDateTime.now());
@@ -192,8 +200,43 @@ public class CommunityServiceImpl implements CommunityService {
         if (post == null) return ApiResponse.error("Community post owned by you was not found");
         likeRepo.deleteByPostId(postId);
         commentRepo.deleteByPostId(postId);
+        String mediaPublicId = post.getMediaPublicId();
+        String mediaResourceType = post.getMediaResourceType();
         postRepo.delete(post);
+        if (mediaPublicId != null) {
+            mediaStorageService.delete(mediaPublicId, mediaResourceType == null ? "image" : mediaResourceType);
+        }
         return ApiResponse.success("Community post deleted successfully", null);
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<CommunityPostResponse> setPostMedia(Long postId, MultipartFile file, Long userId) {
+        CommunityPost post = findOwnedPost(postId, userId);
+        if (post == null) return ApiResponse.error("Community post owned by you was not found");
+        ApiResponse<MediaUploadResult> uploaded = mediaStorageService.upload(file, "salonhub/community");
+        if (!uploaded.isSuccess()) return ApiResponse.error(uploaded.getMessage());
+        MediaUploadResult result = uploaded.getData();
+
+        String oldPublicId = post.getMediaPublicId();
+        String oldResourceType = post.getMediaResourceType();
+        post.setMediaUrl(result.secureUrl());
+        post.setMediaPublicId(result.publicId());
+        post.setMediaResourceType(result.resourceType().name().toLowerCase());
+        post.setUpdatedAt(LocalDateTime.now());
+        postRepo.save(post);
+        if (oldPublicId != null && !oldPublicId.equals(result.publicId())) {
+            mediaStorageService.delete(oldPublicId, oldResourceType == null ? "image" : oldResourceType);
+        }
+        return ApiResponse.success("Post media saved", mapPost(post, userId, likeRepo.existsByPostIdAndUserId(postId, userId)));
+    }
+
+    private void deleteStoredMedia(CommunityPost post) {
+        if (post.getMediaPublicId() == null) return;
+        String type = post.getMediaResourceType() == null ? "image" : post.getMediaResourceType();
+        mediaStorageService.delete(post.getMediaPublicId(), type);
+        post.setMediaPublicId(null);
+        post.setMediaResourceType(null);
     }
 
     @Override

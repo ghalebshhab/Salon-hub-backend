@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Community;
 
+import org.springframework.web.multipart.MultipartFile;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Community.*;
 
@@ -15,6 +16,7 @@ public interface CommunityService {
     ApiResponse<CommunityPostResponse> createPost(CreatePostRequest request, Long userId);
     ApiResponse<CommunityPostResponse> updatePost(Long postId, UpdatePostRequest request, Long userId);
     ApiResponse<Void> deletePost(Long postId, Long userId);
+    ApiResponse<CommunityPostResponse> setPostMedia(Long postId, MultipartFile file, Long userId);
     ApiResponse<CommunityPostResponse> likePost(Long postId, Long userId);
     ApiResponse<CommunityPostResponse> unlikePost(Long postId, Long userId);
     ApiResponse<CommunityCommentPageResponse> getComments(Long postId, Long userId, Integer page, Integer size);

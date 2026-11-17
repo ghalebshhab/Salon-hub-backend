@@ -38,6 +38,12 @@ public class CommunityPost {
     @Column(length = 1000)
     private String mediaUrl;
 
+    /** Cloudinary id of an uploaded photo/video; null for a pasted link. */
+    private String mediaPublicId;
+
+    /** "image" or "video", needed to delete the file in Cloudinary. */
+    private String mediaResourceType;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

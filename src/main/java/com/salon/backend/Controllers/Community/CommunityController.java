@@ -76,6 +76,14 @@ public class CommunityController {
         return communityService.deletePost(postId, currentUser.getId());
     }
 
+    @PutMapping(value = "/posts/{postId}/media", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<CommunityPostResponse> setPostMedia(
+            @PathVariable Long postId,
+            @RequestPart("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return communityService.setPostMedia(postId, file, currentUser.getId());
+    }
+
     @PutMapping("/posts/{postId}/like")
     public ApiResponse<CommunityPostResponse> likePost(@PathVariable Long postId, @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return communityService.likePost(postId, currentUser.getId());
