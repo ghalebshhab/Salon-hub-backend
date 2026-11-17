@@ -2,6 +2,7 @@ package com.salon.backend.Services.Media;
 
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.Entities.media.MediaResourceType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Service
 public class CloudinaryMediaStorageService implements MediaStorageService {
 
@@ -70,6 +73,7 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             body.add("file", file.getResource());
             return executeUpload(body);
         } catch (Exception exception) {
+            log.warn("Cloudinary upload failed: {}", describe(exception));
             return ApiResponse.error("The media file could not be uploaded. Please verify the file and try again.");
         }
     }
@@ -88,6 +92,7 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             body.add("file", normalized);
             return executeUpload(body);
         } catch (Exception exception) {
+            log.warn("Cloudinary remote upload failed: {}", describe(exception));
             return ApiResponse.error("Cloudinary could not read that Google Drive file. Make sure its sharing setting is 'Anyone with the link'.");
         }
     }
@@ -125,6 +130,7 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
             }
             return ApiResponse.success("Media deleted", null);
         } catch (Exception exception) {
+            log.warn("Cloudinary delete failed for {}: {}", publicId, describe(exception));
             return ApiResponse.error("The stored media could not be deleted from Cloudinary.");
         }
     }
@@ -226,6 +232,14 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
         } catch (Exception exception) {
             return null;
         }
+    }
+
+    /** Cloudinary puts the real reason in the response body, e.g. a missing key permission. */
+    private String describe(Exception exception) {
+        if (exception instanceof RestClientResponseException response) {
+            return response.getStatusCode() + " " + response.getResponseBodyAsString();
+        }
+        return exception.toString();
     }
 
     private String sha1(String value) {
