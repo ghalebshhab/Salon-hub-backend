@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmailRenderer {
 
+    /** Content-ID of the inline logo that SmtpEmailSender attaches. */
+    public static final String LOGO_CID = "salonhub-logo";
+
     private static final String PLUM = "#76546f";
     private static final String PLUM_SOFT = "#f1e8ef";
     private static final String GOLD = "#d7a86e";
@@ -82,8 +85,7 @@ public class EmailRenderer {
                 + "<div style=\"display:none;max-height:0;overflow:hidden;opacity:0\">" + esc(t.preheader()) + "</div>"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:" + CANVAS + "\"><tr><td align=\"center\" style=\"padding:28px 14px\">"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px\">"
-                + "<tr><td style=\"padding:0 4px 14px;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:" + PLUM + "\">"
-                + "Salon<span style=\"color:" + GOLD + ";font-style:italic\">hub</span></td></tr>"
+                + header()
                 + "<tr><td style=\"background:#ffffff;border:1px solid " + LINE + ";border-top:4px solid " + PLUM + ";border-radius:16px;padding:30px 28px;"
                 + "font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif\">"
                 + "<h1 style=\"margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:23px;line-height:1.3;font-weight:700;color:" + INK + "\">"
@@ -91,8 +93,34 @@ public class EmailRenderer {
                 + body
                 + "</td></tr>"
                 + "<tr><td style=\"padding:18px 6px 0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:" + MUTED + "\">"
-                + esc(footer(t.priority())) + "<br><a href=\"" + esc(frontendUrl) + "\" style=\"color:" + PLUM + "\">SalonHub</a> · Made for Jordan"
+                + footerHtml(t.priority())
                 + "</td></tr></table></td></tr></table></body></html>";
+    }
+
+
+    /** Logo + wordmark + tagline. The logo is an inline image (cid:). */
+    private String header() {
+        return "<tr><td style=\"padding:0 4px 16px\">"
+                + "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr>"
+                + "<td style=\"padding-right:12px;vertical-align:middle\"><a href=\"" + esc(frontendUrl) + "\">"
+                + "<img src=\"cid:" + LOGO_CID + "\" width=\"44\" height=\"44\" alt=\"SalonHub\" "
+                + "style=\"display:block;border:0;border-radius:11px\"></a></td>"
+                + "<td style=\"vertical-align:middle\">"
+                + "<div style=\"font-family:Georgia,'Times New Roman',serif;font-size:23px;line-height:1.1;font-weight:700;color:" + PLUM + "\">"
+                + "Salon<span style=\"color:" + GOLD + ";font-style:italic\">Hub</span></div>"
+                + "<div style=\"font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;color:" + MUTED + ";padding-top:3px\">"
+                + "Salons, bookings and beauty pros in one place</div>"
+                + "</td></tr></table></td></tr>";
+    }
+
+    private String footerHtml(EmailPriority priority) {
+        String link = "color:" + PLUM + ";text-decoration:none;font-weight:600";
+        return "<div style=\"border-top:1px solid " + LINE + ";padding-top:14px\">"
+                + "<a href=\"" + esc(absoluteUrl("/")) + "\" style=\"" + link + "\">Find a salon</a>"
+                + " &nbsp;·&nbsp; <a href=\"" + esc(absoluteUrl("/notifications")) + "\" style=\"" + link + "\">Notifications</a>"
+                + " &nbsp;·&nbsp; <a href=\"" + esc(absoluteUrl("/account/security")) + "\" style=\"" + link + "\">Account security</a>"
+                + "</div><div style=\"padding-top:10px\">" + esc(footer(priority)) + "</div>"
+                + "<div style=\"padding-top:4px\">&copy; SalonHub &middot; Amman, Jordan</div>";
     }
 
     private String text(EmailTemplate t, String name) {

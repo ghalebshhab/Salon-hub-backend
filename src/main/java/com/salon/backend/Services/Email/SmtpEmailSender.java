@@ -3,6 +3,7 @@ package com.salon.backend.Services.Email;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 @Component
 @ConditionalOnProperty(name = "app.mail.delivery", havingValue = "smtp", matchIfMissing = true)
 public class SmtpEmailSender implements EmailSender {
+
+    private static final ClassPathResource LOGO = new ClassPathResource("email/salonhub-mark.png");
 
     private final JavaMailSender mailSender;
     private final String fromAddress;
@@ -35,6 +38,8 @@ public class SmtpEmailSender implements EmailSender {
         helper.setTo(to);
         helper.setSubject(content.subject());
         helper.setText(content.text(), content.html());
+        // Inline logo (cid:) shows in Gmail, Outlook and phone apps without hosting.
+        if (LOGO.exists()) helper.addInline(EmailRenderer.LOGO_CID, LOGO, "image/png");
         mailSender.send(message);
     }
 }
