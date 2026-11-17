@@ -136,6 +136,17 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
     }
 
     @Override
+    public ApiResponse<Void> deleteByUrl(String url) {
+        if (url == null || cloudName.isBlank()) return ApiResponse.error("Not a Cloudinary media URL.");
+        Matcher matcher = Pattern.compile(
+                "^https?://res\\.cloudinary\\.com/" + Pattern.quote(cloudName)
+                        + "/(image|video)/upload/(?:[^/]+/)*?(?:v\\d+/)?(.+?)(?:\\.[A-Za-z0-9]+)?$")
+                .matcher(url.trim());
+        if (!matcher.matches()) return ApiResponse.error("Not a Cloudinary media URL of this account.");
+        return delete(matcher.group(2), matcher.group(1));
+    }
+
+    @Override
     public boolean isConfigured() {
         return !cloudName.isBlank() && !apiKey.isBlank() && !apiSecret.isBlank();
     }

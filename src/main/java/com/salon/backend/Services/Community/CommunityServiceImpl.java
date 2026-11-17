@@ -200,12 +200,9 @@ public class CommunityServiceImpl implements CommunityService {
         if (post == null) return ApiResponse.error("Community post owned by you was not found");
         likeRepo.deleteByPostId(postId);
         commentRepo.deleteByPostId(postId);
-        String mediaPublicId = post.getMediaPublicId();
-        String mediaResourceType = post.getMediaResourceType();
+        // Free the Cloudinary file first, then remove the post row and its URL.
+        deletePostMediaFile(post);
         postRepo.delete(post);
-        if (mediaPublicId != null) {
-            mediaStorageService.delete(mediaPublicId, mediaResourceType == null ? "image" : mediaResourceType);
-        }
         return ApiResponse.success("Community post deleted successfully", null);
     }
 
@@ -233,10 +230,22 @@ public class CommunityServiceImpl implements CommunityService {
 
     private void deleteStoredMedia(CommunityPost post) {
         if (post.getMediaPublicId() == null) return;
-        String type = post.getMediaResourceType() == null ? "image" : post.getMediaResourceType();
-        mediaStorageService.delete(post.getMediaPublicId(), type);
+        deletePostMediaFile(post);
         post.setMediaPublicId(null);
         post.setMediaResourceType(null);
+    }
+
+    /**
+     * Deletes the post's file in Cloudinary. Posts saved before the public id
+     * was stored are matched by URL; links to other sites are left alone.
+     */
+    private void deletePostMediaFile(CommunityPost post) {
+        if (post.getMediaPublicId() != null) {
+            String type = post.getMediaResourceType() == null ? "image" : post.getMediaResourceType();
+            mediaStorageService.delete(post.getMediaPublicId(), type);
+        } else if (post.getMediaUrl() != null) {
+            mediaStorageService.deleteByUrl(post.getMediaUrl());
+        }
     }
 
     @Override
