@@ -13,12 +13,17 @@ import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import com.salon.backend.Utils.PasswordPolicy;
+import com.salon.backend.Services.Email.EmailService;
+import com.salon.backend.Services.Email.EmailTemplates;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +37,12 @@ public class AuthServiceImpl implements AuthService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final AccountVerificationService accountVerificationService;
     private final UserActivityTrackingService userActivityTrackingService;
+    private final EmailService emailService;
+    private final EmailTemplates emailTemplates;
+
+    /** Send a "new sign-in" email after each login. */
+    @Value("${app.mail.login-alerts:true}")
+    private boolean loginAlerts;
 
     private static final List<String> ALLOWED_EMAIL_DOMAINS = List.of(
             "gmail.com",
@@ -367,6 +378,11 @@ public class AuthServiceImpl implements AuthService {
             userActivityTrackingService.recordSuccessfulLogin(user);
         } catch (RuntimeException ignored) {
             // Activity analytics must never prevent a valid user from signing in.
+        }
+
+        if (loginAlerts) {
+            emailService.queue(user.getEmail(), user.getFirstName(),
+                    emailTemplates.loginAlert(ZonedDateTime.now(ZoneId.of("Asia/Amman"))));
         }
 
 

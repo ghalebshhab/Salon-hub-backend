@@ -12,6 +12,8 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Auth.AuthVerificationCodeRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Email.EmailService;
+import com.salon.backend.Services.Email.EmailTemplates;
 import com.salon.backend.Utils.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,8 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -42,6 +46,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
     private static final Duration RESET_TOKEN_LIFETIME = Duration.ofMinutes(10);
     private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Amman");
     private static final String RECOVERY_RESPONSE =
             "If an eligible account exists for this email, a password reset code has been sent.";
 
@@ -50,6 +55,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private final AuthEmailService emailService;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final EmailService mailer;
+    private final EmailTemplates emailTemplates;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.code-secret:${jwt.secret}}")
@@ -147,6 +154,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         user.setEmailVerified(true);
         userRepo.save(user);
         verificationCodeRepo.save(verification);
+        mailer.queue(user.getEmail(), user.getFirstName(), emailTemplates.welcome());
         return ApiResponse.success("Email address verified successfully. You can now sign in.", null);
     }
 
@@ -264,6 +272,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         verification.setResetTokenExpiresAt(null);
         userRepo.save(user);
         verificationCodeRepo.save(verification);
+        mailer.queue(user.getEmail(), user.getFirstName(),
+                emailTemplates.passwordChanged(true, ZonedDateTime.ofInstant(now, APP_ZONE)));
         return ApiResponse.success(
                 "Password reset successfully. Please sign in with your new password.",
                 null
@@ -303,6 +313,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
                 Instant.now(clock).truncatedTo(ChronoUnit.SECONDS)
         );
         userRepo.save(user);
+        mailer.queue(user.getEmail(), user.getFirstName(),
+                emailTemplates.passwordChanged(false, ZonedDateTime.now(clock.withZone(APP_ZONE))));
         return ApiResponse.success(
                 "Password changed successfully. Please sign in again on your devices.",
                 null

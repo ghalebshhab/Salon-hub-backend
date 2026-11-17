@@ -1,5 +1,7 @@
 package com.salon.backend.Services.Auth;
 
+import com.salon.backend.Services.Email.EmailService;
+import com.salon.backend.Services.Email.EmailTemplates;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterRequest;
 import com.salon.backend.DTOs.Auth.Rigester.RigesterResponse;
@@ -35,6 +37,8 @@ class AuthServiceImplTest {
     @Mock private UserRepo userRepo;
     @Mock private BCryptPasswordEncoder passwordEncoder;
     @Mock private AccountVerificationService accountVerificationService;
+    @Mock private EmailService emailService;
+    @Mock private EmailTemplates emailTemplates;
     @InjectMocks private AuthServiceImpl service;
 
     @Test

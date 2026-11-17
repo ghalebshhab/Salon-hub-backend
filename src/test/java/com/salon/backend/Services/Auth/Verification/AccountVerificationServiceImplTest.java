@@ -1,6 +1,8 @@
 package com.salon.backend.Services.Auth.Verification;
 
 import com.salon.backend.DTOs.ApiResponse;
+import com.salon.backend.Services.Email.EmailService;
+import com.salon.backend.Services.Email.EmailTemplates;
 import com.salon.backend.DTOs.Auth.Verification.ChangePasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.EmailAddressRequest;
 import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationResponse;
@@ -48,6 +50,8 @@ class AccountVerificationServiceImplTest {
     @Mock private AuthVerificationCodeRepo verificationCodeRepo;
     @Mock private AuthEmailService emailService;
     @Mock private BCryptPasswordEncoder passwordEncoder;
+    @Mock private EmailService mailer;
+    @Mock private EmailTemplates emailTemplates;
 
     private AccountVerificationServiceImpl service;
 
@@ -58,7 +62,9 @@ class AccountVerificationServiceImplTest {
                 verificationCodeRepo,
                 emailService,
                 passwordEncoder,
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                mailer,
+                emailTemplates
         );
         ReflectionTestUtils.setField(
                 service,

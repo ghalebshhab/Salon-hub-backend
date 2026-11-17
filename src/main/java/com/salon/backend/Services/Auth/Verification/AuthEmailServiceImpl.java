@@ -1,24 +1,22 @@
 package com.salon.backend.Services.Auth.Verification;
 
+import com.salon.backend.Services.Email.EmailService;
+import com.salon.backend.Services.Email.EmailTemplates;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+/**
+ * Sends the security codes through the shared email service. The user waits
+ * for these codes, so they go out now and the caller learns if they failed.
+ */
 @Service
 @Profile("!local")
 @RequiredArgsConstructor
-@Slf4j
 public class AuthEmailServiceImpl implements AuthEmailService {
 
-    private final JavaMailSender mailSender;
-
-    @Value("${app.mail.from:${spring.mail.username:}}")
-    private String fromAddress;
+    private final EmailService emailService;
+    private final EmailTemplates templates;
 
     @Override
     public boolean sendEmailVerificationCode(
@@ -26,14 +24,7 @@ public class AuthEmailServiceImpl implements AuthEmailService {
             String recipientName,
             String code
     ) {
-        return send(
-                recipientEmail,
-                "Verify your Salon Hup email",
-                greeting(recipientName)
-                        + "\n\nYour Salon Hup verification code is: " + code
-                        + "\n\nThis code expires in 10 minutes."
-                        + " If you did not create this account, you can ignore this email."
-        );
+        return emailService.sendNow(recipientEmail, recipientName, templates.verificationCode(code));
     }
 
     @Override
@@ -42,38 +33,6 @@ public class AuthEmailServiceImpl implements AuthEmailService {
             String recipientName,
             String code
     ) {
-        return send(
-                recipientEmail,
-                "Reset your Salon Hup password",
-                greeting(recipientName)
-                        + "\n\nYour Salon Hup password reset code is: " + code
-                        + "\n\nThis code expires in 10 minutes."
-                        + " If you did not request a password reset, you can ignore this email."
-        );
-    }
-
-    private boolean send(String recipientEmail, String subject, String body) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            if (fromAddress != null && !fromAddress.isBlank()) {
-                message.setFrom(fromAddress.trim());
-            }
-            message.setTo(recipientEmail);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            return true;
-        } catch (MailException | IllegalArgumentException exception) {
-            log.warn("Authentication email delivery failed: {}",
-                    exception.getClass().getSimpleName());
-            return false;
-        }
-    }
-
-    private String greeting(String recipientName) {
-        if (recipientName == null || recipientName.isBlank()) {
-            return "Hello,";
-        }
-        return "Hello " + recipientName.trim() + ",";
+        return emailService.sendNow(recipientEmail, recipientName, templates.passwordResetCode(code));
     }
 }
