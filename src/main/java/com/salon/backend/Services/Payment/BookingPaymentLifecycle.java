@@ -7,7 +7,8 @@ import com.salon.backend.Entities.payments.PaymentTransaction;
 import com.salon.backend.Entities.payments.PaymentTransactionType;
 import com.salon.backend.Entities.salons.bookings.Booking;
 import com.salon.backend.Entities.users.User;
-import lombok.RequiredArgsConstructor;
+import com.salon.backend.Services.Subscription.PlanLimits;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -18,17 +19,32 @@ import java.time.LocalDateTime;
  * transaction and the booking lock; this class only changes the payment.
  */
 @Component
-@RequiredArgsConstructor
 public class BookingPaymentLifecycle {
 
     private final PaymentPolicy paymentPolicy;
     private final Clock clock;
+    /** Null only in tests; then the policy's single rate applies. */
+    private final PlanLimits planLimits;
+
+    @Autowired
+    public BookingPaymentLifecycle(PaymentPolicy paymentPolicy, Clock clock, PlanLimits planLimits) {
+        this.paymentPolicy = paymentPolicy;
+        this.clock = clock;
+        this.planLimits = planLimits;
+    }
+
+    public BookingPaymentLifecycle(PaymentPolicy paymentPolicy, Clock clock) {
+        this(paymentPolicy, clock, null);
+    }
 
     /** New unpaid payment for a new booking; the booking total must be set first. */
     public BookingPayment open(Booking booking, PaymentMethod method) {
         LocalDateTime now = LocalDateTime.now(clock);
         long amount = PaymentPolicy.toFils(booking.getTotalPrice());
-        int rate = paymentPolicy.commissionRateBps();
+        // The card fee depends on the salon's plan; cash has no fee.
+        int rate = planLimits == null
+                ? paymentPolicy.commissionRateBps()
+                : planLimits.cardFeeBps(booking.getSalon(), method);
 
         BookingPayment payment = new BookingPayment();
         payment.setMethod(method);

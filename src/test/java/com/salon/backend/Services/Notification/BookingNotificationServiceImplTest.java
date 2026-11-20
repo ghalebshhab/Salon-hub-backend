@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Email.NotificationEmailBridge;
 import com.salon.backend.Entities.notifications.NotificationEventType;
 import com.salon.backend.Entities.notifications.UserNotification;
@@ -36,6 +37,7 @@ class BookingNotificationServiceImplTest {
 
     @Mock private UserNotificationRepo notificationRepo;
     @Mock private NotificationEmailBridge emailBridge;
+    @Mock private PlanLimits planLimits;
     @InjectMocks private BookingNotificationServiceImpl bookingNotificationService;
 
     @Test

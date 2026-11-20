@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Service;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Service.CreateSalonServiceRequest;
 import com.salon.backend.DTOs.Salon.Service.SalonServiceResponse;
@@ -26,6 +27,7 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
 
     private final SalonServiceRepo salonServiceRepo;
     private final SalonRepo salonRepo;
+    private final PlanLimits planLimits;
 
     @Override
     @Transactional
@@ -38,6 +40,10 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
             return ApiResponse.error(
                     "An active, approved salon owned by you is required to create services"
             );
+        }
+        String limitError = planLimits.serviceLimitError(salon);
+        if (limitError != null) {
+            return ApiResponse.error(limitError);
         }
 
         ApiResponse<Void> validation = validateService(
@@ -135,6 +141,12 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
         }
         if (request.getIsActive() == null) {
             return ApiResponse.error("Service active status is required");
+        }
+        if (request.getIsActive() && !salonService.isActive()) {
+            String limitError = planLimits.serviceLimitError(salonService.getSalon());
+            if (limitError != null) {
+                return ApiResponse.error(limitError);
+            }
         }
 
         salonService.setName(request.getName().trim());

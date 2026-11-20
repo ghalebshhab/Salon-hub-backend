@@ -1,5 +1,7 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Entities.subscriptions.PlanFeature;
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Salon.Booking.BookingTimePolicy;
 
 import com.salon.backend.Entities.notifications.NotificationEventType;
@@ -23,6 +25,7 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
 
     private final UserNotificationRepo notificationRepo;
     private final NotificationEmailBridge emailBridge;
+    private final PlanLimits planLimits;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -330,6 +333,11 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         if (type == null) {
             return;
         }
+        // Free salons get only the in-app reminder the day before: no email and no 2-hour reminder.
+        boolean emailReminders = !planLimits.locked(booking.getSalon(), PlanFeature.EMAIL_REMINDERS);
+        if (type == BookingTimePolicy.ReminderType.SOON && !emailReminders) {
+            return;
+        }
         String when = booking.getBookingDate().equals(today)
                 ? "today at " + booking.getBookingTime()
                 : booking.getBookingDate().equals(today.plusDays(1))
@@ -344,7 +352,10 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
                 NotificationEventType.BOOKING_REMINDER,
                 "booking:" + booking.getId() + ":reminder:" + type.name().toLowerCase() + ":customer",
                 "Reminder: your appointment at " + booking.getSalon().getName() + " is " + when + "." + suffix,
-                customerBookingPath(booking)
+                customerBookingPath(booking),
+                null,
+                null,
+                emailReminders
         );
         User employee = booking.getAssignedEmployee();
         if (type == BookingTimePolicy.ReminderType.SOON && employee != null) {
@@ -450,6 +461,20 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
             String targetPath,
             java.time.LocalDate suggestedDate,
             java.time.LocalTime suggestedTime) {
+        saveNotification(booking, recipient, eventType, eventKey, message, targetPath,
+                suggestedDate, suggestedTime, true);
+    }
+
+    private void saveNotification(
+            Booking booking,
+            User recipient,
+            NotificationEventType eventType,
+            String eventKey,
+            String message,
+            String targetPath,
+            java.time.LocalDate suggestedDate,
+            java.time.LocalTime suggestedTime,
+            boolean sendEmail) {
         if (booking == null
                 || booking.getId() == null
                 || recipient == null
@@ -475,7 +500,9 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         notification.setTargetPath(targetPath);
         notification.setCreatedAt(LocalDateTime.now());
         notificationRepo.save(notification);
-        emailBridge.notificationSaved(notification);
+        if (sendEmail) {
+            emailBridge.notificationSaved(notification);
+        }
     }
 
     private String customerBookingPath(Booking booking) {

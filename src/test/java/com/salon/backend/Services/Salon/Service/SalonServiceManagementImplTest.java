@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Service;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Service.CreateSalonServiceRequest;
 import com.salon.backend.DTOs.Salon.Service.SalonServiceResponse;
@@ -36,6 +37,7 @@ class SalonServiceManagementImplTest {
 
     @Mock private SalonServiceRepo salonServiceRepo;
     @Mock private SalonRepo salonRepo;
+    @Mock private PlanLimits planLimits;
     @InjectMocks private SalonServiceManagementImpl service;
 
     @Test

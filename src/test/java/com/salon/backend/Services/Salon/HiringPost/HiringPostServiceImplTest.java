@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.HiringPost;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.HiringPostPageResponse;
@@ -60,6 +61,8 @@ class HiringPostServiceImplTest {
     private LeaveRequestRepo leaveRequestRepo;
     @Mock
     private WorkforceEmailNotifier workforceEmails;
+    @Mock
+    private PlanLimits planLimits;
 
     @InjectMocks
     private HiringPostServiceImpl hiringPostService;

@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.HiringPost;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.HiringPost.ApplyToHiringPostRequest;
@@ -61,6 +62,7 @@ public class HiringPostServiceImpl implements HiringPostService {
     private final UserRepo userRepo;
     private final EmploymentService employmentService;
     private final WorkforceEmailNotifier workforceEmails;
+    private final PlanLimits planLimits;
 
     @Override
     @Transactional(readOnly = true)
@@ -142,6 +144,11 @@ public class HiringPostServiceImpl implements HiringPostService {
 
         if (salon.getStatus() != SalonStatus.Accepted) {
             return ApiResponse.error("Your salon must be accepted before creating a hiring post");
+        }
+
+        String postLimitError = planLimits.hiringPostLimitError(salon);
+        if (postLimitError != null) {
+            return ApiResponse.error(postLimitError);
         }
 
         ApiResponse<Void> validationResponse = validateCreateRequest(request);
@@ -339,6 +346,10 @@ public class HiringPostServiceImpl implements HiringPostService {
         }
         if (post.getStatus() == HiringPostStatus.Open) {
             return ApiResponse.error("This hiring post is already open");
+        }
+        String postLimitError = planLimits.hiringPostLimitError(post.getSalon());
+        if (postLimitError != null) {
+            return ApiResponse.error(postLimitError);
         }
 
         ApiResponse<Void> validationResponse = validateReopenRequest(request);

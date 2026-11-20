@@ -1,6 +1,7 @@
 package com.salon.backend.Services.Salon.Employment;
 
 import com.salon.backend.Services.Email.WorkforceEmailNotifier;
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.*;
 import com.salon.backend.DTOs.Salon.Employment.Leave.CreateLeaveRequest;
@@ -48,6 +49,7 @@ public class EmploymentServiceImpl implements EmploymentService {
     private final EmployeeServiceCapabilityRepo capabilityRepo;
     private final EmployeeScheduleRepo scheduleRepo;
     private final WorkforceEmailNotifier workforceEmails;
+    private final PlanLimits planLimits;
     @Override
     public ApiResponse<EmployeeRequestResponse> joinSalon(JoinSalonRequest request, Long senderId) {
         var result = joinSalonInternal(request, senderId);
@@ -77,6 +79,10 @@ public class EmploymentServiceImpl implements EmploymentService {
         }
         if(salon.getCurrentEmployeesNumber()>= salon.getMaxEmployeesNumber()){
             return ApiResponse.error("Salon is already full");
+        }
+        String planTeamError = planLimits.teamFullError(salon);
+        if (planTeamError != null) {
+            return ApiResponse.error(planTeamError);
         }
 
         Optional<EmploymentRequest> existingRequest =
@@ -261,6 +267,10 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
         return ApiResponse.error(
                 "Salon is already full"
         );
+    }
+    String planTeamError = planLimits.teamFullError(targetSalon);
+    if (planTeamError != null) {
+        return ApiResponse.error(planTeamError);
     }
 
     /*
@@ -452,6 +462,10 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
 
      if (salon.getCurrentEmployeesNumber() >= salon.getMaxEmployeesNumber()) {
          return ApiResponse.error("Salon is already full");
+     }
+     String planTeamError = planLimits.teamFullError(salon);
+     if (planTeamError != null) {
+         return ApiResponse.error(planTeamError);
      }
 
      EmploymentRequest employmentRequest=new EmploymentRequest();
@@ -784,6 +798,10 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
                     "The target salon is already full"
             );
         }
+        String planTeamError = planLimits.teamFullError(targetSalon);
+        if (planTeamError != null) {
+            return ApiResponse.error(planTeamError);
+        }
 
         EmploymentRequest employmentRequest =
                 leaveRequest.getEmploymentRequest();
@@ -998,6 +1016,10 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
             return ApiResponse.error(
                     "The salon is already full"
             );
+        }
+        String planTeamError = planLimits.teamFullError(targetSalon);
+        if (planTeamError != null) {
+            return ApiResponse.error(planTeamError);
         }
 
         // User has no current salon

@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employment;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Email.WorkforceEmailNotifier;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employment.Join.EmployeeRequestResponse;
@@ -51,6 +52,7 @@ class EmploymentServiceImplTest {
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
     @Mock private EmployeeScheduleRepo scheduleRepo;
     @Mock private WorkforceEmailNotifier workforceEmails;
+    @Mock private PlanLimits planLimits;
 
     private EmploymentServiceImpl service;
 
@@ -64,7 +66,8 @@ class EmploymentServiceImplTest {
                 hiringPostRepo,
                 capabilityRepo,
                 scheduleRepo,
-                workforceEmails
+                workforceEmails,
+                planLimits
         );
     }
 
