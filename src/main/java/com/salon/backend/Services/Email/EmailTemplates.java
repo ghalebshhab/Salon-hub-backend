@@ -220,6 +220,73 @@ public class EmailTemplates {
                 .build();
     }
 
+    // ------------------------------------------------------------ salon plan
+
+    public EmailTemplate planActivated(String planName, String salonName, String paidUntil, boolean complimentary) {
+        return EmailTemplate.builder(HIGH, "Your " + planName + " plan is on")
+                .heading(complimentary ? "You received free " + planName + " time" : "Your payment is confirmed")
+                .paragraph(complimentary
+                        ? "SalonHub gave " + salonName + " free time on the " + planName + " plan."
+                        : "We confirmed your payment. " + salonName + " now uses the " + planName + " plan.")
+                .detail("Plan", planName)
+                .detail("Active until", paidUntil)
+                .cta("Open my plan", "/owner/plan")
+                .build();
+    }
+
+    public EmailTemplate trialEnding(String planName, long daysLeft, String endDate) {
+        String days = daysLeft <= 1 ? "1 day" : daysLeft + " days";
+        return EmailTemplate.builder(HIGH, "Your free " + planName + " trial ends in " + days)
+                .heading("Your free trial ends soon")
+                .paragraph("Your free " + planName + " trial ends on " + endDate + ". After that your salon"
+                        + " moves to the Free plan: card payment, fees, email reminders and advanced"
+                        + " analytics stop, and the Free limits apply.")
+                .paragraph("Choose a plan now to keep everything on.")
+                .detail("Trial ends", endDate)
+                .cta("Choose a plan", "/owner/plan")
+                .build();
+    }
+
+    public EmailTemplate planRenewing(String planName, long daysLeft, String endDate) {
+        String days = daysLeft <= 1 ? "1 day" : daysLeft + " days";
+        return EmailTemplate.builder(HIGH, "Your " + planName + " plan ends in " + days)
+                .heading("Time to renew your plan")
+                .paragraph("Your " + planName + " plan is paid until " + endDate
+                        + ". Send the payment and a renewal request to keep it on without a break.")
+                .detail("Paid until", endDate)
+                .cta("Renew my plan", "/owner/plan")
+                .build();
+    }
+
+    public EmailTemplate planPaymentDue(String planName, String graceEndDate) {
+        return EmailTemplate.builder(HIGH, "Payment due for your " + planName + " plan")
+                .heading("Your plan needs a payment")
+                .paragraph("Your paid " + planName + " period ended. Your plan stays on until " + graceEndDate
+                        + ". Pay before that date to keep it.")
+                .detail("Last day", graceEndDate)
+                .cta("Pay now", "/owner/plan")
+                .build();
+    }
+
+    public EmailTemplate planEnded(String planName) {
+        return EmailTemplate.builder(HIGH, "Your salon is now on the Free plan")
+                .heading("Your " + planName + " plan ended")
+                .paragraph("Your salon moved to the Free plan. Your data stays safe. Settings that the Free"
+                        + " plan does not include are off until you upgrade again.")
+                .cta("See plans", "/owner/plan")
+                .build();
+    }
+
+    public EmailTemplate planRequestRejected(String planName, String reason) {
+        return EmailTemplate.builder(HIGH, "Update on your " + planName + " request")
+                .heading("We could not confirm your payment")
+                .paragraph("We could not confirm the payment for your " + planName
+                        + " request. Please check the details and send a new request, or contact us.")
+                .detail("Reason", reason)
+                .cta("Open my plan", "/owner/plan")
+                .build();
+    }
+
     // ----------------------------------------------------------------- hiring
 
     public EmailTemplate applicationReceived(String applicantName, String postTitle, String salonName) {
