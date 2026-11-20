@@ -389,6 +389,30 @@ public class BookingManagementImpl implements BookingManagement {
 
     @Override
     @Transactional
+    public ApiResponse<BookingResponse> confirmAttendance(Long bookingId, Long customerId) {
+        Booking booking = bookingRepo.findByIdForUpdate(bookingId).orElse(null);
+        if (booking == null || customerId == null || !customerId.equals(booking.getCustomer().getId())) {
+            return ApiResponse.error("Booking owned by you was not found");
+        }
+        if (booking.getStatus() != BookingStatus.ACCEPTED) {
+            return ApiResponse.error("Only a confirmed appointment can be confirmed by the customer");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (!now.isBefore(BookingTimePolicy.appointmentStart(booking))) {
+            return ApiResponse.error("This appointment has already started");
+        }
+        // Repeated taps keep the first confirmation time and notify the salon only once.
+        if (booking.getCustomerConfirmedAt() == null) {
+            booking.setCustomerConfirmedAt(now);
+            booking.setUpdatedAt(now);
+            bookingRepo.save(booking);
+            bookingNotificationService.customerConfirmedAttendance(booking);
+        }
+        return ApiResponse.success("Thanks, the salon knows you are coming", mapToResponse(booking));
+    }
+
+    @Override
+    @Transactional
     public ApiResponse<BookingResponse> completeBooking(Long bookingId, Long ownerId) {
         Booking booking = findOwnedBookingForUpdate(bookingId, ownerId);
         if (booking == null) {

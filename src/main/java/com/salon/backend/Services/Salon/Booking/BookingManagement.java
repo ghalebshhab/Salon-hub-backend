@@ -26,6 +26,9 @@ public interface BookingManagement {
 
     ApiResponse<BookingResponse> cancelBooking(Long bookingId, Long customerId);
 
+    /** The customer says they will come to a confirmed appointment (after a reminder). */
+    ApiResponse<BookingResponse> confirmAttendance(Long bookingId, Long customerId);
+
     ApiResponse<BookingResponse> completeBooking(Long bookingId, Long ownerId);
 
     ApiResponse<BookingResponse> assignEmployee(Long bookingId, Long employeeId, Long ownerId);

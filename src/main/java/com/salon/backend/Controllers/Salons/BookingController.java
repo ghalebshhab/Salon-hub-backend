@@ -97,6 +97,13 @@ public class BookingController {
         return bookingManagement.cancelBooking(bookingId, currentUser.getId());
     }
 
+    @PutMapping("/{bookingId}/confirm-attendance")
+    public ApiResponse<BookingResponse> confirmAttendance(
+            @PathVariable Long bookingId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return bookingManagement.confirmAttendance(bookingId, currentUser.getId());
+    }
+
     @PutMapping("/{bookingId}/complete")
     public ApiResponse<BookingResponse> completeBooking(
             @PathVariable Long bookingId,

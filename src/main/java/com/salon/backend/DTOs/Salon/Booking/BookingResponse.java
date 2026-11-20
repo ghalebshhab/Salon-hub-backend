@@ -51,6 +51,13 @@ public record BookingResponse(
         LocalDateTime responseDeadline,
         LocalDateTime noShowAt,
         /** Null for bookings made before payments existed. */
-        PaymentSummaryResponse payment
+        PaymentSummaryResponse payment,
+        /** When the customer confirmed they will come; null when they did not answer yet. */
+        LocalDateTime customerConfirmedAt,
+        /**
+         * Missed visits (no-shows) of this customer at this salon, this one
+         * included. Only in the owner's lists; null everywhere else.
+         */
+        Long customerNoShowCount
 ) {
 }

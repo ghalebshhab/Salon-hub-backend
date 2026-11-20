@@ -294,6 +294,35 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
+    public void customerConfirmedAttendance(Booking booking) {
+        String message = fullName(booking.getCustomer()) + " confirmed they will come on "
+                + booking.getBookingDate() + " at " + booking.getBookingTime() + ".";
+        User owner = booking.getSalon().getOwner();
+        if (owner != null) {
+            saveNotification(
+                    booking,
+                    owner,
+                    NotificationEventType.BOOKING_CUSTOMER_CONFIRMED,
+                    "booking:" + booking.getId() + ":customer-confirmed:owner",
+                    message,
+                    ownerBookingPath(booking)
+            );
+        }
+        User employee = booking.getAssignedEmployee();
+        if (employee != null && (owner == null || employee.getId() != owner.getId())) {
+            saveNotification(
+                    booking,
+                    employee,
+                    NotificationEventType.BOOKING_CUSTOMER_CONFIRMED,
+                    "booking:" + booking.getId() + ":customer-confirmed:employee",
+                    message,
+                    employeeBookingPath(booking)
+            );
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public void bookingReminder(
             Booking booking,
             BookingTimePolicy.ReminderType type,
@@ -308,7 +337,7 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
                         : "on " + booking.getBookingDate() + " at " + booking.getBookingTime();
         String suffix = type == BookingTimePolicy.ReminderType.SOON
                 ? " Share your trip when you leave so the salon knows when you arrive."
-                : " Cancel early if your plans change.";
+                : " Please confirm that you are coming, or cancel early if your plans change.";
         saveNotification(
                 booking,
                 booking.getCustomer(),

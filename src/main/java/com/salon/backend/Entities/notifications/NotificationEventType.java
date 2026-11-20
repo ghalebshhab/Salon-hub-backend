@@ -13,6 +13,8 @@ public enum NotificationEventType {
     BOOKING_ASSIGNED,
     BOOKING_CUSTOMER_ON_THE_WAY,
     BOOKING_CUSTOMER_ARRIVED,
+    /** The customer confirmed, after a reminder, that they will come. */
+    BOOKING_CUSTOMER_CONFIRMED,
     BOOKING_SERVICE_STARTED,
     BOOKING_COMPLETED,
     BOOKING_EXPIRED,

@@ -11,6 +11,7 @@ import com.salon.backend.Services.Payment.PaymentRules;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class BookingResponseMapper {
@@ -19,7 +20,26 @@ public class BookingResponseMapper {
         return bookings.stream().map(this::map).toList();
     }
 
+    /**
+     * Owner lists: adds each customer's earlier no-show count at the salon.
+     * The counts come from one grouped query; key is {@link #noShowKey}.
+     */
+    public List<BookingResponse> map(List<Booking> bookings, Map<String, Long> noShowCounts) {
+        return bookings.stream()
+                .map(booking -> map(booking, noShowCounts.getOrDefault(
+                        noShowKey(booking.getCustomer().getId(), booking.getSalon().getId()), 0L)))
+                .toList();
+    }
+
+    public static String noShowKey(Long customerId, Long salonId) {
+        return customerId + ":" + salonId;
+    }
+
     public BookingResponse map(Booking booking) {
+        return map(booking, null);
+    }
+
+    public BookingResponse map(Booking booking, Long customerNoShowCount) {
         User customer = booking.getCustomer();
         User employee = booking.getAssignedEmployee();
         BookingTracking tracking = booking.getTracking();
@@ -79,7 +99,9 @@ public class BookingResponseMapper {
                         ? BookingTimePolicy.responseDeadline(booking)
                         : null,
                 booking.getNoShowAt(),
-                PaymentRules.summary(booking)
+                PaymentRules.summary(booking),
+                booking.getCustomerConfirmedAt(),
+                customerNoShowCount
         );
     }
 

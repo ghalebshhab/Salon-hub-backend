@@ -14,6 +14,9 @@ public interface BookingNotificationService {
 
     void bookingCancelled(Booking booking);
 
+    /** Tells the owner and the assigned employee that the customer confirmed they will come. */
+    void customerConfirmedAttendance(Booking booking);
+
     void bookingRescheduleProposed(Booking booking, BookingRescheduleProposal proposal);
 
     void bookingRescheduleAccepted(Booking booking, BookingRescheduleProposal proposal);

@@ -117,6 +117,10 @@ public class Booking {
 
     private LocalDateTime cancelledAt;
 
+    /** When the customer confirmed, after a reminder, that they will come. */
+    @Column(name = "customer_confirmed_at")
+    private LocalDateTime customerConfirmedAt;
+
     /** When staff recorded that the customer did not come. */
     @Column(name = "no_show_at")
     private LocalDateTime noShowAt;
