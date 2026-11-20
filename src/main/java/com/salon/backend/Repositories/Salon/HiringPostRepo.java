@@ -28,6 +28,8 @@ public interface HiringPostRepo extends JpaRepository<HiringPost, Long>,
 
     List<HiringPost> findAllByStatus(HiringPostStatus status);
 
+    long countBySalonIdAndStatus(Long salonId, HiringPostStatus status);
+
     List<HiringPost> findAllBySalonOrderByCreatedAtDesc(Salon salon);
 
     List<HiringPost> findAllBySalonAndStatusOrderByCreatedAtDesc(

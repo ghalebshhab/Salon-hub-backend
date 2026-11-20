@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/owner/dashboard").hasRole("OWNER")
                         .requestMatchers("/api/owner/payments/**").hasRole("OWNER")
+                        .requestMatchers("/api/owner/subscription/**", "/api/owner/subscription").hasRole("OWNER")
+                        .requestMatchers(HttpMethod.GET, "/api/subscription-plans").permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/bookings/my-salon",

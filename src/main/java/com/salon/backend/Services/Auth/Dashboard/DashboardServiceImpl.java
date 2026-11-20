@@ -16,6 +16,7 @@ import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Salon.SalonService;
 import com.salon.backend.Services.Notification.SalonNotificationService;
 import com.salon.backend.Services.Activity.UserActivityTrackingService;
+import com.salon.backend.Services.Subscription.SubscriptionService;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -36,6 +37,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final AdminAuthorizationService adminAuthorizationService;
     private final SalonNotificationService salonNotificationService;
     private final UserActivityTrackingService userActivityTrackingService;
+    private final SubscriptionService subscriptionService;
     @Override
     public ApiResponse<DashboardLoginResponse> DashboardLogin(
             DashboardLoginRequest dashboardLoginRequest) {
@@ -116,6 +118,8 @@ public class DashboardServiceImpl implements DashboardService {
 
         userRepo.saveAndFlush(owner);
         salonRepo.saveAndFlush(salon);
+        // New salons try the Pro plan free for 30 days; a second approval never resets it.
+        subscriptionService.startTrial(salon);
         salonNotificationService.notifyRequestAccepted(salon);
 
         ApiResponse<SalonResponse> salonResponse =

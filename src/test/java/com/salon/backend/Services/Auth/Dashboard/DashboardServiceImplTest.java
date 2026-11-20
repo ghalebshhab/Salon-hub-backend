@@ -17,6 +17,7 @@ import com.salon.backend.Services.Salon.SalonService;
 import com.salon.backend.Services.Notification.SalonNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.salon.backend.Services.Subscription.SubscriptionService;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +40,7 @@ class DashboardServiceImplTest {
     @Mock private SalonService salonService;
     @Mock private AdminAuthorizationService adminAuthorizationService;
     @Mock private SalonNotificationService salonNotificationService;
+    @Mock private SubscriptionService subscriptionService;
     @InjectMocks private DashboardServiceImpl service;
 
     @BeforeEach
