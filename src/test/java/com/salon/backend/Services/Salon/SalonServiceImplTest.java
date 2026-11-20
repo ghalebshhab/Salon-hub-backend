@@ -34,6 +34,7 @@ class SalonServiceImplTest {
     @Mock private AdminAuthorizationService adminAuthorizationService;
     @Mock private SalonNotificationService salonNotificationService;
     @Mock private SalonOpenStatusResolver salonOpenStatusResolver;
+    @Mock private com.salon.backend.Services.Subscription.SubscriptionService subscriptionService;
     @InjectMocks private SalonServiceImpl service;
 
     @Test

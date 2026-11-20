@@ -1,5 +1,9 @@
 package com.salon.backend.Services.Salon;
 
+import com.salon.backend.Services.Subscription.SubscriptionService;
+import com.salon.backend.Entities.subscriptions.SubscriptionPlan;
+import java.util.Comparator;
+import java.util.Map;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.CreateSalonRequest;
 import com.salon.backend.DTOs.Salon.CreateSalonResponse;
@@ -33,6 +37,7 @@ public class SalonServiceImpl implements SalonService {
     private final AdminAuthorizationService adminAuthorizationService;
     private final SalonNotificationService salonNotificationService;
     private final SalonOpenStatusResolver salonOpenStatusResolver;
+    private final SubscriptionService subscriptionService;
     private final List<String> JordanCities = List.of(
             "Amman", "Zarqa", "Irbid", "Aqaba", "Jerash",
             "Madaba", "Ajloun", "As-Salt", "Al-Karak",
@@ -275,7 +280,8 @@ public class SalonServiceImpl implements SalonService {
         if (salon.getStatus() != SalonStatus.Accepted) {
             return ApiResponse.error("Salon is not available");
         }
-        return ApiResponse.success("Salon Fetched Successfully", mapSalonResponse(salon));
+        return ApiResponse.success("Salon Fetched Successfully",
+                mapSalonResponse(salon, subscriptionService.currentPlan(salon)));
     }
 
     @Override
@@ -284,7 +290,8 @@ public class SalonServiceImpl implements SalonService {
         if(salon==null){
             return ApiResponse.error("Salon Not Found");
         }
-        return ApiResponse.success("Salon Fetched Successfully", mapSalonResponse(salon));
+        return ApiResponse.success("Salon Fetched Successfully",
+                mapSalonResponse(salon, subscriptionService.currentPlan(salon)));
     }
 
     @Override
@@ -293,18 +300,14 @@ public class SalonServiceImpl implements SalonService {
         if (!authorization.isSuccess()) {
             return ApiResponse.error(authorization.getMessage());
         }
-        List<SalonResponse> salons = salonRepo.findAll().stream()
-                .map(this::mapSalonResponse)
-                .toList();
-        return ApiResponse.success("Salons Fetched Successfully", salons);
+        return ApiResponse.success("Salons Fetched Successfully", mapAll(salonRepo.findAll(), false));
     }
 
     @Override
     public ApiResponse<List<SalonResponse>> getActiveSalons() {
-        List<SalonResponse> salons = salonRepo.findByStatus(SalonStatus.Accepted).stream()
-                .map(this::mapSalonResponse)
-                .toList();
-        return ApiResponse.success("Active Salons Fetched Successfully", salons);
+        // Salons whose plan includes the search boost come first; the rest keep their order.
+        return ApiResponse.success("Active Salons Fetched Successfully",
+                mapAll(salonRepo.findByStatus(SalonStatus.Accepted), true));
     }
 
     @Override
@@ -356,7 +359,23 @@ public class SalonServiceImpl implements SalonService {
         return ApiResponse.success("Salon resubmitted successfully", mapSalonResponse(salon));
     }
 
+    /** Maps many salons with one plan query; {@code boostFirst} puts boosted plans on top. */
+    private List<SalonResponse> mapAll(List<Salon> salons, boolean boostFirst) {
+        Map<Long, SubscriptionPlan> plans = subscriptionService.currentPlans(
+                salons.stream().map(Salon::getId).toList());
+        var stream = salons.stream();
+        if (boostFirst) {
+            stream = stream.sorted(Comparator.comparing(
+                    (Salon salon) -> !SubscriptionService.boosted(plans.get(salon.getId()))));
+        }
+        return stream.map(salon -> mapSalonResponse(salon, plans.get(salon.getId()))).toList();
+    }
+
     private SalonResponse mapSalonResponse(Salon salon) {
+        return mapSalonResponse(salon, null);
+    }
+
+    private SalonResponse mapSalonResponse(Salon salon, SubscriptionPlan plan) {
         User owner = salon.getOwner();
         return new SalonResponse(
                 salon.getId(),
@@ -383,7 +402,8 @@ public class SalonServiceImpl implements SalonService {
                 salon.isBlockedByOwner(),
                 salon.getRejectionReason(),
                 salon.getResubmissionCount(),
-                Math.max(0, MAX_RESUBMISSIONS - salon.getResubmissionCount())
+                Math.max(0, MAX_RESUBMISSIONS - salon.getResubmissionCount()),
+                SubscriptionService.badgeOf(plan)
         );
     }
 
