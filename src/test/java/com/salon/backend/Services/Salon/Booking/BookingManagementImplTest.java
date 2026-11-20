@@ -24,6 +24,7 @@ import com.salon.backend.Services.Notification.BookingNotificationService;
 import com.salon.backend.Entities.payments.PaymentMethod;
 import com.salon.backend.Entities.payments.PaymentStatus;
 import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
+import com.salon.backend.Services.Payment.NoShowDepositRule;
 import com.salon.backend.Services.Payment.PaymentPolicy;
 import com.salon.backend.Services.Payment.PaymentSettingsService;
 import java.time.Clock;
@@ -67,6 +68,7 @@ class BookingManagementImplTest {
     @Mock private BookingRescheduleProposalRepo rescheduleProposalRepo;
     @Spy private BookingResponseMapper responseMapper = new BookingResponseMapper();
     @Mock private PaymentSettingsService paymentSettingsService;
+    @Mock private NoShowDepositRule noShowDepositRule;
     @Spy private BookingPaymentLifecycle paymentLifecycle =
             new BookingPaymentLifecycle(new PaymentPolicy(0), Clock.systemDefaultZone());
     @InjectMocks private BookingManagementImpl bookingManagement;

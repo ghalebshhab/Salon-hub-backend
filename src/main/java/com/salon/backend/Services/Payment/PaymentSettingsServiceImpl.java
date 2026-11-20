@@ -1,5 +1,7 @@
 package com.salon.backend.Services.Payment;
 
+import com.salon.backend.Entities.subscriptions.PlanFeature;
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Payment.PaymentOptionsResponse;
 import com.salon.backend.DTOs.Payment.PaymentSettingsRequest;
@@ -26,12 +28,14 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
 
     static final int MAX_FREE_CANCEL_HOURS = 168;
     static final int MAX_PERCENT = 100;
+    static final int MAX_NO_SHOW_LIMIT = 10;
 
     private final SalonPaymentSettingsRepo settingsRepo;
     private final SalonRepo salonRepo;
     private final PaymentGateway paymentGateway;
     private final PaymentPolicy paymentPolicy;
     private final Clock clock;
+    private final PlanLimits planLimits;
 
     @Override
     public SalonPaymentSettings effectiveSettings(Salon salon) {
@@ -49,6 +53,9 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         }
         if (method.needsGateway() && !paymentGateway.isConfigured()) {
             return "Card payment is not available yet. Choose cash";
+        }
+        if (method.needsGateway() && planLimits.locked(salon, PlanFeature.CARD_PAYMENTS)) {
+            return "This salon does not accept card payment. Choose cash";
         }
         if (!effectiveSettings(salon).allows(method)) {
             return "This salon does not accept this payment method";
@@ -105,12 +112,17 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
             return ApiResponse.error(error);
         }
         SalonPaymentSettings settings = effectiveSettings(salon);
+        String planError = planError(salon, settings, request);
+        if (planError != null) {
+            return ApiResponse.error(planError);
+        }
         settings.setCashEnabled(request.cashEnabled());
         settings.setCardPrepaidEnabled(request.cardPrepaidEnabled());
         settings.setCardPostpaidEnabled(request.cardPostpaidEnabled());
         settings.setFreeCancelHours(request.freeCancelHours());
         settings.setLateCancelFeePercent(request.lateCancelFeePercent());
         settings.setNoShowFeePercent(request.noShowFeePercent());
+        settings.setNoShowLimit(request.noShowLimit());
         settings.setUpdatedAt(LocalDateTime.now(clock));
         settingsRepo.save(settings);
         return ApiResponse.success("Payment settings saved", toResponse(settings));
@@ -139,6 +151,42 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         if (outOfPercent(request.lateCancelFeePercent()) || outOfPercent(request.noShowFeePercent())) {
             return "Fees must be 0 to " + MAX_PERCENT + " percent";
         }
+        if (request.noShowLimit() != null
+                && (request.noShowLimit() < 1 || request.noShowLimit() > MAX_NO_SHOW_LIMIT)) {
+            return "The missed-visit limit must be 1 to " + MAX_NO_SHOW_LIMIT;
+        }
+        return null;
+    }
+
+    /**
+     * Rejects a change that turns on a feature the salon's plan does not
+     * include. A saved value that did not change is accepted, so an owner
+     * whose plan ended can still save the other settings; such values are
+     * not used while the plan does not include them.
+     */
+    private String planError(Salon salon, SalonPaymentSettings saved, PaymentSettingsRequest request) {
+        boolean newCard = (request.cardPrepaidEnabled() && !saved.isCardPrepaidEnabled())
+                || (request.cardPostpaidEnabled() && !saved.isCardPostpaidEnabled());
+        if (newCard) {
+            String error = planLimits.featureError(salon, PlanFeature.CARD_PAYMENTS, "Card payment");
+            if (error != null) {
+                return error;
+            }
+        }
+        boolean newFee = (request.lateCancelFeePercent() > 0
+                && request.lateCancelFeePercent() != saved.getLateCancelFeePercent())
+                || (request.noShowFeePercent() > 0
+                && request.noShowFeePercent() != saved.getNoShowFeePercent());
+        if (newFee) {
+            String error = planLimits.featureError(salon, PlanFeature.CANCELLATION_FEES,
+                    "Cancellation and no-show fees");
+            if (error != null) {
+                return error;
+            }
+        }
+        if (request.noShowLimit() != null && !request.noShowLimit().equals(saved.getNoShowLimit())) {
+            return planLimits.featureError(salon, PlanFeature.MISSED_VISIT_RULE, "The missed-visit rule");
+        }
         return null;
     }
 
@@ -150,6 +198,8 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         return Arrays.stream(PaymentMethod.values())
                 .filter(settings::allows)
                 .filter(method -> !method.needsGateway() || paymentGateway.isConfigured())
+                .filter(method -> !method.needsGateway()
+                        || !planLimits.locked(settings.getSalon(), PlanFeature.CARD_PAYMENTS))
                 .toList();
     }
 
@@ -163,7 +213,9 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
                 settings.getLateCancelFeePercent(),
                 settings.getNoShowFeePercent(),
                 paymentGateway.isConfigured(),
-                paymentPolicy.commissionRateBps()
+                // The card fee of the salon's plan; cash has no fee.
+                planLimits.cardFeeBps(settings.getSalon(), PaymentMethod.CARD_PREPAID),
+                settings.getNoShowLimit()
         );
     }
 

@@ -14,6 +14,8 @@ public record PaymentSettingsResponse(
         int lateCancelFeePercent,
         int noShowFeePercent,
         boolean cardGatewayReady,
-        int commissionRateBps
+        int commissionRateBps,
+        /** Null when the no-show deposit rule is off. */
+        Integer noShowLimit
 ) {
 }

@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Payment;
 
+import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Payment.PaymentOptionsResponse;
 import com.salon.backend.DTOs.Payment.PaymentSettingsRequest;
@@ -39,6 +40,7 @@ class PaymentSettingsServiceImplTest {
 
     @Mock private SalonPaymentSettingsRepo settingsRepo;
     @Mock private SalonRepo salonRepo;
+    @Mock private PlanLimits planLimits;
 
     private final UnconfiguredPaymentGateway noGateway = new UnconfiguredPaymentGateway();
     private PaymentSettingsServiceImpl service;
@@ -46,7 +48,7 @@ class PaymentSettingsServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new PaymentSettingsServiceImpl(settingsRepo, salonRepo, noGateway, new PaymentPolicy(0), CLOCK);
+        service = new PaymentSettingsServiceImpl(settingsRepo, salonRepo, noGateway, new PaymentPolicy(0), CLOCK, planLimits);
         salon = new Salon();
         salon.setId(10L);
         salon.setStatus(SalonStatus.Accepted);

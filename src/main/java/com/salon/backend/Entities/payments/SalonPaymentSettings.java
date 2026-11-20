@@ -55,6 +55,13 @@ public class SalonPaymentSettings {
     @Column(name = "no_show_fee_percent", nullable = false)
     private int noShowFeePercent;
 
+    /**
+     * Customers with this many no-shows at the salon must pay in advance by
+     * card. Null turns the rule off.
+     */
+    @Column(name = "no_show_limit")
+    private Integer noShowLimit;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 

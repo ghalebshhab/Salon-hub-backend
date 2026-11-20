@@ -26,6 +26,7 @@ import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Salon.Employee.EmployeeScheduleAvailability;
 import com.salon.backend.Services.Notification.BookingNotificationService;
 import com.salon.backend.Services.Payment.BookingPaymentLifecycle;
+import com.salon.backend.Services.Payment.NoShowDepositRule;
 import com.salon.backend.Services.Payment.PaymentSettingsService;
 import com.salon.backend.Entities.payments.PaymentMethod;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +62,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final BookingAvailabilityService bookingAvailabilityService;
     private final BookingRescheduleProposalRepo rescheduleProposalRepo;
     private final BookingResponseMapper responseMapper;
+    private final NoShowDepositRule noShowDepositRule;
     private final PaymentSettingsService paymentSettingsService;
     private final BookingPaymentLifecycle paymentLifecycle;
 
@@ -95,6 +97,9 @@ public class BookingManagementImpl implements BookingManagement {
                 ? paymentSettingsService.defaultMethod(salon)
                 : request.paymentMethod();
         String paymentError = paymentSettingsService.methodError(salon, paymentMethod);
+        if (paymentError == null) {
+            paymentError = noShowDepositRule.bookingError(salon, customerId, paymentMethod);
+        }
         if (paymentError != null) {
             return ApiResponse.error(paymentError);
         }

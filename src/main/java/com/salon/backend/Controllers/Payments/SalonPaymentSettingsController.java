@@ -5,6 +5,7 @@ import com.salon.backend.DTOs.Payment.PaymentOptionsResponse;
 import com.salon.backend.DTOs.Payment.PaymentSettingsRequest;
 import com.salon.backend.DTOs.Payment.PaymentSettingsResponse;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
+import com.salon.backend.Services.Payment.NoShowDepositRule;
 import com.salon.backend.Services.Payment.PaymentSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,11 +23,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class SalonPaymentSettingsController {
 
     private final PaymentSettingsService settingsService;
+    private final NoShowDepositRule noShowDepositRule;
 
-    /** Public: the booking wizard shows these choices. */
+    /**
+     * Public: the booking wizard shows these choices. For a signed-in customer
+     * the salon's no-show rule can narrow them.
+     */
     @GetMapping("/payment-options")
-    public ApiResponse<PaymentOptionsResponse> getOptions(@PathVariable Long salonId) {
-        return settingsService.getOptions(salonId);
+    public ApiResponse<PaymentOptionsResponse> getOptions(
+            @PathVariable Long salonId,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        ApiResponse<PaymentOptionsResponse> options = settingsService.getOptions(salonId);
+        if (!options.isSuccess() || currentUser == null) {
+            return options;
+        }
+        return ApiResponse.success(
+                options.getMessage(),
+                noShowDepositRule.forCustomer(options.getData(), currentUser.getId())
+        );
     }
 
     @GetMapping("/payment-settings")
