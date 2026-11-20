@@ -36,6 +36,7 @@ public class EmailDispatcher {
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
                 sender.send(event.to(), content);
+                log.info("Email \"{}\" sent to {}", template.subject(), mask(event.to()));
                 return true;
             } catch (Exception exception) {
                 log.warn("Email \"{}\" to {} failed (attempt {}/{}): {}",
