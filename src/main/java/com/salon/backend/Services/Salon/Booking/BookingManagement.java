@@ -6,6 +6,7 @@ import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
 import com.salon.backend.DTOs.Salon.Booking.BookingResponse;
 import com.salon.backend.DTOs.Salon.Booking.CreateBookingRequest;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface BookingManagement {
@@ -15,6 +16,9 @@ public interface BookingManagement {
     ApiResponse<List<BookingResponse>> getMyBookings(Long customerId);
 
     ApiResponse<List<BookingResponse>> getMySalonBookings(Long ownerId);
+
+    /** The owner's salon bookings with an appointment date from {@code from} to {@code to}, both inclusive. */
+    ApiResponse<List<BookingResponse>> getMySalonBookings(Long ownerId, LocalDate from, LocalDate to);
 
     ApiResponse<List<BookingResponse>> getMySalonPendingBookings(Long ownerId);
 

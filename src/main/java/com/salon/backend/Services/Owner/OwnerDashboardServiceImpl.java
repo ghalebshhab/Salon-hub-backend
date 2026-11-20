@@ -16,6 +16,8 @@ import com.salon.backend.Services.Salon.Service.SalonServiceManagement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -28,10 +30,27 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final SalonServiceManagement salonServiceManagement;
     private final SalonReviewManagement salonReviewManagement;
 
+    static final int MAX_RANGE_DAYS = 366;
+
     @Override
     public ApiResponse<OwnerDashboardResponse> getDashboard(Long ownerId) {
+        return getDashboard(ownerId, null, null);
+    }
+
+    @Override
+    public ApiResponse<OwnerDashboardResponse> getDashboard(Long ownerId, LocalDate from, LocalDate to) {
         if (ownerId == null) {
             return ApiResponse.error("Authenticated salon owner is required.");
+        }
+        boolean dated = from != null || to != null;
+        if (dated && (from == null || to == null)) {
+            return ApiResponse.error("Send both a start and an end date.");
+        }
+        if (dated && from.isAfter(to)) {
+            return ApiResponse.error("The start date cannot be after the end date.");
+        }
+        if (dated && ChronoUnit.DAYS.between(from, to) + 1 > MAX_RANGE_DAYS) {
+            return ApiResponse.error("Choose a period of at most one year.");
         }
 
         ApiResponse<SalonResponse> salonResponse = salonService.getSalonByOwnerId(ownerId);
@@ -39,8 +58,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
             return ApiResponse.error(salonResponse.getMessage());
         }
 
-        ApiResponse<List<BookingResponse>> bookingsResponse =
-                bookingManagement.getMySalonBookings(ownerId);
+        ApiResponse<List<BookingResponse>> bookingsResponse = dated
+                ? bookingManagement.getMySalonBookings(ownerId, from, to)
+                : bookingManagement.getMySalonBookings(ownerId);
         if (!bookingsResponse.isSuccess()) {
             return ApiResponse.error(bookingsResponse.getMessage());
         }

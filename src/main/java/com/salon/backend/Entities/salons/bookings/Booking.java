@@ -38,10 +38,17 @@ import java.util.List;
 @Entity
 @Table(
         name = "salon_booking",
-        indexes = @Index(
-                name = "idx_booking_employee_date_status",
-                columnList = "assigned_employee_id, booking_date, status"
-        )
+        indexes = {
+                @Index(
+                        name = "idx_booking_employee_date_status",
+                        columnList = "assigned_employee_id, booking_date, status"
+                ),
+                // Owner dashboard: every summary query filters one salon by appointment date.
+                @Index(
+                        name = "idx_booking_salon_date_status",
+                        columnList = "salon_id, booking_date, status"
+                )
+        }
 )
 @Getter
 @Setter

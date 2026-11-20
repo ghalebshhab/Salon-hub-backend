@@ -33,9 +33,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 
 @Service
@@ -218,7 +222,24 @@ public class BookingManagementImpl implements BookingManagement {
         }
         return ApiResponse.success(
                 "Salon bookings fetched successfully",
-                mapBookings(bookingRepo.findBySalonOwnerIdOrderByBookingDateDescBookingTimeDesc(ownerId))
+                mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdOrderByBookingDateDescBookingTimeDesc(ownerId))
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiResponse<List<BookingResponse>> getMySalonBookings(Long ownerId, LocalDate from, LocalDate to) {
+        Salon salon = findManageableSalon(ownerId);
+        if (salon == null) {
+            return ApiResponse.error("An active, approved salon owned by you is required");
+        }
+        return ApiResponse.success(
+                "Salon bookings fetched successfully",
+                mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdAndBookingDateBetweenOrderByBookingDateDescBookingTimeDesc(
+                        ownerId,
+                        from,
+                        to
+                ))
         );
     }
 
@@ -231,7 +252,7 @@ public class BookingManagementImpl implements BookingManagement {
         }
         return ApiResponse.success(
                 "Pending salon bookings fetched successfully",
-                mapBookings(bookingRepo.findBySalonOwnerIdAndStatusOrderByBookingDateAscBookingTimeAsc(
+                mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdAndStatusOrderByBookingDateAscBookingTimeAsc(
                         ownerId,
                         BookingStatus.PENDING
                 ))
@@ -654,6 +675,24 @@ public class BookingManagementImpl implements BookingManagement {
 
     private List<BookingResponse> mapBookings(List<Booking> bookings) {
         return responseMapper.map(bookings);
+    }
+
+    /** Owner lists also show how often each customer missed a visit at the salon. */
+    private List<BookingResponse> mapOwnerBookings(Long salonId, List<Booking> bookings) {
+        if (bookings.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> customerIds = bookings.stream()
+                .map(booking -> booking.getCustomer().getId())
+                .collect(Collectors.toSet());
+        Map<String, Long> counts = new HashMap<>();
+        for (Object[] row : bookingRepo.countNoShowsByCustomer(salonId, customerIds, BookingStatus.NO_SHOW)) {
+            counts.put(
+                    BookingResponseMapper.noShowKey((Long) row[0], salonId),
+                    ((Number) row[1]).longValue()
+            );
+        }
+        return responseMapper.map(bookings, counts);
     }
 
     private BookingResponse mapToResponse(Booking booking) {
