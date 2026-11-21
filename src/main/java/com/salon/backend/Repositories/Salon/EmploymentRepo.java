@@ -17,6 +17,19 @@ import java.util.Optional;
 import jakarta.persistence.LockModeType;
 
 public interface EmploymentRepo extends JpaRepository<EmploymentRequest, Long> {
+    /** Date of the newest accepted request that put this user in this salon. */
+    @Query("""
+    SELECT MAX(e.createdAt)
+    FROM EmploymentRequest e
+    WHERE e.salon.id = :salonId
+    AND e.status = com.salon.backend.Entities.salons.employment.EmploymentRequestStatus.Accepted
+    AND (e.sender.id = :userId OR e.receiver.id = :userId)
+""")
+    java.time.LocalDateTime latestAcceptedAt(
+            @Param("salonId") Long salonId,
+            @Param("userId") Long userId
+    );
+
     boolean existsById(Long employmentRequestId);
     boolean existsBySenderAndReceiverAndStatus(User sender, User receiver, EmploymentRequestStatus status);
     boolean existsBySenderAndSalonAndStatus(User sender, Salon salon, EmploymentRequestStatus status);

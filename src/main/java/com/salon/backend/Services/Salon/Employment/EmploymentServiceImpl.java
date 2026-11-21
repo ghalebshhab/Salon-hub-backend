@@ -360,6 +360,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
      */
 
     employee.setSalon(targetSalon);
+    employee.setSalonJoinedAt(LocalDateTime.now());
     employee.setRole(UserRole.Employee);
 
     targetSalon.setCurrentEmployeesNumber(
@@ -768,6 +769,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
             capabilityRepo.deleteByEmployeeId(employee.getId());
             scheduleRepo.deleteByEmployeeId(employee.getId());
             employee.setSalon(null);
+            employee.setSalonJoinedAt(null);
             employee.setSalonManager(false);
             employee.setRole(UserRole.USER);
 
@@ -820,6 +822,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
         capabilityRepo.deleteByEmployeeId(employee.getId());
         scheduleRepo.deleteByEmployeeId(employee.getId());
         employee.setSalon(null);
+        employee.setSalonJoinedAt(null);
         employee.setSalonManager(false);
 
         if (currentSalon.getCurrentEmployeesNumber() > 0) {
@@ -830,6 +833,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
 
         // Add to new salon
         employee.setSalon(targetSalon);
+        employee.setSalonJoinedAt(LocalDateTime.now());
         employee.setRole(UserRole.Employee);
 
         targetSalon.setCurrentEmployeesNumber(
@@ -1028,6 +1032,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
         if (receiver.getSalon() == null) {
 
             receiver.setSalon(targetSalon);
+            receiver.setSalonJoinedAt(LocalDateTime.now());
             receiver.setRole(UserRole.Employee);
 
             targetSalon.setCurrentEmployeesNumber(

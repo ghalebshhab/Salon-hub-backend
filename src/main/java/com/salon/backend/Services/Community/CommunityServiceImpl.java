@@ -8,6 +8,7 @@ import com.salon.backend.Entities.salons.SalonStatus;
 import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Community.*;
+import com.salon.backend.Repositories.Salon.EmploymentRepo;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Notification.CommunityNotificationService;
@@ -44,6 +45,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final SalonFollowRepo salonFollowRepo;
     private final UserRepo userRepo;
     private final SalonRepo salonRepo;
+    private final EmploymentRepo employmentRepo;
     private final CommunityNotificationService communityNotificationService;
     private final MediaStorageService mediaStorageService;
 
@@ -119,10 +121,25 @@ public class CommunityServiceImpl implements CommunityService {
                 profileUser.isCareerProfileEnabled() ? profileUser.getProfessionalBio() : null,
                 salon == null ? null : salon.getId(),
                 salon == null ? null : salon.getName(),
+                salon != null && profileUser.getSalon() != null && profileUser.isSalonManager(),
+                salonSince(profileUser, salon),
                 postRepo.countByAuthorIdAndAuthorStatus(profileUserId, UserStatus.Active),
                 friendshipRepo.countByRequesterIdAndStatusOrAddresseeIdAndStatus(
                         profileUserId, FriendshipStatus.ACCEPTED, profileUserId, FriendshipStatus.ACCEPTED),
                 salonFollowRepo.countByUserId(profileUserId)));
+    }
+
+    /** When the person's role at the salon began, or null when unknown. */
+    private java.time.LocalDate salonSince(User profileUser, Salon salon) {
+        if (salon == null) return null;
+        boolean owner = salon.getOwner() != null
+                && Objects.equals(salon.getOwner().getId(), profileUser.getId());
+        if (owner) return salon.getCreatedAt();
+        LocalDateTime joined = profileUser.getSalonJoinedAt();
+        if (joined == null) {
+            joined = employmentRepo.latestAcceptedAt(salon.getId(), profileUser.getId());
+        }
+        return joined == null ? null : joined.toLocalDate();
     }
 
     @Override
