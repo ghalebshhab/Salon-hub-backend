@@ -73,16 +73,11 @@ public class OwnerDashboardSummaryService {
 
         LocalDate end = to == null ? LocalDate.now(clock) : to;
         LocalDate start = from == null ? end.minusDays(DEFAULT_RANGE_DAYS - 1L) : from;
-        String rangeError = validateRange(start, end);
-        if (rangeError != null) {
-            return ApiResponse.error(rangeError);
+        String periodError = periodError(salon, start, end);
+        if (periodError != null) {
+            return ApiResponse.error(periodError);
         }
         int historyDays = historyDays(salon);
-        LocalDate oldestAllowed = LocalDate.now(clock).minusDays(historyDays - 1L);
-        if (start.isBefore(oldestAllowed) || ChronoUnit.DAYS.between(start, end) + 1 > historyDays) {
-            return ApiResponse.error("The " + planLimits.plan(salon).getDisplayName()
-                    + " plan shows the last " + historyDays + " days. Upgrade your plan to see a longer period.");
-        }
         boolean advanced = !planLimits.locked(salon, PlanFeature.ADVANCED_ANALYTICS);
 
         // Without an explicit comparison, use the same number of days just before.
@@ -113,6 +108,24 @@ public class OwnerDashboardSummaryService {
                 historyDays,
                 advanced
         ));
+    }
+
+    /**
+     * Null when the salon's plan may see the period from {@code start} to
+     * {@code end}, else a message for the owner. The export uses it too.
+     */
+    public String periodError(Salon salon, LocalDate start, LocalDate end) {
+        String rangeError = validateRange(start, end);
+        if (rangeError != null) {
+            return rangeError;
+        }
+        int historyDays = historyDays(salon);
+        LocalDate oldestAllowed = LocalDate.now(clock).minusDays(historyDays - 1L);
+        if (start.isBefore(oldestAllowed) || ChronoUnit.DAYS.between(start, end) + 1 > historyDays) {
+            return "The " + planLimits.plan(salon).getDisplayName()
+                    + " plan shows the last " + historyDays + " days. Upgrade your plan to see a longer period.";
+        }
+        return null;
     }
 
     /** The plan's history in days; never more than the hard limit. */
