@@ -58,6 +58,12 @@ public class Salon {
 
     private LocalDate createdAt;
 
+    /** Sets the opening date when the salon is first saved. */
+    @PrePersist
+    void onCreate() {
+        if (createdAt == null) createdAt = LocalDate.now();
+    }
+
     private LocalTime openingTime;
 
     private LocalTime closingTime;
