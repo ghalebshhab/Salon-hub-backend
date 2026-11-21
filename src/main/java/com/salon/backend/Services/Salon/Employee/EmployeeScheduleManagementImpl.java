@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employee;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeScheduleResponse;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeWorkingPeriodRequest;
@@ -36,6 +37,7 @@ public class EmployeeScheduleManagementImpl implements EmployeeScheduleManagemen
     private final EmployeeScheduleRepo scheduleRepo;
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -153,9 +155,13 @@ public class EmployeeScheduleManagementImpl implements EmployeeScheduleManagemen
         return ApiResponse.success("Employee schedule is valid", null);
     }
 
+    /** The owner's salon, or the salon of a manager (Business plan). */
     private Salon findManageableSalon(Long ownerId) {
         Salon salon = ownerId == null ? null : salonRepo.findByOwnerId(ownerId);
-        return isActiveSalon(salon) ? salon : null;
+        if (salon != null) {
+            return isActiveSalon(salon) ? salon : null;
+        }
+        return salonAccess.managerSalon(ownerId);
     }
 
     private User findSalonEmployee(Long employeeId, Long salonId, boolean activeRequired) {

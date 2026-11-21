@@ -48,7 +48,8 @@ class EmployeeTimeOffManagementImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new EmployeeTimeOffManagementImpl(timeOffRepo, bookingRepo, salonRepo, userRepo, CLOCK);
+        service = new EmployeeTimeOffManagementImpl(timeOffRepo, bookingRepo, salonRepo, userRepo, CLOCK,
+                org.mockito.Mockito.mock(com.salon.backend.Services.Salon.SalonAccess.class));
         salon = new Salon();
         salon.setId(10L);
         salon.setStatus(SalonStatus.Accepted);

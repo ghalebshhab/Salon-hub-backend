@@ -35,6 +35,7 @@ class SalonEmployeeDirectoryImplTest {
     @Mock private SalonRepo salonRepo;
     @Mock private UserRepo userRepo;
     @Mock private EmployeeServiceCapabilityRepo capabilityRepo;
+    @org.mockito.Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private SalonEmployeeDirectoryImpl directory;
 
     @Test

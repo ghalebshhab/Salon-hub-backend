@@ -38,6 +38,7 @@ class SalonServiceManagementImplTest {
     @Mock private SalonServiceRepo salonServiceRepo;
     @Mock private SalonRepo salonRepo;
     @Mock private PlanLimits planLimits;
+    @Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private SalonServiceManagementImpl service;
 
     @Test

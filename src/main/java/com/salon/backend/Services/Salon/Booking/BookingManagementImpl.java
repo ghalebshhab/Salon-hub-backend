@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Booking;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.AssignableEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingActionRequest;
@@ -65,6 +66,7 @@ public class BookingManagementImpl implements BookingManagement {
     private final NoShowDepositRule noShowDepositRule;
     private final PaymentSettingsService paymentSettingsService;
     private final BookingPaymentLifecycle paymentLifecycle;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional
@@ -227,7 +229,7 @@ public class BookingManagementImpl implements BookingManagement {
         }
         return ApiResponse.success(
                 "Salon bookings fetched successfully",
-                mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdOrderByBookingDateDescBookingTimeDesc(ownerId))
+                mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdOrderByBookingDateDescBookingTimeDesc(salon.getOwner().getId()))
         );
     }
 
@@ -241,7 +243,7 @@ public class BookingManagementImpl implements BookingManagement {
         return ApiResponse.success(
                 "Salon bookings fetched successfully",
                 mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdAndBookingDateBetweenOrderByBookingDateDescBookingTimeDesc(
-                        ownerId,
+                        salon.getOwner().getId(),
                         from,
                         to
                 ))
@@ -258,7 +260,7 @@ public class BookingManagementImpl implements BookingManagement {
         return ApiResponse.success(
                 "Pending salon bookings fetched successfully",
                 mapOwnerBookings(salon.getId(), bookingRepo.findBySalonOwnerIdAndStatusOrderByBookingDateAscBookingTimeAsc(
-                        ownerId,
+                        salon.getOwner().getId(),
                         BookingStatus.PENDING
                 ))
         );
@@ -532,13 +534,12 @@ public class BookingManagementImpl implements BookingManagement {
     @Override
     @Transactional(readOnly = true)
     public ApiResponse<List<AssignableEmployeeResponse>> getAssignableEmployees(Long bookingId, Long ownerId) {
-        if (bookingId == null || ownerId == null || findManageableSalon(ownerId) == null) {
+        Salon salon = bookingId == null ? null : findManageableSalon(ownerId);
+        if (salon == null) {
             return ApiResponse.error("Booking for your active salon was not found");
         }
         Booking booking = bookingRepo.findById(bookingId).orElse(null);
-        if (booking == null
-                || booking.getSalon().getOwner() == null
-                || booking.getSalon().getOwner().getId() != ownerId) {
+        if (booking == null || !isSameSalon(booking.getSalon(), salon)) {
             return ApiResponse.error("Booking for your active salon was not found");
         }
         return ApiResponse.success(
@@ -600,25 +601,35 @@ public class BookingManagementImpl implements BookingManagement {
         return ApiResponse.success("Booking action is valid", null);
     }
 
+    /** A booking of the salon this user owns or manages, locked for the update. */
     private Booking findOwnedBookingForUpdate(Long bookingId, Long ownerId) {
-        if (bookingId == null || ownerId == null || findManageableSalon(ownerId) == null) {
+        Salon salon = bookingId == null ? null : findManageableSalon(ownerId);
+        if (salon == null) {
             return null;
         }
         Booking booking = bookingRepo.findByIdForUpdate(bookingId).orElse(null);
-        if (booking == null
-                || booking.getSalon().getOwner() == null
-                || booking.getSalon().getOwner().getId() != ownerId) {
+        if (booking == null || !isSameSalon(booking.getSalon(), salon)) {
             return null;
         }
         return booking;
     }
 
-    private Salon findManageableSalon(Long ownerId) {
-        if (ownerId == null) {
+    private static boolean isSameSalon(Salon bookingSalon, Salon managed) {
+        return bookingSalon != null
+                && bookingSalon.getId() != null
+                && bookingSalon.getId().equals(managed.getId());
+    }
+
+    /** The salon's owner, or a salon manager (Business plan), runs its bookings. */
+    private Salon findManageableSalon(Long userId) {
+        if (userId == null) {
             return null;
         }
-        Salon salon = salonRepo.findByOwnerId(ownerId);
-        return isActiveSalon(salon) ? salon : null;
+        Salon salon = salonRepo.findByOwnerId(userId);
+        if (salon != null) {
+            return isActiveSalon(salon) ? salon : null;
+        }
+        return salonAccess.managerSalon(userId);
     }
 
     private User findActiveUser(Long userId) {

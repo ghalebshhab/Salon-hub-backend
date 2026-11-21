@@ -31,6 +31,8 @@ public record UserProfileResponse(
         String portfolioUrl,
         String professionalBio,
         Integer careerProfileCompletionPercentage,
-        String profilePictureUrl
+        String profilePictureUrl,
+        /** True when this employee can use the salon manager role now. */
+        boolean salonManager
 ) {
 }

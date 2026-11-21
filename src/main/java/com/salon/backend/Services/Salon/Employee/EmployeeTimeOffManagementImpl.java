@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employee;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeTimeOffRequest;
 import com.salon.backend.DTOs.Salon.Employee.EmployeeTimeOffResponse;
@@ -39,6 +40,7 @@ public class EmployeeTimeOffManagementImpl implements EmployeeTimeOffManagement 
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final Clock clock;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -140,10 +142,13 @@ public class EmployeeTimeOffManagementImpl implements EmployeeTimeOffManagement 
         return null;
     }
 
+    /** The owner's salon, or the salon of a manager (Business plan). */
     private Salon findManageableSalon(Long ownerId) {
         Salon salon = ownerId == null ? null : salonRepo.findByOwnerId(ownerId);
-        return salon != null
-                && salon.getStatus() == SalonStatus.Accepted
+        if (salon == null) {
+            return salonAccess.managerSalon(ownerId);
+        }
+        return salon.getStatus() == SalonStatus.Accepted
                 && !salon.isBlockedByAdmin()
                 && !salon.isBlockedByOwner() ? salon : null;
     }

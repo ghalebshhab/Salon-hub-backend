@@ -56,6 +56,13 @@ public class User {
     @JoinColumn(name = "salon_id")
     private Salon salon;
 
+    /**
+     * The owner made this employee a salon manager. It works only on plans
+     * with the manager role; see {@code SalonAccess}.
+     */
+    @Column(nullable = false)
+    private boolean salonManager;
+
     @Column(nullable = false)
     private boolean careerProfileEnabled;
 

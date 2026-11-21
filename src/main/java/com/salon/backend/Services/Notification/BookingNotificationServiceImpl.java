@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Notification;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.Entities.subscriptions.PlanFeature;
 import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.Services.Salon.Booking.BookingTimePolicy;
@@ -26,6 +27,7 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
     private final UserNotificationRepo notificationRepo;
     private final NotificationEmailBridge emailBridge;
     private final PlanLimits planLimits;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -183,15 +185,27 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         String employeePart = booking.getAssignedEmployee() == null
                 ? " Choose who will serve the customer."
                 : " Requested employee: " + fullName(booking.getAssignedEmployee()) + ".";
+        String message = fullName(booking.getCustomer()) + " requested an appointment on "
+                + booking.getBookingDate() + " at " + booking.getBookingTime() + "." + employeePart;
         saveNotification(
                 booking,
                 owner,
                 NotificationEventType.BOOKING_REQUESTED,
                 "booking:" + booking.getId() + ":requested",
-                fullName(booking.getCustomer()) + " requested an appointment on "
-                        + booking.getBookingDate() + " at " + booking.getBookingTime() + "." + employeePart,
+                message,
                 ownerBookingPath(booking)
         );
+        // Salon managers (Business plan) answer requests too.
+        for (User manager : salonAccess.activeManagers(booking.getSalon())) {
+            saveNotification(
+                    booking,
+                    manager,
+                    NotificationEventType.BOOKING_REQUESTED,
+                    "booking:" + booking.getId() + ":requested:manager:" + manager.getId(),
+                    message,
+                    ownerBookingPath(booking)
+            );
+        }
     }
 
     @Override

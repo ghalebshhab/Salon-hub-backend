@@ -1,5 +1,6 @@
 package com.salon.backend.Services.User.Profile;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.User.Profile.CareerProfileRequest;
 import com.salon.backend.DTOs.User.Profile.UserProfileResponse;
@@ -27,6 +28,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepo userRepo;
     private final SalonRepo salonRepo;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -176,7 +178,8 @@ public class UserProfileServiceImpl implements UserProfileService {
                 user.getPortfolioUrl(),
                 user.getProfessionalBio(),
                 calculateCompletionPercentage(user),
-                user.getProfilePictureUrl()
+                user.getProfilePictureUrl(),
+                salonAccess != null && salonAccess.isActiveManager(user)
         );
     }
 

@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Booking;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingAvailabilityResponse;
 import com.salon.backend.DTOs.Salon.Booking.BookingRescheduleAvailabilityRequest;
@@ -40,6 +41,7 @@ public class BookingRescheduleManagementImpl implements BookingRescheduleManagem
     private final BookingAvailabilityService availabilityService;
     private final BookingNotificationService notificationService;
     private final Clock clock;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -267,6 +269,12 @@ public class BookingRescheduleManagementImpl implements BookingRescheduleManagem
             return false;
         }
         Salon salon = booking.getSalon();
+        if (salon.getOwner() != null
+                && !ownerId.equals(salon.getOwner().getId())
+                && salonAccess.canManage(ownerId, salon)) {
+            // A salon manager (Business plan) handles new times too.
+            return true;
+        }
         return salon.getOwner() != null
                 && ownerId.equals(salon.getOwner().getId())
                 && salon.getStatus() == SalonStatus.Accepted

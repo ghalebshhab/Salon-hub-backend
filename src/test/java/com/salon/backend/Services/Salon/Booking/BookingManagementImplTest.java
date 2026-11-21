@@ -71,6 +71,7 @@ class BookingManagementImplTest {
     @Mock private NoShowDepositRule noShowDepositRule;
     @Spy private BookingPaymentLifecycle paymentLifecycle =
             new BookingPaymentLifecycle(new PaymentPolicy(0), Clock.systemDefaultZone());
+    @org.mockito.Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private BookingManagementImpl bookingManagement;
 
     @BeforeEach

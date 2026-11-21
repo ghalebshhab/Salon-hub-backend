@@ -40,6 +40,7 @@ class EmployeeCapabilityManagementImplTest {
     @Mock private SalonServiceRepo salonServiceRepo;
     @Mock private SalonRepo salonRepo;
     @Mock private UserRepo userRepo;
+    @org.mockito.Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private EmployeeCapabilityManagementImpl capabilityManagement;
 
     @Test

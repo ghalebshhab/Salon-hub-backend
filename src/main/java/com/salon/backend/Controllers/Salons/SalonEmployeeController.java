@@ -1,5 +1,7 @@
 package com.salon.backend.Controllers.Salons;
 
+import com.salon.backend.DTOs.Salon.Employee.SalonManagerRequest;
+import com.salon.backend.Services.Salon.Employee.SalonManagerService;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Employee.PublicSalonEmployeeResponse;
@@ -36,6 +38,7 @@ public class SalonEmployeeController {
     private final EmployeeCapabilityManagement employeeCapabilityManagement;
     private final EmployeeScheduleManagement employeeScheduleManagement;
     private final EmployeeTimeOffManagement employeeTimeOffManagement;
+    private final SalonManagerService salonManagerService;
 
     @GetMapping("/salon/{salonId}")
     public ApiResponse<List<PublicSalonEmployeeResponse>> getSalonEmployees(
@@ -107,5 +110,15 @@ public class SalonEmployeeController {
             @PathVariable Long timeOffId,
             @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return employeeTimeOffManagement.removeTimeOff(timeOffId, currentUser.getId());
+    }
+
+    /** Owner only: give or remove the salon manager role (Business plan). */
+    @PutMapping("/{employeeId}/manager")
+    public ApiResponse<Boolean> setManager(
+            @PathVariable Long employeeId,
+            @RequestBody SalonManagerRequest request,
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return salonManagerService.setManager(
+                currentUser.getId(), employeeId, request == null ? null : request.manager());
     }
 }

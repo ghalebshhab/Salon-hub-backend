@@ -14,6 +14,8 @@ public record SalonEmployeeResponse(
         LocalTime startTime,
         LocalTime endTime,
         List<Long> serviceIds,
-        List<String> serviceNames
+        List<String> serviceNames,
+        /** The owner made this employee a salon manager. */
+        boolean manager
 ) {
 }

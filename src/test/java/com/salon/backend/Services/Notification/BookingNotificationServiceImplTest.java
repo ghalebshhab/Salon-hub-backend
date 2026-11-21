@@ -38,6 +38,7 @@ class BookingNotificationServiceImplTest {
     @Mock private UserNotificationRepo notificationRepo;
     @Mock private NotificationEmailBridge emailBridge;
     @Mock private PlanLimits planLimits;
+    @Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private BookingNotificationServiceImpl bookingNotificationService;
 
     @Test

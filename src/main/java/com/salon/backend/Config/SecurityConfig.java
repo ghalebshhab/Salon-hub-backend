@@ -75,6 +75,8 @@ public class SecurityConfig {
                                 "/api/bookings/my-salon/pending",
                                 "/api/salon-employees/my-salon",
                                 "/api/salon-services/my-salon")
+                        .hasAnyRole("OWNER", "Employee")
+                        .requestMatchers(HttpMethod.PUT, "/api/salon-employees/*/manager")
                         .hasRole("OWNER")
                         .requestMatchers(HttpMethod.GET, "/api/salons").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/salons/mine").authenticated()

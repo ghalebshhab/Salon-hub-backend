@@ -38,6 +38,7 @@ class EmployeeScheduleManagementImplTest {
     @Mock private EmployeeScheduleRepo scheduleRepo;
     @Mock private SalonRepo salonRepo;
     @Mock private UserRepo userRepo;
+    @org.mockito.Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
     @InjectMocks private EmployeeScheduleManagementImpl scheduleManagement;
 
     @Test

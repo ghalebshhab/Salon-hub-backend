@@ -768,6 +768,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
             capabilityRepo.deleteByEmployeeId(employee.getId());
             scheduleRepo.deleteByEmployeeId(employee.getId());
             employee.setSalon(null);
+            employee.setSalonManager(false);
             employee.setRole(UserRole.USER);
 
             if (currentSalon.getCurrentEmployeesNumber() > 0) {
@@ -819,6 +820,7 @@ private ApiResponse<EmployeeRequestResponse> acceptRequestInternal(
         capabilityRepo.deleteByEmployeeId(employee.getId());
         scheduleRepo.deleteByEmployeeId(employee.getId());
         employee.setSalon(null);
+        employee.setSalonManager(false);
 
         if (currentSalon.getCurrentEmployeesNumber() > 0) {
             currentSalon.setCurrentEmployeesNumber(

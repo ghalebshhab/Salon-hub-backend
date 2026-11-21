@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Service;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.Services.Subscription.PlanLimits;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Service.CreateSalonServiceRequest;
@@ -28,6 +29,7 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
     private final SalonServiceRepo salonServiceRepo;
     private final SalonRepo salonRepo;
     private final PlanLimits planLimits;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional
@@ -100,6 +102,10 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
     @Transactional(readOnly = true)
     public ApiResponse<List<SalonServiceResponse>> getMySalonServices(Long ownerId) {
         Salon salon = findManageableSalon(ownerId);
+        if (salon == null && findOwnedSalon(ownerId) == null) {
+            // A salon manager (Business plan) reads the list; only the owner changes it.
+            salon = salonAccess.managerSalon(ownerId);
+        }
         if (salon == null) {
             return ApiResponse.error(
                     "An active, approved salon owned by you is required to manage services"

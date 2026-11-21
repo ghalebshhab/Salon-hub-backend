@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Booking.Tracking;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Booking.Tracking.BookingTrackingResponse;
 import com.salon.backend.DTOs.Salon.Booking.Tracking.CustomerPositionRequest;
@@ -49,6 +50,7 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
     private final BookingNotificationService notificationService;
     private final Clock clock;
     private final BookingPaymentLifecycle paymentLifecycle;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -401,6 +403,10 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
         }
         User owner = booking.getSalon().getOwner();
         if (owner != null && owner.getId() == staffId) {
+            return OWNER;
+        }
+        // A salon manager (Business plan) acts for the owner.
+        if (salonAccess.canManage(staffId, booking.getSalon())) {
             return OWNER;
         }
         return null;

@@ -61,7 +61,8 @@ class BookingTrackingServiceImplTest {
     void setUp() {
         service = new BookingTrackingServiceImpl(
                 bookingRepo, new DistanceTravelTimeEstimator(), notificationService, CLOCK,
-                new BookingPaymentLifecycle(new PaymentPolicy(0), CLOCK));
+                new BookingPaymentLifecycle(new PaymentPolicy(0), CLOCK),
+                org.mockito.Mockito.mock(com.salon.backend.Services.Salon.SalonAccess.class));
         customer = user(1L, "Lina");
         employee = user(2L, "Sara");
         owner = user(3L, "Omar");

@@ -1,5 +1,6 @@
 package com.salon.backend.Services.Salon.Employee;
 
+import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Employee.SalonEmployeeResponse;
 import com.salon.backend.DTOs.Salon.Employee.PublicSalonEmployeeResponse;
@@ -27,6 +28,7 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
     private final SalonRepo salonRepo;
     private final UserRepo userRepo;
     private final EmployeeServiceCapabilityRepo capabilityRepo;
+    private final SalonAccess salonAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -45,6 +47,10 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
     @Transactional(readOnly = true)
     public ApiResponse<List<SalonEmployeeResponse>> getMySalonEmployees(Long ownerId) {
         Salon salon = ownerId == null ? null : salonRepo.findByOwnerId(ownerId);
+        if (salon == null) {
+            // A salon manager (Business plan) sees the team too.
+            salon = salonAccess.managerSalon(ownerId);
+        }
         if (!isActiveSalon(salon)) {
             return ApiResponse.error("An active, approved salon owned by you is required");
         }
@@ -112,7 +118,8 @@ public class SalonEmployeeDirectoryImpl implements SalonEmployeeDirectory {
                 capabilities.stream()
                         .map(capability -> capability.getService().getName())
                         .sorted(String.CASE_INSENSITIVE_ORDER)
-                        .toList()
+                        .toList(),
+                employee.isSalonManager()
         );
     }
 

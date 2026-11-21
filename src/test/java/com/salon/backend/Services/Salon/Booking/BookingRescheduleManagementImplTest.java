@@ -64,7 +64,8 @@ class BookingRescheduleManagementImplTest {
                 userRepo,
                 availabilityService,
                 notificationService,
-                CLOCK
+                CLOCK,
+                org.mockito.Mockito.mock(com.salon.backend.Services.Salon.SalonAccess.class)
         );
     }
 
