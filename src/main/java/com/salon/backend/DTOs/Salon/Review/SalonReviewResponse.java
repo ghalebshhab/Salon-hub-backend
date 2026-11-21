@@ -9,6 +9,8 @@ public record SalonReviewResponse(
         String salonName,
         Long customerId,
         String customerName,
+        /** The reviewer's profile photo, or null. */
+        String customerProfilePictureUrl,
         Integer rating,
         String comment,
         LocalDateTime createdAt

@@ -193,6 +193,7 @@ public class SalonReviewManagementImpl implements SalonReviewManagement {
                 review.getSalon().getName(),
                 customer.getId(),
                 customer.getFirstName() + " " + customer.getLastName(),
+                customer.getProfilePictureUrl(),
                 review.getRating(),
                 review.getComment(),
                 review.getCreatedAt()
