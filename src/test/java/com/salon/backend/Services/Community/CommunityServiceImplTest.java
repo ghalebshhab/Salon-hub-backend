@@ -37,6 +37,7 @@ class CommunityServiceImplTest {
     @Autowired private FriendshipRepo friendshipRepo;
     @Autowired private SalonFollowRepo salonFollowRepo;
     @MockitoBean private CommunityNotificationService communityNotificationService;
+    @MockitoBean private com.salon.backend.Services.Media.MediaStorageService mediaStorageService;
 
     @Test
     void createsLikesAndCommentsOnACommunityPost() {

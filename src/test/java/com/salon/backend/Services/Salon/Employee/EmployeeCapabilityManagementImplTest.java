@@ -173,6 +173,8 @@ class EmployeeCapabilityManagementImplTest {
                 salon,
                 name,
                 null,
+                null,
+                null,
                 new BigDecimal("10.00"),
                 30,
                 true,

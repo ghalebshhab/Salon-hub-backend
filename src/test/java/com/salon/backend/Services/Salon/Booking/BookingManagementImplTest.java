@@ -592,6 +592,8 @@ class BookingManagementImplTest {
                 salon,
                 name,
                 null,
+                null,
+                null,
                 new BigDecimal(price),
                 duration,
                 true,

@@ -444,6 +444,8 @@ class BookingAvailabilityServiceImplTest {
                 salon,
                 "Haircut",
                 null,
+                null,
+                null,
                 BigDecimal.TEN,
                 durationMinutes,
                 true,
