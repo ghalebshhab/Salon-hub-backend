@@ -1,6 +1,8 @@
 package com.salon.backend.Services.Salon;
 
 import com.salon.backend.Services.Subscription.SubscriptionService;
+import com.salon.backend.Services.Translation.ArabicText;
+import com.salon.backend.Services.Translation.ContentTranslationService;
 import com.salon.backend.Entities.subscriptions.SubscriptionPlan;
 import java.util.Comparator;
 import java.util.Map;
@@ -38,6 +40,7 @@ public class SalonServiceImpl implements SalonService {
     private final SalonNotificationService salonNotificationService;
     private final SalonOpenStatusResolver salonOpenStatusResolver;
     private final SubscriptionService subscriptionService;
+    private final ContentTranslationService contentTranslationService;
     private final List<String> JordanCities = List.of(
             "Amman", "Zarqa", "Irbid", "Aqaba", "Jerash",
             "Madaba", "Ajloun", "As-Salt", "Al-Karak",
@@ -133,6 +136,7 @@ public class SalonServiceImpl implements SalonService {
         salon.setResubmissionCount(0);
         salon.setRejectionReason(null);
         salonRepo.save(salon);
+        contentTranslationService.translateSalonLater(salon.getId());
         salonNotificationService.notifyRequestSubmitted(salon);
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
@@ -229,6 +233,9 @@ public class SalonServiceImpl implements SalonService {
         }
         salon.setEmail(updateSalonRequest.getSalonEmail());
         salon.setLocation(updateSalonRequest.getSalonCity());
+        salon.setDescriptionAr(ArabicText.resolve(
+                updateSalonRequest.getSalonDescriptionAr(), salon.getDescriptionAr(),
+                salon.getDescription(), description, 1000));
         salon.setDescription(description);
         salon.setName(name);
         salon.setOpeningTime(opening);
@@ -236,6 +243,9 @@ public class SalonServiceImpl implements SalonService {
         salon.setMaxEmployeesNumber(updateSalonRequest.getMaxNumberOfEmployees());
         applyMapLocation(salon, mapLocation);
         salonRepo.save(salon);
+        if (salon.getDescriptionAr() == null) {
+            contentTranslationService.translateSalonLater(salon.getId());
+        }
 
         CreateSalonResponse createSalonResponse=new CreateSalonResponse(
           id,
@@ -387,6 +397,7 @@ public class SalonServiceImpl implements SalonService {
                 salon.getLatitude(),
                 salon.getLongitude(),
                 salon.getDescription(),
+                salon.getDescriptionAr(),
                 owner == null ? null : owner.getId(),
                 owner == null ? null : owner.getUserName(),
                 salon.getOwnerPhoneNumber(),

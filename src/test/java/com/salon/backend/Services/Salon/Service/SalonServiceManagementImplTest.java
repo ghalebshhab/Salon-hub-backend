@@ -39,6 +39,7 @@ class SalonServiceManagementImplTest {
     @Mock private SalonRepo salonRepo;
     @Mock private PlanLimits planLimits;
     @Mock private com.salon.backend.Services.Salon.SalonAccess salonAccess;
+    @Mock private com.salon.backend.Services.Translation.ContentTranslationService contentTranslationService;
     @InjectMocks private SalonServiceManagementImpl service;
 
     @Test
@@ -47,6 +48,8 @@ class SalonServiceManagementImplTest {
         CreateSalonServiceRequest request = new CreateSalonServiceRequest(
                 "  Haircut  ",
                 "  Classic haircut  ",
+                null,
+                null,
                 new BigDecimal("7.50"),
                 30
         );
@@ -71,6 +74,8 @@ class SalonServiceManagementImplTest {
         ApiResponse<SalonServiceResponse> response = service.createService(
                 new CreateSalonServiceRequest(
                         "Haircut",
+                        null,
+                        null,
                         null,
                         new BigDecimal("7.50"),
                         30
@@ -122,6 +127,8 @@ class SalonServiceManagementImplTest {
                 new UpdateSalonServiceRequest(
                         "Haircut",
                         null,
+                        null,
+                        null,
                         new BigDecimal("8.00"),
                         30,
                         true
@@ -168,6 +175,8 @@ class SalonServiceManagementImplTest {
                 salon,
                 "Haircut",
                 "Classic haircut",
+                null,
+                null,
                 new BigDecimal("7.50"),
                 30,
                 active,

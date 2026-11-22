@@ -14,6 +14,8 @@ public class UpdateSalonRequest {
 
     private String salonName;
     private String salonDescription;
+    /** Optional. Blank means "translate for me"; absent keeps the saved Arabic. */
+    private String salonDescriptionAr;
     private String salonPhoneNumber;
     private String salonEmail;
     private String salonCity;

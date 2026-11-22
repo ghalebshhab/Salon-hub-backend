@@ -16,6 +16,8 @@ public record SalonResponse(
         Double latitude,
         Double longitude,
         String description,
+        /** Arabic description, or null when it is not translated yet. */
+        String descriptionAr,
         Long ownerId,
         String ownerName,
         String ownerPhoneNumber,
@@ -47,7 +49,7 @@ public record SalonResponse(
             boolean blockedByAdmin, boolean blockedByOwner, String rejectionReason,
             int resubmissionCount, int remainingResubmissions) {
         this(id, name, salonPhoneNumber, email, location, googleMapsUrl, latitude, longitude, description,
-                ownerId, ownerName, ownerPhoneNumber, currentEmployeesNumber, maxEmployeesNumber, createdAt,
+                null, ownerId, ownerName, ownerPhoneNumber, currentEmployeesNumber, maxEmployeesNumber, createdAt,
                 openingTime, closingTime, profilePictureUrl, status, openningStatus, blockedByAdmin,
                 blockedByOwner, rejectionReason, resubmissionCount, remainingResubmissions, null);
     }

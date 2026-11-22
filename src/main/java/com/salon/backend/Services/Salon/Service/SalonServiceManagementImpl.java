@@ -2,6 +2,8 @@ package com.salon.backend.Services.Salon.Service;
 
 import com.salon.backend.Services.Salon.SalonAccess;
 import com.salon.backend.Services.Subscription.PlanLimits;
+import com.salon.backend.Services.Translation.ArabicText;
+import com.salon.backend.Services.Translation.ContentTranslationService;
 import com.salon.backend.DTOs.ApiResponse;
 import com.salon.backend.DTOs.Salon.Service.CreateSalonServiceRequest;
 import com.salon.backend.DTOs.Salon.Service.SalonServiceResponse;
@@ -30,6 +32,7 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
     private final SalonRepo salonRepo;
     private final PlanLimits planLimits;
     private final SalonAccess salonAccess;
+    private final ContentTranslationService contentTranslationService;
 
     @Override
     @Transactional
@@ -63,6 +66,10 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
         salonService.setSalon(salon);
         salonService.setName(request.getName().trim());
         salonService.setDescription(normalizeDescription(request.getDescription()));
+        salonService.setNameAr(ArabicText.resolve(
+                request.getNameAr(), null, null, salonService.getName(), 200));
+        salonService.setDescriptionAr(ArabicText.resolve(
+                request.getDescriptionAr(), null, null, salonService.getDescription(), 2000));
         salonService.setPrice(request.getPrice());
         salonService.setDurationMinutes(request.getDurationMinutes());
         salonService.setActive(true);
@@ -70,6 +77,7 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
         salonService.setUpdatedAt(now);
 
         salonServiceRepo.save(salonService);
+        translateIfMissing(salonService);
 
         return ApiResponse.success(
                 "Salon service created successfully",
@@ -155,14 +163,22 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
             }
         }
 
-        salonService.setName(request.getName().trim());
-        salonService.setDescription(normalizeDescription(request.getDescription()));
+        String name = request.getName().trim();
+        String description = normalizeDescription(request.getDescription());
+        salonService.setNameAr(ArabicText.resolve(
+                request.getNameAr(), salonService.getNameAr(), salonService.getName(), name, 200));
+        salonService.setDescriptionAr(ArabicText.resolve(
+                request.getDescriptionAr(), salonService.getDescriptionAr(),
+                salonService.getDescription(), description, 2000));
+        salonService.setName(name);
+        salonService.setDescription(description);
         salonService.setPrice(request.getPrice());
         salonService.setDurationMinutes(request.getDurationMinutes());
         salonService.setActive(request.getIsActive());
         salonService.setUpdatedAt(LocalDateTime.now());
 
         salonServiceRepo.save(salonService);
+        translateIfMissing(salonService);
 
         return ApiResponse.success(
                 "Salon service updated successfully",
@@ -249,6 +265,16 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
         return ApiResponse.success("Salon service information is valid", null);
     }
 
+    /** Claude fills the Arabic that the owner left empty, after the save commits. */
+    private void translateIfMissing(SalonService salonService) {
+        boolean nameMissing = salonService.getNameAr() == null;
+        boolean descriptionMissing = salonService.getDescription() != null
+                && salonService.getDescriptionAr() == null;
+        if (nameMissing || descriptionMissing) {
+            contentTranslationService.translateServiceLater(salonService.getId());
+        }
+    }
+
     private String normalizeDescription(String description) {
         return description == null || description.isBlank() ? null : description.trim();
     }
@@ -259,6 +285,8 @@ public class SalonServiceManagementImpl implements SalonServiceManagement {
                 salonService.getSalon().getId(),
                 salonService.getName(),
                 salonService.getDescription(),
+                salonService.getNameAr(),
+                salonService.getDescriptionAr(),
                 salonService.getPrice(),
                 salonService.getDurationMinutes(),
                 salonService.isActive(),

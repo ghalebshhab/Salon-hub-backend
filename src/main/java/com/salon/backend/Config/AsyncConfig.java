@@ -7,7 +7,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
-/** Background threads for email delivery, so requests never wait for SMTP. */
+/** Background threads, so requests never wait for SMTP or Claude. */
 @Configuration
 @EnableAsync
 public class AsyncConfig {
@@ -22,6 +22,18 @@ public class AsyncConfig {
         // Let queued emails finish on a normal shutdown.
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
+        executor.initialize();
+        return executor;
+    }
+
+    /** One thread for Claude translations, so a backfill never floods the API. */
+    @Bean(name = "translationExecutor")
+    public Executor translationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(5000);
+        executor.setThreadNamePrefix("translate-");
         executor.initialize();
         return executor;
     }

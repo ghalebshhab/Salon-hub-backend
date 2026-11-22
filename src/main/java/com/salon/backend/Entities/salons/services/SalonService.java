@@ -40,6 +40,13 @@ public class SalonService {
     @Column(length = 1000)
     private String description;
 
+    /** Arabic name: written by the owner or translated by Claude. */
+    @Column(name = "name_ar", length = 200)
+    private String nameAr;
+
+    @Column(name = "description_ar", length = 2000)
+    private String descriptionAr;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 

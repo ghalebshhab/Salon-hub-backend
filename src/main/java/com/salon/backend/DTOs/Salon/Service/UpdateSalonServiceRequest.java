@@ -13,6 +13,9 @@ public class UpdateSalonServiceRequest {
 
     private String name;
     private String description;
+    /** Optional. Blank means "translate for me"; absent keeps the saved Arabic. */
+    private String nameAr;
+    private String descriptionAr;
     private BigDecimal price;
     private Integer durationMinutes;
     private Boolean isActive;

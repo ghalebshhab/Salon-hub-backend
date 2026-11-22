@@ -46,6 +46,10 @@ public class Salon {
     // as a salon services description  , about the salon .
     private String description;
 
+    /** Arabic description: written by the owner or translated by Claude. */
+    @Column(name = "description_ar", length = 1000)
+    private String descriptionAr;
+
     @OneToOne(cascade = CascadeType.ALL)
     private User owner;
 

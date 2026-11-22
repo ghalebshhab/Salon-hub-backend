@@ -10,6 +10,8 @@ public record SalonServiceResponse(
         Long salonId,
         String name,
         String description,
+        String nameAr,
+        String descriptionAr,
         BigDecimal price,
         Integer durationMinutes,
         @JsonProperty("isActive") boolean isActive,
