@@ -20,6 +20,12 @@ public enum NotificationEventType {
     BOOKING_EXPIRED,
     BOOKING_REMINDER,
     BOOKING_NO_SHOW,
+    /** "Leave on time": the customer should leave in a few minutes. */
+    BOOKING_LEAVE_SOON,
+    /** "Leave on time": the customer should leave now to be on time. */
+    BOOKING_LEAVE_NOW,
+    /** The employee is running late, so the customer's turn moved later. */
+    BOOKING_SALON_DELAY,
     PAYMENT_RECEIVED,
     SALON_REQUEST_SUBMITTED,
     SALON_REQUEST_RESUBMITTED,

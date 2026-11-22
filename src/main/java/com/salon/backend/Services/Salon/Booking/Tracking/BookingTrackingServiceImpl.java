@@ -39,7 +39,6 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
     static final Duration MIN_UPDATE_INTERVAL = Duration.ofSeconds(8);
     static final int MAX_EXTENSION_STEP = 60;
     static final int MAX_TOTAL_OVERRUN = 120;
-    static final String ETA_SOURCE = "DISTANCE_ESTIMATE";
 
     private static final String CUSTOMER = "CUSTOMER";
     private static final String EMPLOYEE = "EMPLOYEE";
@@ -478,7 +477,7 @@ public class BookingTrackingServiceImpl implements BookingTrackingService {
                 tracking.getArrivedAt(),
                 showPosition ? tracking.getCustomerLatitude() : null,
                 showPosition ? tracking.getCustomerLongitude() : null,
-                ETA_SOURCE,
+                travelTimeEstimator.sourceName(),
                 employeeState,
                 busyUntil,
                 tracking.getServiceStartedAt(),

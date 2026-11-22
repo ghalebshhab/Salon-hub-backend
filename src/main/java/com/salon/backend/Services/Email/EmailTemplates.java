@@ -142,13 +142,15 @@ public class EmailTemplates {
             case BOOKING_NO_SHOW -> new Spec(HIGH, "You missed your appointment", "Marked as a missed appointment", "View booking");
             case BOOKING_REMINDER -> new Spec(NORMAL, "Reminder: your appointment is coming up", "Your appointment is coming up", "Confirm or cancel");
             case BOOKING_COMPLETED -> new Spec(NORMAL, "Thank you for your visit", "Your appointment is complete", "Leave a review");
+            case BOOKING_LEAVE_NOW -> new Spec(HIGH, "Time to leave for your appointment", "Leave now to be on time", "View booking");
+            case BOOKING_SALON_DELAY -> new Spec(NORMAL, "The salon is running late", "Your turn moved later", "View booking");
             case PAYMENT_RECEIVED -> new Spec(NORMAL, "Payment received · your receipt is ready", "Payment received", "View receipt");
 
             case FRIEND_REQUEST_RECEIVED -> new Spec(NORMAL, "You have a new friend request", "New friend request", "View request");
 
             // Live tracking and small community updates stay in the app.
             case BOOKING_CUSTOMER_ON_THE_WAY, BOOKING_CUSTOMER_ARRIVED, BOOKING_CUSTOMER_CONFIRMED,
-                 BOOKING_SERVICE_STARTED,
+                 BOOKING_SERVICE_STARTED, BOOKING_LEAVE_SOON,
                  FRIEND_REQUEST_ACCEPTED, FRIEND_REQUEST_DECLINED ->
                     new Spec(LOW, "SalonHub update", "SalonHub update", "Open SalonHub");
         };

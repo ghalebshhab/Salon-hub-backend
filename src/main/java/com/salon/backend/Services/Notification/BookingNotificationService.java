@@ -51,4 +51,15 @@ public interface BookingNotificationService {
 
     /** Tells the customer that the salon received the money; the receipt is ready. */
     void paymentReceived(Booking booking);
+
+    /** "Leave on time": the customer should get ready to leave in a few minutes. */
+    void departureLeaveSoon(Booking booking, int minutesUntilLeave, int travelMinutes,
+                            java.time.LocalDateTime expectedStart);
+
+    /** "Leave on time": the customer should leave now (or is already late to leave). */
+    void departureLeaveNow(Booking booking, int travelMinutes, java.time.LocalDateTime arriveAt,
+                           java.time.LocalDateTime expectedStart, boolean late);
+
+    /** The employee runs late, so the customer's turn moves later. One message per 15 minutes of delay. */
+    void salonRunningLate(Booking booking, int delayMinutes, java.time.LocalDateTime expectedStart);
 }

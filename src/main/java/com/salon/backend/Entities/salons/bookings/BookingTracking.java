@@ -55,6 +55,20 @@ public class BookingTracking {
     @Column(name = "expected_end_at")
     private LocalDateTime expectedEndAt;
 
+    /**
+     * Where the customer will leave from, for "Leave on time" alerts. Set only
+     * when the customer turns the alerts on; cleared when the trip starts
+     * sharing live, on arrival, completion, or when the customer turns it off.
+     */
+    @Column(name = "plan_latitude")
+    private Double planLatitude;
+
+    @Column(name = "plan_longitude")
+    private Double planLongitude;
+
+    @Column(name = "plan_updated_at")
+    private LocalDateTime planUpdatedAt;
+
     public JourneyStatus journeyStatusOrDefault() {
         return journeyStatus == null ? JourneyStatus.NOT_STARTED : journeyStatus;
     }
@@ -64,5 +78,16 @@ public class BookingTracking {
         customerLongitude = null;
         distanceMeters = null;
         etaMinutes = null;
+        clearDepartureOrigin();
+    }
+
+    public boolean hasDepartureOrigin() {
+        return planLatitude != null && planLongitude != null;
+    }
+
+    public void clearDepartureOrigin() {
+        planLatitude = null;
+        planLongitude = null;
+        planUpdatedAt = null;
     }
 }

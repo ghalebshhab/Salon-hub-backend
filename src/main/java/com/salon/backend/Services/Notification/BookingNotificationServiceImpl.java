@@ -24,6 +24,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class BookingNotificationServiceImpl implements BookingNotificationService {
 
+    private static final java.time.format.DateTimeFormatter CLOCK_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH);
+
     private final UserNotificationRepo notificationRepo;
     private final NotificationEmailBridge emailBridge;
     private final PlanLimits planLimits;
@@ -424,6 +427,68 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
 
     private String employeeBookingPath(Booking booking) {
         return "/employee/bookings?bookingId=" + booking.getId();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void departureLeaveSoon(Booking booking, int minutesUntilLeave, int travelMinutes,
+                                   LocalDateTime expectedStart) {
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_LEAVE_SOON,
+                "booking:" + booking.getId() + ":leave-soon",
+                "Get ready: leave for " + booking.getSalon().getName() + " in about "
+                        + Math.max(1, minutesUntilLeave) + " min. The drive takes about " + travelMinutes
+                        + " min and your turn is expected at " + clockTime(expectedStart) + ".",
+                customerBookingPath(booking),
+                null,
+                null,
+                false
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void departureLeaveNow(Booking booking, int travelMinutes, LocalDateTime arriveAt,
+                                  LocalDateTime expectedStart, boolean late) {
+        String message = late
+                ? "Leave now for " + booking.getSalon().getName() + ". With the traffic now you arrive at about "
+                        + clockTime(arriveAt) + "; your turn is expected at " + clockTime(expectedStart) + "."
+                : "Time to leave for " + booking.getSalon().getName() + ". The drive takes about " + travelMinutes
+                        + " min with the traffic now, so you arrive at " + clockTime(arriveAt)
+                        + ", before your turn at " + clockTime(expectedStart) + ".";
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_LEAVE_NOW,
+                "booking:" + booking.getId() + ":leave-now",
+                message,
+                customerBookingPath(booking)
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void salonRunningLate(Booking booking, int delayMinutes, LocalDateTime expectedStart) {
+        int bucket = delayMinutes / 15;
+        if (bucket < 1) {
+            return;
+        }
+        saveNotification(
+                booking,
+                booking.getCustomer(),
+                NotificationEventType.BOOKING_SALON_DELAY,
+                "booking:" + booking.getId() + ":salon-delay:" + bucket,
+                booking.getSalon().getName() + " is running about " + delayMinutes
+                        + " min late. Your turn is now expected at " + clockTime(expectedStart)
+                        + ", so you can leave later.",
+                customerBookingPath(booking)
+        );
+    }
+
+    private static String clockTime(LocalDateTime time) {
+        return time == null ? "" : time.format(CLOCK_TIME);
     }
 
     private void saveCancellationNotification(

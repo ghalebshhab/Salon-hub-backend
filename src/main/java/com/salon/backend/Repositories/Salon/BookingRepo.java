@@ -219,6 +219,24 @@ public interface BookingRepo extends JpaRepository<Booking, Long> {
             @Param("completedStatus") BookingStatus completedStatus
     );
 
+    /** The employee's latest timed services, to learn how fast they work. */
+    List<Booking> findTop20ByAssignedEmployeeIdAndStatusAndTrackingServiceStartedAtIsNotNullOrderByCompletedAtDesc(
+            Long employeeId,
+            BookingStatus status
+    );
+
+    /** Today's confirmed appointments whose customer turned on "Leave on time" alerts. */
+    @Query("""
+            SELECT booking.id FROM Booking booking
+            WHERE booking.status = :status
+              AND booking.bookingDate = :today
+              AND booking.tracking.planLatitude IS NOT NULL
+            """)
+    List<Long> findDepartureAlertCandidateIds(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT booking FROM Booking booking WHERE booking.id = :id")
     Optional<Booking> findByIdForUpdate(@Param("id") Long id);
