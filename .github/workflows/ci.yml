@@ -1,0 +1,19 @@
+name: Backend checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      # Tests use an in-memory H2 database and the test secret in src/test/resources.
+      # mvnw is not marked executable in git, so run it through sh.
+      - run: sh ./mvnw -B verify
