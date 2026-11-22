@@ -10,7 +10,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
-import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.never;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
 
-    @Mock private JwtService jwtService;
+    @Mock private AuthSessionService authSessionService;
     @Mock private UserRepo userRepo;
     @Mock private BCryptPasswordEncoder passwordEncoder;
     @Mock private AccountVerificationService accountVerificationService;
@@ -111,7 +111,7 @@ class AuthServiceImplTest {
         when(passwordEncoder.matches("Password1!", "encoded-password")).thenReturn(true);
 
         ApiResponse<?> response = service.Login(
-                new LoginRequest("maya@gmail.com", "Password1!")
+                new LoginRequest("maya@gmail.com", "Password1!"), "test-agent"
         );
 
         assertFalse(response.isSuccess());
@@ -119,6 +119,6 @@ class AuthServiceImplTest {
                 "Email verification is required before signing in.",
                 response.getMessage()
         );
-        verify(jwtService, never()).generateToken(any(User.class));
+        verify(authSessionService, never()).start(any(User.class), any(), any());
     }
 }

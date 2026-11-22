@@ -12,8 +12,6 @@ public class LoginResponse {
 
     private long id;
     private String username;
-    private String token;
-    private String type="Bearer";
     private UserRole userRole;
     private String email;
 

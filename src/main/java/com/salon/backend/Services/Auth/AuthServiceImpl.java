@@ -9,7 +9,10 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserRole;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.User.UserRepo;
-import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
+import com.salon.backend.Services.Auth.Session.IssuedSession;
+import com.salon.backend.Entities.auth.SessionClient;
+import com.salon.backend.DTOs.Auth.Login.SignedIn;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import com.salon.backend.Utils.PasswordPolicy;
@@ -32,7 +35,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private final JwtService jwtService;
+    private final AuthSessionService authSessionService;
     private final UserRepo userRepo;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final AccountVerificationService accountVerificationService;
@@ -287,8 +290,8 @@ public class AuthServiceImpl implements AuthService {
     // =========================================================
 
     @Override
-    public ApiResponse<LoginResponse> Login(
-            LoginRequest request) {
+    public ApiResponse<SignedIn> Login(
+            LoginRequest request, String userAgent) {
 
         // -----------------------------------------------------
         // Validate email
@@ -368,11 +371,11 @@ public class AuthServiceImpl implements AuthService {
 
 
         // -----------------------------------------------------
-        // Generate JWT
+        // Start a server-side session (the controller sets the cookies)
         // -----------------------------------------------------
 
-        String token =
-                jwtService.generateToken(user);
+        IssuedSession session =
+                authSessionService.start(user, SessionClient.WEB, userAgent);
 
         try {
             userActivityTrackingService.recordSuccessfulLogin(user);
@@ -393,8 +396,6 @@ public class AuthServiceImpl implements AuthService {
         LoginResponse response = new LoginResponse(
                 user.getId(),
                 user.getUserName(),
-                token,
-                "Bearer",
                 user.getRole(),
                 user.getEmail()
         );
@@ -402,7 +403,7 @@ public class AuthServiceImpl implements AuthService {
 
         return ApiResponse.success(
                 "Logged in successfully. Loading...",
-                response
+                new SignedIn(response, session)
         );
     }
 

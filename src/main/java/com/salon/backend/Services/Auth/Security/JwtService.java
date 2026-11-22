@@ -19,31 +19,32 @@ import java.time.Instant;
 public class JwtService {
 
     private final String secretKey;
-    private final long expirationMs;
 
-    public JwtService(
-            @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMs) {
+    public JwtService(@Value("${jwt.secret}") String secretKey) {
         this.secretKey = secretKey;
-        this.expirationMs = expirationMs;
     }
 
-    public String generateToken(User user) {
+    /** Claim that links the access token to its server-side sign-in session. */
+    public static final String SESSION_CLAIM = "sid";
+
+    /** A short-lived access token tied to one sign-in session. */
+    public String generateAccessToken(User user, String sessionId, java.time.Duration ttl) {
+        long now = System.currentTimeMillis();
         return Jwts.builder()
                 .setSubject(Long.toString(user.getId()))
-                .claim("email", user.getEmail())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
+                .claim(SESSION_CLAIM, sessionId)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + ttl.toMillis()))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public Long extractUserId(String token) {
-        return Long.parseLong(extractAllClaims(token).getSubject());
+    public String extractSessionId(String token) {
+        return extractAllClaims(token).get(SESSION_CLAIM, String.class);
     }
 
-    public String extractEmail(String token) {
-        return extractAllClaims(token).get("email", String.class);
+    public Long extractUserId(String token) {
+        return Long.parseLong(extractAllClaims(token).getSubject());
     }
 
     public java.util.Date extractExpiration(String token) {

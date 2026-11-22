@@ -12,9 +12,14 @@ import com.salon.backend.DTOs.Auth.Verification.PasswordResetAuthorizationRespon
 import com.salon.backend.DTOs.Auth.Verification.ResetPasswordRequest;
 import com.salon.backend.DTOs.Auth.Verification.VerifyCodeRequest;
 import com.salon.backend.Services.Auth.AuthService;
-import com.salon.backend.Services.Auth.Security.JwtService;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
-import com.salon.backend.Services.Auth.Security.TokenBlacklistService;
+import com.salon.backend.Services.Auth.Session.AuthCookies;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
+import com.salon.backend.DTOs.Auth.Login.SignedIn;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import com.salon.backend.Services.Auth.Verification.AccountVerificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,19 +34,42 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final TokenBlacklistService tokenBlacklistService;
-    private final JwtService jwtService;
+    private final AuthSessionService authSessionService;
+    private final AuthCookies authCookies;
     private final AccountVerificationService accountVerificationService;
     @PostMapping({"/register", "/rigester"})
     public ApiResponse<RigesterResponse> rigester(@RequestBody RigesterRequest request) {
 
         return authService.Rigester(request);
     }
+    /** Signs in and sets the httpOnly session cookies. The body holds no token. */
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request,
+                                            HttpServletRequest httpRequest,
+                                            HttpServletResponse httpResponse) {
+        ApiResponse<SignedIn> result = authService.Login(request, httpRequest.getHeader(HttpHeaders.USER_AGENT));
+        if (!result.isSuccess() || result.getData() == null) {
+            return ApiResponse.error(result.getMessage());
+        }
+        authCookies.write(httpResponse, result.getData().session());
+        return ApiResponse.success(result.getMessage(), result.getData().account());
+    }
 
-
-        return authService.Login(request);
+    /** Rotates the refresh token and issues a new short-lived access token. */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<String>> refresh(HttpServletRequest httpRequest,
+                                                       HttpServletResponse httpResponse) {
+        return authCookies.readRefreshToken(httpRequest)
+                .flatMap(authSessionService::refresh)
+                .map(session -> {
+                    authCookies.write(httpResponse, session);
+                    return ResponseEntity.ok(ApiResponse.<String>success("Session refreshed", null));
+                })
+                .orElseGet(() -> {
+                    authCookies.clear(httpResponse);
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(ApiResponse.error("Your session is missing or expired. Please sign in and try again."));
+                });
     }
 
     @PostMapping("/email/verify")
@@ -83,19 +111,14 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(
-            jakarta.servlet.http.HttpServletRequest request
-    ) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            try {
-                java.util.Date expiration = jwtService.extractExpiration(token);
-                tokenBlacklistService.blacklistToken(token, expiration);
-            } catch (Exception e) {
-                // Token is invalid or already expired - still treat as logout
-            }
-        }
-        return ResponseEntity.ok(ApiResponse.success( "Logged out successfully",null));
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest httpRequest,
+                                                      HttpServletResponse httpResponse) {
+        String header = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = header != null && header.startsWith("Bearer ")
+                ? header.substring(7)
+                : authCookies.readAccessToken(httpRequest).orElse(null);
+        authSessionService.signOut(accessToken, authCookies.readRefreshToken(httpRequest).orElse(null));
+        authCookies.clear(httpResponse);
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 }

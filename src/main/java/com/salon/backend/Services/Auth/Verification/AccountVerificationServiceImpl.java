@@ -12,6 +12,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Auth.AuthVerificationCodeRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
 import com.salon.backend.Services.Email.EmailService;
 import com.salon.backend.Services.Email.EmailTemplates;
 import com.salon.backend.Utils.PasswordPolicy;
@@ -57,6 +58,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private final Clock clock;
     private final EmailService mailer;
     private final EmailTemplates emailTemplates;
+    private final AuthSessionService authSessionService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.code-secret:${jwt.secret}}")
@@ -272,6 +274,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         verification.setResetTokenExpiresAt(null);
         userRepo.save(user);
         verificationCodeRepo.save(verification);
+        // A new password ends every signed-in device, refresh tokens included.
+        authSessionService.revokeAllForUser(user.getId());
         mailer.queue(user.getEmail(), user.getFirstName(),
                 emailTemplates.passwordChanged(true, ZonedDateTime.ofInstant(now, APP_ZONE)));
         return ApiResponse.success(
@@ -313,6 +317,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
                 Instant.now(clock).truncatedTo(ChronoUnit.SECONDS)
         );
         userRepo.save(user);
+        // A new password ends every signed-in device, refresh tokens included.
+        authSessionService.revokeAllForUser(user.getId());
         mailer.queue(user.getEmail(), user.getFirstName(),
                 emailTemplates.passwordChanged(false, ZonedDateTime.now(clock.withZone(APP_ZONE))));
         return ApiResponse.success(

@@ -12,7 +12,8 @@ import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Salon.SalonRepo;
 import com.salon.backend.Repositories.User.UserRepo;
 import com.salon.backend.Services.Auth.Security.AdminAuthorizationService;
-import com.salon.backend.Services.Auth.Security.JwtService;
+import com.salon.backend.Entities.auth.SessionClient;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
 import com.salon.backend.Services.Salon.SalonService;
 import com.salon.backend.Services.Notification.SalonNotificationService;
 import com.salon.backend.Services.Activity.UserActivityTrackingService;
@@ -31,7 +32,7 @@ import java.util.Optional;
 public class DashboardServiceImpl implements DashboardService {
     private final UserRepo userRepo;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
-    private final JwtService jwtService;
+    private final AuthSessionService authSessionService;
     private final SalonRepo salonRepo;
     private final SalonService salonService;
     private final AdminAuthorizationService adminAuthorizationService;
@@ -60,8 +61,10 @@ public class DashboardServiceImpl implements DashboardService {
                     "Wrong Password , Please Try Again");
         }
 
-        String token =
-                jwtService.generateToken(user);
+        // The dashboard's own server keeps this token in an httpOnly cookie.
+        String token = authSessionService
+                .start(user, SessionClient.ADMIN, "SalonHub admin dashboard")
+                .accessToken();
 
         try {
             userActivityTrackingService.recordSuccessfulLogin(user);

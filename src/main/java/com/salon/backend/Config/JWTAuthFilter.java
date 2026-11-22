@@ -2,7 +2,8 @@ package com.salon.backend.Config;
 
 import com.salon.backend.Services.Auth.Security.CustomUserDetailsService;
 import com.salon.backend.Services.Auth.Security.JwtService;
-import com.salon.backend.Services.Auth.Security.TokenBlacklistService;
+import com.salon.backend.Services.Auth.Session.AuthCookies;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
 import com.salon.backend.Services.Activity.UserActivityTrackingService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,7 +26,8 @@ public class JWTAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
-    private final TokenBlacklistService tokenBlacklistService;
+    private final AuthSessionService authSessionService;
+    private final AuthCookies authCookies;
     private final UserActivityTrackingService userActivityTrackingService;
 
 
@@ -45,26 +47,26 @@ public class JWTAuthFilter extends OncePerRequestFilter {
                 path.equals("/api/auth/email/resend") ||
                 path.equals("/api/auth/password/forgot") ||
                 path.equals("/api/auth/password/verify-code") ||
-                path.equals("/api/auth/password/reset")) {
+                path.equals("/api/auth/password/reset") ||
+                path.equals("/api/auth/refresh")) {
 
             filterChain.doFilter(request, response);
             return;
         }
 
-        final String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String jwt = resolveToken(request);
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            String jwt = authHeader.substring(7);
-            if (tokenBlacklistService.isBlacklisted(jwt)) {
+            Long userId = jwtService.extractUserId(jwt);
+            // Durable revocation: the token is valid only while its session row is active.
+            if (!authSessionService.isActive(jwtService.extractSessionId(jwt), userId)) {
                 filterChain.doFilter(request, response);
                 return;
             }
-            Long userId = jwtService.extractUserId(jwt);
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 var userDetails = userDetailsService.loadById(userId);
@@ -102,5 +104,17 @@ public class JWTAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * The web application sends the token in an httpOnly cookie. The admin dashboard's
+     * server sends it as a Bearer header; the header wins when both are present.
+     */
+    private String resolveToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return authCookies.readAccessToken(request).orElse(null);
     }
 }

@@ -14,6 +14,7 @@ import com.salon.backend.Entities.users.User;
 import com.salon.backend.Entities.users.UserStatus;
 import com.salon.backend.Repositories.Auth.AuthVerificationCodeRepo;
 import com.salon.backend.Repositories.User.UserRepo;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,7 @@ class AccountVerificationServiceImplTest {
     @Mock private BCryptPasswordEncoder passwordEncoder;
     @Mock private EmailService mailer;
     @Mock private EmailTemplates emailTemplates;
+    @Mock private AuthSessionService authSessionService;
 
     private AccountVerificationServiceImpl service;
 
@@ -64,7 +66,8 @@ class AccountVerificationServiceImplTest {
                 passwordEncoder,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 mailer,
-                emailTemplates
+                emailTemplates,
+                authSessionService
         );
         ReflectionTestUtils.setField(
                 service,

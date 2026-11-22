@@ -10,7 +10,9 @@ import com.salon.backend.Services.Auth.Security.ApiAuthenticationEntryPoint;
 import com.salon.backend.Services.Auth.Security.AuthenticatedUser;
 import com.salon.backend.Services.Auth.Security.CustomUserDetailsService;
 import com.salon.backend.Services.Auth.Security.JwtService;
-import com.salon.backend.Services.Auth.Security.TokenBlacklistService;
+import com.salon.backend.Services.Auth.Session.AuthCookies;
+import com.salon.backend.Services.Auth.Session.AuthSessionService;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -39,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ImportAutoConfiguration({SecurityAutoConfiguration.class, ServletWebSecurityAutoConfiguration.class,
         SecurityFilterAutoConfiguration.class})
 @Import({SecurityConfig.class, JWTAuthFilter.class, ApiAuthenticationEntryPoint.class,
-        ApiAccessDeniedHandler.class, JwtService.class, TokenBlacklistService.class,
+        ApiAccessDeniedHandler.class, JwtService.class, AuthCookies.class,
         SecurityResponseIntegrationTest.ProbeController.class})
 class SecurityResponseIntegrationTest {
 
@@ -47,7 +49,7 @@ class SecurityResponseIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private JwtService jwtService;
-    @Autowired private TokenBlacklistService tokenBlacklistService;
+    @MockitoBean private AuthSessionService authSessionService;
     @MockitoBean private CustomUserDetailsService userDetailsService;
     // The filter records activity for authenticated requests; persistence is irrelevant here.
     @MockitoBean private UserActivityTrackingService userActivityTrackingService;
@@ -69,9 +71,10 @@ class SecurityResponseIntegrationTest {
     }
 
     @Test
-    void blacklistedTokenReturnsUnauthorizedEnvelope() throws Exception {
+    void revokedSessionTokenReturnsUnauthorizedEnvelope() throws Exception {
         String token = tokenFor(UserRole.USER, UserStatus.Active);
-        tokenBlacklistService.blacklistToken(token, jwtService.extractExpiration(token));
+        when(authSessionService.isActive(jwtService.extractSessionId(token), jwtService.extractUserId(token)))
+                .thenReturn(false);
 
         assertUnauthorized(mockMvc.perform(get("/api/salons/mine")
                 .header("Authorization", "Bearer " + token)));
@@ -168,7 +171,9 @@ class SecurityResponseIntegrationTest {
         user.setRole(role);
         user.setStatus(status);
         when(userDetailsService.loadById(user.getId())).thenReturn(AuthenticatedUser.from(user));
-        return jwtService.generateToken(user);
+        String sessionId = "session-" + user.getId();
+        when(authSessionService.isActive(sessionId, user.getId())).thenReturn(true);
+        return jwtService.generateAccessToken(user, sessionId, Duration.ofMinutes(15));
     }
 
     // Probe responses isolate the production filter chain from controller business logic.

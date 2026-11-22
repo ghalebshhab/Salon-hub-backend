@@ -38,8 +38,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
+                // Spring's token CSRF is off: the API is stateless, its cookies are
+                // SameSite=Strict, and CsrfHeaderFilter requires X-Requested-With on writes.
                 .csrf(csrf -> csrf.disable())
-                //this csrf is used to prevent the cokkies , to prevent the browser to remember the users .
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -61,8 +62,12 @@ public class SecurityConfig {
                                 "/api/auth/password/forgot",
                                 "/api/auth/password/verify-code",
                                 "/api/auth/password/reset",
+                                "/api/auth/refresh",
+                                "/api/auth/logout",
                                 "/api/dashboard/login")
                         .permitAll()
+                        // Health probes for the hosting platform (no details are shown).
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/owner/dashboard", "/api/owner/dashboard/summary", "/api/owner/dashboard/export").hasRole("OWNER")
