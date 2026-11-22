@@ -77,7 +77,7 @@ class CloudinaryMediaStorageServiceTest {
         server.expect(requestTo("https://api.cloudinary.com/v1_1/test-cloud/auto/upload"))
                 .andExpect(request -> {
                     String body = ((MockClientHttpRequest) request).getBodyAsString();
-                    assertEquals("https://drive.google.com/uc?export=download&id=abc_123",
+                    assertEquals("https://drive.google.com/uc?export=download&id=1AbCdEfGhIj_kLmNoPqRsTuV-wXyZ0123",
                             multipartField(body, "file"));
                     assertEquals(sha1("folder=salonhub&timestamp=" + multipartField(body, "timestamp") + TEST_SECRET),
                             multipartField(body, "signature"));
@@ -87,7 +87,7 @@ class CloudinaryMediaStorageServiceTest {
                          "public_id":"salonhub/work", "resource_type":"video"}
                         """, MediaType.APPLICATION_JSON));
 
-        var response = service.uploadRemote("https://drive.google.com/file/d/abc_123/view", null);
+        var response = service.uploadRemote("https://drive.google.com/file/d/1AbCdEfGhIj_kLmNoPqRsTuV-wXyZ0123/view", null);
 
         assertTrue(response.isSuccess());
         assertEquals(MediaResourceType.VIDEO, response.getData().resourceType());

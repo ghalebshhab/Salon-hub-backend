@@ -33,10 +33,13 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
     private static final Set<String> IMAGE_TYPES = Set.of(
             "image/jpeg", "image/png", "image/webp", "image/gif");
     private static final Set<String> VIDEO_TYPES = Set.of("video/mp4", "video/webm");
-    private static final Set<String> REMOTE_HOSTS = Set.of(
-            "drive.google.com", "docs.google.com", "lh3.googleusercontent.com",
-            "googleusercontent.com");
-    private static final Pattern DRIVE_FILE_PATH = Pattern.compile("/file/d/([A-Za-z0-9_-]+)");
+    /** Exact hosts only: no wildcard subdomains, so a link cannot point anywhere else. */
+    private static final Set<String> DRIVE_HOSTS = Set.of("drive.google.com", "docs.google.com");
+    private static final Pattern IMAGE_CDN_HOST = Pattern.compile("^lh[3-6]\\.googleusercontent\\.com$");
+    private static final Pattern DRIVE_FILE_PATH = Pattern.compile("/file/d/([A-Za-z0-9_-]{10,200})");
+    private static final Pattern DRIVE_ID_PARAM = Pattern.compile("(?:^|&)id=([A-Za-z0-9_-]{10,200})(?:&|$)");
+    private static final int HTTPS_PORT = 443;
+    private static final int MAX_REMOTE_URL_LENGTH = 2048;
 
     private final RestClient restClient;
     private final String cloudName;
@@ -226,23 +229,37 @@ public class CloudinaryMediaStorageService implements MediaStorageService {
         return "video/webm".equals(type) && unsigned(bytes[0]) == 0x1a && unsigned(bytes[1]) == 0x45 && unsigned(bytes[2]) == 0xdf && unsigned(bytes[3]) == 0xa3;
     }
 
+    /**
+     * Accepts only public HTTPS Google Drive links and Google image-CDN links on the
+     * default port. A Drive link is rebuilt from its file id alone, so no other part of
+     * the address (path, query, fragment) reaches Cloudinary.
+     */
     private String normalizeRemoteUrl(String value) {
+        if (value == null || value.isBlank() || value.length() > MAX_REMOTE_URL_LENGTH) return null;
         try {
-            URI uri = URI.create(value == null ? "" : value.trim());
+            URI uri = URI.create(value.trim());
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null) return null;
+            if (uri.getPort() != -1 && uri.getPort() != HTTPS_PORT) return null;
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            boolean allowed = REMOTE_HOSTS.stream().anyMatch(allowedHost -> host.equals(allowedHost) || host.endsWith("." + allowedHost));
-            if (!allowed) return null;
-            if (host.equals("drive.google.com")) {
-                Matcher matcher = DRIVE_FILE_PATH.matcher(uri.getPath() == null ? "" : uri.getPath());
-                if (matcher.find()) {
-                    return "https://drive.google.com/uc?export=download&id=" + matcher.group(1);
-                }
+
+            if (DRIVE_HOSTS.contains(host)) {
+                String fileId = driveFileId(uri);
+                return fileId == null ? null : "https://drive.google.com/uc?export=download&id=" + fileId;
             }
-            return uri.toASCIIString();
+            if (IMAGE_CDN_HOST.matcher(host).matches()) {
+                return new URI("https", host, uri.getPath(), null).toASCIIString();
+            }
+            return null;
         } catch (Exception exception) {
             return null;
         }
+    }
+
+    private static String driveFileId(URI uri) {
+        Matcher pathMatch = DRIVE_FILE_PATH.matcher(uri.getPath() == null ? "" : uri.getPath());
+        if (pathMatch.find()) return pathMatch.group(1);
+        Matcher queryMatch = DRIVE_ID_PARAM.matcher(uri.getRawQuery() == null ? "" : uri.getRawQuery());
+        return queryMatch.find() ? queryMatch.group(1) : null;
     }
 
     /** Cloudinary puts the real reason in the response body, e.g. a missing key permission. */
