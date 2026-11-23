@@ -69,6 +69,22 @@ network; Gmail accepts both. After a deploy, the log shows one of:
 
 Gmail sends about 500 emails a day from a normal account.
 
+#### Email over HTTPS with Brevo (Render free plan)
+
+Render's free plan blocks outgoing SMTP ports, so on that plan use the
+Brevo API instead. Then the `MAIL_HOST`, `MAIL_PORT` and `MAIL_PASSWORD`
+values are not used.
+
+| Name | Value | Kind |
+|---|---|---|
+| `MAIL_DELIVERY` | `brevo` | [set] |
+| `BREVO_API_KEY` | an API key from Brevo → SMTP & API → API Keys | [secret] |
+| `MAIL_FROM` | `salonhub.jo@gmail.com`, confirmed as a sender in Brevo | [set] |
+| `MAIL_LOGO_URL` | `<FRONTEND_URL>/salonhub-mark.png` | [default] |
+
+After a deploy, the log shows `Email: Brevo API key accepted` when it works.
+The free Brevo plan sends 300 emails a day.
+
 ### Media, maps, AI, payments
 
 | Name | Value | Kind |
