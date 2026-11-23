@@ -10,9 +10,9 @@
 	</parent>
 	<groupId>com.salon</groupId>
 	<artifactId>backend</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<version>1.0.0</version>
+	<name>SalonHub Backend</name>
+	<description>REST API for the SalonHub salon booking and community platform</description>
 	<url/>
 	<licenses>
 		<license/>
