@@ -4,9 +4,10 @@
 | --- | --- |
 | **Product** | Salonhub (earlier documents use the name "Salon Hup") |
 | **Document type** | Product, design and engineering specification |
-| **Document version** | 2.3.0 |
-| **Last updated** | 16 November 2026 |
-| **Product status** | Active development, not yet released to production |
+| **Document version** | 2.4.0 |
+| **Last updated** | 23 November 2026 |
+| **Product status** | Version 1 release candidate. The code for the first production deploy was pushed on 22 November 2026 |
+| **Short summary** | A one-page product guide for sharing: [SalonHub Product Guide](https://claude.ai/artifact/DnqG7E1GN2GfY6o4eab6jC) (private until the owner shares it) |
 | **Owner and author** | Ghaleb Shhab |
 | **Source file** | `backend/documentation/Salon-Hup-Project-Documentation.md` |
 | **Audience** | Engineers, reviewers, quality assurance, operations, stakeholders, and a company that evaluates the product for purchase |
@@ -29,7 +30,7 @@ This document is the single maintained description of Salonhub. It follows the p
 - **Partial** means that a foundation exists but production controls are not complete.
 - **Planned** means an approved direction with no implementation. Planned behavior is never described as current behavior.
 - Diagrams use Mermaid. GitHub and most Markdown viewers render them directly.
-- Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Version 2.1.0 updated the booking, schedule, location and notification parts of these chapters. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
+- Chapters 12 to 22 are reference chapters. Their text was reviewed for version 1.4.2 and is carried into this version without a new line-by-line review. Version 2.1.0 updated the booking, schedule, location and notification parts of these chapters. Version 2.4.0 updated the sign-in, plan, language, email and departure parts. Where a reference chapter and chapter 5 disagree about status, chapter 5 is newer.
 
 ## Contents
 
@@ -72,7 +73,15 @@ The product consists of three applications that share one API:
 
 **Payments, first step.** The customer chooses how to pay when booking. Cash works today: after the service, the employee or the owner records **Cash received**, and the customer gets a receipt. Each payment keeps a ledger of what happened and who did it. Owners see what they collected, what guests still owe, and set their payment rules. Card payment is designed but stays locked until a payment provider is chosen.
 
-**Current state.** All core journeys are implemented and covered by automated tests (311 backend tests and 218 web tests at the last full run, 16 November 2026). The product is not yet in production. The main open items are card payments (they need a provider), managed database migrations, durable token revocation, monitoring, and continuous integration for the backend and admin dashboard. Chapter 28 lists them.
+**Salon plans.** Salons choose Free, Pro or Business. A newly approved salon tries Pro for 30 days. Owners pay by CliQ transfer, and an administrator confirms the transfer. Each plan sets limits (team size, services, hiring posts, analytics period) and opens features (missed-visit rule, email reminders, CSV export, a salon manager, a plan badge and a search boost). Customers never pay a platform fee.
+
+**Arabic and English.** The whole web application works in Arabic with a right-to-left layout. Claude translates owner-written service names, service descriptions and the salon story in the background, and the owner can correct the Arabic.
+
+**Leave on time.** A customer can share where they will leave from. Salonhub uses road traffic times and the employee's real working pace to tell the customer when to leave, and tells them when the salon runs late.
+
+**Email.** Important events (sign-up codes, sign-in alerts, booking changes, employment and hiring events, plan reminders) also go out as branded emails from the Salonhub Gmail account.
+
+**Current state.** All core journeys are implemented and covered by automated tests (317 backend tests and 220 web tests at the last full run, 22 November 2026). Version 1 was pushed for the first production deploy on 22 November 2026. Sign-in now uses httpOnly cookies with stored, revocable sessions, Flyway manages the database schema, and all three repositories have continuous integration. The main open items are card payments (they need a provider), monitoring and alerts, and tested backups. Chapter 28 lists them.
 
 ## 2. Vision, goals and principles
 
@@ -94,6 +103,9 @@ One trusted place for the salon business in Jordan: a customer books with confid
 - Give the community a safe place to share work, with reporting and moderation.
 - Guide each user with an assistant that uses real platform data only.
 - Build a base that is ready for payments, notifications and deployment.
+- Give salons clear plans with fair limits, and keep the product free for customers.
+- Serve Arabic and English speakers equally.
+- Help customers arrive on time without calling the salon.
 
 ### 2.3 Product principles
 
@@ -109,6 +121,8 @@ One trusted place for the salon business in Jordan: a customer books with confid
 - **Safe community:** each post, comment, salon and member can be reported, and an administrator records the decision.
 - **Location by consent:** the customer's position is shared only after the customer starts a trip, only with the assigned employee and the owner, and is deleted on arrival, completion or cancellation.
 - **Honest times:** each time that the product shows (free slot, arrival estimate, service end) comes from the server and is labelled as an estimate where it is one.
+- **No secrets in the page:** the browser never holds a sign-in token that a script can read. Sessions live in httpOnly cookies and on the server.
+- **Owner text stays the owner's:** a machine translation is a draft. The owner can always correct it, and the correction stays until the owner changes the English text.
 
 ## 3. Users, roles and stakeholders
 
@@ -129,7 +143,7 @@ One trusted place for the salon business in Jordan: a customer books with confid
 | --- | --- | --- |
 | `USER` | Default registered account | One profile, salon discovery, bookings, reviews, career mode, applications, community, reports |
 | `OWNER` | User approved as owner of a salon | Everything a user can do, plus the owned salon, services, team, schedules, booking decisions, hiring, and the owner dashboard |
-| `Employee` | User currently employed by a salon | Assigned bookings, work gallery, leave and transfer workflows |
+| `Employee` | User currently employed by a salon | Assigned bookings, work gallery, leave and transfer workflows. On a Business plan the owner can mark one or more employees as **salon manager** (`user.salon_manager`): a manager also handles the salon's bookings and team schedules, but never money, the plan, service edits, hiring or salon settings |
 | `ADMIN` | Platform administrator | Admin dashboard: salon requests, user and salon blocking, analytics, activity and moderation reports |
 
 Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employee`. A later normalization of the casing needs a data migration.
@@ -158,47 +172,56 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 - Content reports and administrative moderation.
 - The Lamsa assistant and global search.
 - Owner dashboard and platform admin dashboard with analytics.
+- Salon plans (Free, Pro, Business) with a free trial, CliQ payments and admin review.
+- Arabic and English interface, and Arabic versions of owner-written salon text.
+- Email delivery of important events.
+- Leave-on-time alerts with traffic-aware travel times.
 
 ### 4.2 Outside the current implementation
 
 - Card payments, refunds, invoices and financial reconciliation with a provider. Cash payments, receipts and the payment ledger are implemented (section 5.12).
 - Recurring appointments.
 - Partial-day employee absences (time off covers whole days only).
-- Turn-by-turn routing inside Salonhub. Directions open in Google Maps, and the arrival estimate is calculated from distance.
+- Turn-by-turn routing inside Salonhub. Directions open in Google Maps. Travel times come from the Google Routes API when a key is set, otherwise from distance.
 - Real-time chat, and ratings for single employees or services.
 - Native mobile applications and mobile push notifications.
-- Subscription plans and multi-tenant billing.
-- An Arabic user interface. Lamsa understands Arabic keywords, but the interface text is English.
+- Automatic plan billing by card. Plan payments are CliQ transfers that an administrator confirms by hand.
+- Languages other than Arabic and English.
 
 ## 5. Feature catalog and status
 
 | Module | Status | What the user gets |
 | --- | --- | --- |
-| Identity and access | Implemented | Registration, email verification with resend cooldown, login, logout, password recovery, JWT sessions, role checks, blocked-account enforcement |
+| Identity and access | Implemented | Registration, email verification with resend cooldown, login, logout, password recovery and change, httpOnly cookie sessions with a 15-minute access token and a rotating 14-day refresh token, stored and revocable sessions, rate limits per IP, role checks, blocked-account enforcement, profile picture |
 | Unified profile and career mode | Implemented | One profile for each person; career data extends it; completion score |
 | Salon onboarding and governance | Implemented | Salon request, admin approval or rejection with reason, correction and resubmission, reversible blocking |
 | Salon profile, location and media | Implemented | Salon page, map pin chosen in a Google Maps dialog and saved on its own, map and directions on the public page, cover image, employee work gallery through Cloudinary |
-| Service catalog | Implemented | Owner-managed services with price and duration; public list of active services |
+| Service catalog | Implemented | Owner-managed services with price and duration, each with an Arabic name and description; public list of active services |
 | Team, capabilities and schedules | Implemented | Employee directory, service capabilities, weekly working periods |
 | Employee time off | Implemented | Whole-day absences that the owner adds; the booking calendar skips them and the owner sees affected appointments |
-| Appointment booking | Implemented | Four-step wizard, server-calculated 15-minute slots, "Let the salon assign" option, reason and next free day when a date is full, owner assign-and-accept, customer-approved reschedule, completion |
+| Appointment booking | Implemented | Four-step wizard, server-calculated 15-minute slots, "Let the salon assign" option, reason and next free day when a date is full, owner assign-and-accept, customer-approved reschedule, customer "I will come" confirmation, completion |
 | Appointment life cycle automation | Implemented | Unanswered requests expire after 24 hours, reminders one day and two hours before a confirmed visit, no-show marking 15 minutes after the start, answer deadline shown to customer and owner |
 | Salon holidays | Implemented | Whole-day closures of the full salon; the booking calendar skips them, guests see them on the salon page, and the owner sees the appointments inside them |
 | Live appointment tracking | Implemented | Customer trip sharing with distance and arrival estimate, automatic arrival, service start, extension and completion, live progress for customer, employee and owner |
-| Notification inbox | Implemented | Durable booking, reminder, expiry, live-tracking and friend events, unread count, read operations, polling |
+| Notification inbox | Implemented | Durable booking, reminder, expiry, live-tracking, departure, plan and friend events, unread count, read operations, polling |
+| Email delivery | Implemented | Branded emails through Gmail SMTP: account codes, welcome, sign-in alert, password changed, booking events by priority, employment and hiring events, plan reminders. Sent in the background after the save commits, with retries; the backend checks the SMTP sign-in at start |
 | Verified reviews | Implemented | One review for each completed booking; public list and summary |
 | Hiring | Implemented | Hiring posts, personalized discovery, ranked applications, owner decisions, post life cycle |
 | Employment, leave and transfer | Implemented | Requests, invitations, leave, transfer between salons |
 | Community | Implemented | Feed, posts with optional media, comments, likes, friends, salon follows, member profiles |
 | Moderation | Implemented | Reports on posts, comments, salons and users; admin review with a recorded decision |
-| Owner dashboard | Implemented | One owner-only view of salon, bookings, team, services and reviews |
-| Admin dashboard | Implemented | Separate Next.js application: overview, analytics, activity, reports, salons, users |
+| Owner dashboard | Implemented | One owner-only view of salon, bookings, team, services and reviews; SQL-built period summary limited by the plan's analytics period; CSV export of a period's bookings (Business) |
+| Admin dashboard | Implemented | Separate Next.js application: overview, analytics, activity, reports, salons, users, and plans (confirm or reject CliQ plan payments, grant or change a salon's plan) |
 | Global search | Implemented | Command palette that finds pages and people |
 | Lamsa AI assistant | Implemented | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
 | Design system | Implemented | Plum and gold identity, light and dark themes, shared tokens, motion rules, accessible focus states |
 | Interactive prototype | Implemented | `/prototype` shows the main journeys with sample data |
-| Payments | Partial | Method choice when booking, cash received by staff, receipts, payment ledger, unpaid list, owner money summary and payment settings. Card methods are designed and locked until a provider is connected |
-| Production operations | Partial | Docker image and hosting exist; managed migrations, monitoring and durable token revocation remain |
+| Payments | Partial | Method choice when booking, cash received by staff, receipts, payment ledger, unpaid list, owner money summary and payment settings, missed-visit rule (a customer who reaches the salon's no-show limit must pay in advance, and cannot book online while no card provider exists). Card methods are designed and locked until a provider is connected |
+| Salon plans | Implemented | Free, Pro and Business; 30-day Pro trial; monthly or yearly CliQ payment confirmed by an administrator; 7-day grace period; hourly job that ends trials and unpaid plans; limits on team, services, hiring posts and analytics period; plan badge and search boost (section 5.13) |
+| Arabic and English | Implemented | Full interface in both languages with right-to-left layout for Arabic; Claude translation of owner-written salon text with owner correction (section 5.14) |
+| Leave on time | Implemented | Departure point shared by the customer, traffic-aware travel time, queue forecast from the employee's pace, "leave soon", "leave now" and "salon running late" alerts (section 5.15) |
+| Loading, error and settings pages | Implemented | Page-shaped loading skeletons on every page, one branded error page for not found, no access, blocked salon or user, expired session and crashes, and a settings page for language, theme, alerts and location access |
+| Production operations | Partial | Docker image and hosting, Flyway migrations, stored sessions, CI in all three repositories, health probes, graceful shutdown and a written deploy plan exist; monitoring, alerts and tested backups remain |
 
 ### 5.1 Community
 
@@ -449,6 +472,82 @@ flowchart LR
 | --- | --- |
 | `PAYMENT_RECEIVED` | Customer |
 
+**Missed-visit rule (version 2.4.0).** On Pro and Business the owner can set a no-show limit in the payment settings. When a customer reaches that number of `NO_SHOW` bookings at the salon, `NoShowDepositRule` asks for payment in advance by card. While no card provider is connected, the customer cannot book that salon online and is told to contact the salon.
+
+### 5.13 Salon plans
+
+Only salons pay. One enum, `SubscriptionPlan`, holds every price, limit, card fee and feature, so all checks (`PlanLimits`) read from one place. Money is in fils.
+
+| Item | Free | Pro | Business |
+| --- | --- | --- | --- |
+| Monthly price | 0 | 15 JOD | 25 JOD |
+| Yearly price | 0 | 150 JOD | 250 JOD |
+| Team members (owner included) | 3 | 8 | No limit |
+| Services | 15 | No limit | No limit |
+| Open hiring posts | 1 | 3 | No limit |
+| Longest analytics period | 7 days | 90 days | 366 days |
+| Salonhub fee on card payments | — (cash only) | 3% | 2% |
+| Card payments, cancellation fees, missed-visit rule, email reminders, advanced analytics, plan badge | — | Yes | Yes |
+| CSV export, search boost, salon manager role | — | — | Yes |
+
+```mermaid
+stateDiagram-v2
+    [*] --> TRIAL: admin approves the salon (30 days of Pro)
+    TRIAL --> ACTIVE: admin confirms a CliQ payment
+    TRIAL --> ENDED: trial ends without payment
+    ACTIVE --> GRACE: period ends
+    GRACE --> ACTIVE: admin confirms the next payment
+    GRACE --> ENDED: 7 days pass without payment
+    ENDED --> ACTIVE: admin confirms a payment
+```
+
+| Rule | Value |
+| --- | --- |
+| Trial | When an administrator approves a new salon, it gets 30 days of Pro (`TRIAL_PLAN`, `TRIAL_DAYS`) |
+| Grace | After a paid period ends, the plan works for 7 more days (`GRACE_DAYS`) |
+| Dates win | A trial or period whose end date has passed counts as Free at once, even before the job updates the status |
+| Job | `SubscriptionLifecycleScheduler` runs every hour. It ends trials and unpaid plans and sends each reminder notice once (`last_notice_key`) |
+| Paying | The owner chooses a plan and a monthly or yearly cycle on `/owner/plan`, sends a CliQ transfer to the Salonhub alias (`BILLING_CLIQ_ALIAS`) and enters the reference. This creates a `subscription_payment` request. The owner can cancel a request that is still open |
+| Review | An administrator confirms or rejects each request on the dashboard Plans page. Confirming starts the period. Admins can also grant time or change a salon's plan |
+| Limits | Adding a team member, a service or an open hiring post above the plan limit is refused with a clear message |
+| Visibility | Business salons come first in salon lists (search boost). Pro and Business salons show a plan badge |
+
+### 5.14 Languages
+
+| Part | Behaviour |
+| --- | --- |
+| Interface | Every page uses `t()` and the message files in `src/shared/i18n/messages`. The chosen language is saved and sets `lang` and `dir` on the page; `rtl.css` mirrors the layout for Arabic. The language switch is in the header and on `/settings` |
+| Owner-written text | `salon_service.name_ar`, `salon_service.description_ar` and `salon.description_ar` (migration V3). The web application shows them through `localized()` when the page is in Arabic and the Arabic is not blank |
+| Translation | `ContentTranslationService` asks Claude for Arabic after a save commits, on one background thread (`translationExecutor`). At start it also translates older rows that have no Arabic. Without `ANTHROPIC_API_KEY`, nothing is translated and the English shows |
+| Owner correction | The service and salon forms show the Arabic fields. `ArabicText.resolve` keeps a correction until the English changes; a blank field asks for a new translation |
+| Bookings | A booked service shows its Arabic name only while the live service still has the same English name as the booking copy |
+
+### 5.15 Leave on time
+
+```mermaid
+sequenceDiagram
+    participant C as Customer
+    participant API as Backend
+    participant R as Google Routes
+    C->>API: PUT /api/bookings/{id}/departure-plan/origin (start point)
+    loop DepartureAlertScheduler
+        API->>API: forecast when the employee is free (QueueForecaster)
+        API->>R: travel time with traffic (or distance estimate)
+        API-->>C: BOOKING_LEAVE_SOON
+        API-->>C: BOOKING_LEAVE_NOW (in-app and email)
+        API-->>C: BOOKING_SALON_DELAY
+    end
+    C->>API: journey/start (live trip) or DELETE origin
+```
+
+| Rule | Value |
+| --- | --- |
+| Consent | Only accepted bookings, and only after the customer shares a start point. The point is deleted when the live trip starts, on arrival, on completion, or when the customer turns the alerts off |
+| Expected start | `QueueForecaster` walks the employee's accepted and running bookings of the day. It scales each duration by the employee's real pace from the last 20 timed services (between 0.85 and 1.4, with at least 3 samples) and adds a 5-minute allowance for an overrun |
+| Leave time | Expected start minus travel time minus a 5-minute arrival buffer |
+| Alerts | "Leave soon" 15 minutes before the leave time; "Leave now" at the leave time (also by email); "Salon running late" for each 15 minutes that the expected start moves later (`DELAY_ALERT_MINUTES`, `DELAY_ALERT_WINDOW` = 4 hours) |
+| Travel time | `GoogleRoutesTravelTimeEstimator` uses the Routes API with traffic when `GOOGLE_MAPS_API_KEY` is set; otherwise the distance estimate from version 2.1.0 is used |
+
 ---
 
 # Part II. Planning
@@ -469,7 +568,7 @@ flowchart LR
 | FR-08 | Customers can request future appointments within salon and employee availability | Implemented |
 | FR-09 | Owners decide bookings, assign qualified employees, and complete accepted appointments | Implemented |
 | FR-10 | Customers can publish a verified salon review after a completed owned booking | Implemented |
-| FR-11 | The platform notifies participants about workflow changes inside the application | Implemented (in-app inbox); email and push delivery are planned |
+| FR-11 | The platform notifies participants about workflow changes inside the application | Implemented (in-app inbox and email, version 2.4.0); push delivery is planned |
 | FR-12 | Members can publish posts, comment, like, add friends and follow salons | Implemented |
 | FR-13 | Members can report content, and administrators record a decision for each report | Implemented |
 | FR-14 | Administrators can see platform analytics and user activity | Implemented |
@@ -477,7 +576,7 @@ flowchart LR
 | FR-16 | Users can search pages and people from each page | Implemented |
 | FR-17 | An assistant answers questions and gives suggestions from live platform data only | Implemented |
 | FR-18 | Customers can pay for appointments online | Partial: method choice and cash are implemented; card needs a provider |
-| FR-19 | Operators can deploy, monitor, migrate, back up and recover the system | Partial |
+| FR-19 | Operators can deploy, monitor, migrate, back up and recover the system | Partial: deploy, Flyway migrations, health probes and a backup procedure exist; monitoring and tested restores remain |
 | FR-20 | Owners can set the salon location on a map, and visitors can view it and get directions | Implemented |
 | FR-21 | Owners can record whole-day employee time off, and booking availability excludes it | Implemented |
 | FR-22 | Customers can let the salon assign the employee, and the owner cannot accept a booking without one | Implemented |
@@ -491,6 +590,14 @@ flowchart LR
 | FR-30 | Staff can record a cash payment once, and the customer receives a receipt | Implemented |
 | FR-31 | Owners can see collected and unpaid money for a period and set accepted methods, free-cancel hours and fees | Implemented |
 | FR-32 | Every payment change is kept in an append-only ledger with the person who made it | Implemented |
+| FR-33 | Salons have a plan with limits and features; an approved salon gets a 30-day Pro trial; owners pay by CliQ and administrators confirm | Implemented |
+| FR-34 | Users can use the whole web application in Arabic or English, with a right-to-left layout for Arabic | Implemented |
+| FR-35 | Owner-written service and salon text is available in Arabic, translated automatically and correctable by the owner | Implemented |
+| FR-36 | Customers can get leave-soon, leave-now and salon-delay alerts based on travel time and the employee's pace | Implemented |
+| FR-37 | Important events reach users by email | Implemented |
+| FR-38 | Customers can confirm that they will come to a booking | Implemented |
+| FR-39 | A Business owner can export a period's bookings as CSV and name salon managers | Implemented |
+| FR-40 | Sign-in sessions survive page reloads, can be revoked on the server, and are never readable by page scripts | Implemented |
 
 ### 6.2 Non-functional requirements
 
@@ -500,19 +607,19 @@ flowchart LR
 | --- | --- | --- |
 | Availability | Define an uptime objective and maintenance policy before launch | Not defined |
 | Performance | Establish p95 latency targets per API class and test realistic data volumes | Not measured |
-| Scalability | Support stateless horizontal API scaling with shared revocation and persistence services | Blocked by in-memory token blacklist |
+| Scalability | Support stateless horizontal API scaling with shared revocation and persistence services | Sessions are stored in MySQL (2.4.0), so instances share them. Scheduled jobs and in-memory rate limits still run per instance |
 | Security | TLS, managed secrets, least privilege, dependency scanning, and authorization tests | Partial |
 | Reliability | Transactional state changes, idempotency where required, and recovery procedures | Partial |
-| Data integrity | Versioned migrations, constraints, locking, and production backup validation | Partial |
+| Data integrity | Versioned migrations, constraints, locking, and production backup validation | Flyway migrations and `ddl-auto=validate` (2.4.0); a backup restore is not yet tested |
 | Privacy of location | Customer position only with consent, only to the assigned staff, deleted after the trip | Implemented for live tracking |
 | Freshness | Live appointment data at most 15 seconds old while the page is visible | Implemented through polling; push delivery is planned |
-| Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Planned |
-| Accessibility | Frontend journeys should target WCAG 2.2 AA | Frontend responsibility; not yet verified |
-| Localization | Define supported languages, locale-sensitive dates, and message strategy | Planned |
+| Observability | Structured logs, metrics, traces or correlation IDs, dashboards, and alerts | Health and liveness probes only (2.4.0); the rest is planned |
+| Accessibility | Frontend journeys should target WCAG 2.2 AA | Partial: visible focus states, reduced-motion support, labelled fields and keyboard-safe dialogs (2.4.0); no full audit yet |
+| Localization | Define supported languages, locale-sensitive dates, and message strategy | Implemented for Arabic and English (2.4.0) |
 
 ## 7. Delivery history
 
-The product was built in small reviewed slices. The backend repository starts on 8 July 2026 and holds 147 commits; the web application repository holds 180 commits (16 November 2026).
+The product was built in small reviewed slices. The backend repository starts on 8 July 2026. Chapter 27 gives the current commit counts.
 
 | Phase | Period | Delivered |
 | --- | --- | --- |
@@ -525,6 +632,9 @@ The product was built in small reviewed slices. The backend repository starts on
 | 7. Live appointments | 16 November 2026 | Map location picker and directions, four-step booking wizard, employee time off, owner assign-and-accept, live trip and service tracking, six new notification events, safe update of old salon fields, enum-to-text column upgrade |
 | 8. Appointment life cycle | 16 November 2026 | Automatic expiry of unanswered requests, answer deadline in the interface, day and two-hour reminders, salon holidays, no-show marking, three new notification events |
 | 12, step A. Payments without a provider | 16 November 2026 | Payment method in the wizard, payment record and ledger, cash received, receipts, unpaid list, owner payments page and settings, commission field kept at 0 |
+| 13. Email delivery | 17 November 2026 | Shared email service with branded templates, welcome, sign-in alert and password-changed emails, email copies of notifications by priority, employment and hiring emails, profile pictures, Cloudinary media for posts, sign-in rate limits, no SQL in production logs |
+| 18. Salon plans | 20 to 21 November 2026 | Free, Pro and Business plans, trial, CliQ plan requests and admin review, hourly plan job, plan limits, plan badge and search boost, customer attendance confirmation, missed-visit rule, SQL owner summary, CSV export, salon manager role |
+| 9 and 15. Production readiness and localization | 22 November 2026 | Cookie sessions with rotating refresh tokens, Flyway migrations, CI for all repositories, health probes and graceful shutdown, Arabic interface and Arabic salon content, leave-on-time alerts, loading skeletons, one error page, settings page, keyboard-safe dialogs, production environment list and deploy plan |
 
 ```mermaid
 timeline
@@ -536,6 +646,9 @@ timeline
     November : Community and moderation : Admin dashboard : Global search
     Mid November : Lamsa assistant : Interface refinements
     16 November : Map location and directions : Booking wizard and time off : Live trip and service tracking : Request expiry and reminders : Salon holidays and no-show : Cash payments and receipts
+    17 November : Email delivery : Rate limits
+    20 to 21 November : Salon plans and trial : Missed-visit rule : CSV export and managers
+    22 November : Cookie sessions and Flyway : Arabic interface : Leave on time : CI and deploy plan
 ```
 
 Chapter 31 holds the detailed revision history of this document.
@@ -546,15 +659,16 @@ The phases below are in priority order. The numbers continue after the delivered
 
 | Phase | Goal | Main work | State |
 | --- | --- | --- | --- |
-| 9. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Planned |
+| 9. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Partial: migrations, stored sessions, CI, health probes and the deploy plan delivered (2.4.0); logs, metrics, alerts, tested backups and a shared scheduler lock remain |
 | 10. API documentation | Give integrators one contract | OpenAPI description from the controllers, generated API client shared by both web applications | Planned |
 | 11. Scheduling depth | Cover real salon calendars | Partial-day absences, calendar views, recurring appointments, owner-set answer windows, no-show history and deposits | Planned (time off delivered in phase 7; salon holidays, reminders, expiry and no-show in phase 8) |
 | 12. Payments | Earn revenue from bookings | Step B: card after the service with a payment link and webhook. Step C: card now with hold, capture, release, refunds and fees. Then invoices and reconciliation | Step A delivered (2.3.0); B and C need a provider decision |
-| 13. Outbound notifications | Reach users outside the application | Email templates, push delivery, live updates over WebSocket or server-sent events instead of polling | Planned |
+| 13. Outbound notifications | Reach users outside the application | Email templates, push delivery, live updates over WebSocket or server-sent events instead of polling | Email delivered (2.4.0); push and live updates planned |
 | 14. Reviews and reputation | Richer trust signals | Employee and service ratings | Planned |
-| 15. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Planned |
+| 15. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Delivered (2.4.0). Remaining: receipts and the owner "top services" panel still show English service names |
 | 16. Mobile | Native reach | Mobile applications on the same API, background trip sharing | Not yet planned in detail |
-| 17. Routing accuracy | Better arrival estimates | Routing provider with live traffic behind the existing `TravelTimeEstimator` interface | Planned |
+| 17. Routing accuracy | Better arrival estimates | Routing provider with live traffic behind the existing `TravelTimeEstimator` interface | Delivered (2.4.0) with the Google Routes API when a key is set |
+| 18. Salon plans | Earn revenue from salons | Plans, trial, CliQ requests, admin review, limits | Delivered (2.4.0). Next: card billing for plans when a provider exists |
 
 > **Reserved for later phases.** New phases are added to this table first, then described in a subsection of this chapter with goal, scope, acceptance criteria and dependencies.
 
@@ -564,8 +678,8 @@ The phases below are in priority order. The numbers continue after the delivered
 
 | ID | Risk | Impact | Likelihood | Treatment |
 | --- | --- | --- | --- | --- |
-| R-01 | In-memory logout blacklist is lost on restart and cannot coordinate multiple instances | High | High | Add durable shared revocation or refresh-token design |
-| R-02 | Automatic schema update can create uncontrolled production changes | High | High | Adopt Flyway or Liquibase before production |
+| R-01 | Resolved in version 2.4.0: in-memory logout blacklist | High | Resolved | Sessions are stored in `auth_sessions`; logout and password changes revoke them; refresh tokens rotate |
+| R-02 | Resolved in version 2.4.0: automatic schema update | High | Resolved | Flyway applies V1 to V3; Hibernate only validates (`JPA_DDL_AUTO=validate`) |
 | R-03 | Earlier credentials remain in Git history | High | Medium | Rotate every exposed value and use deployment secrets |
 | R-04 | Authorization coverage is incomplete across the full API surface | High | Medium | Add route and service authorization tests |
 | R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
@@ -589,7 +703,7 @@ Current source configuration obtains database credentials, SMTP credentials, and
 
 ### Token revocation
 
-The logout blacklist is stored in application memory. It disappears after a restart and does not work consistently across multiple server instances. A durable revocation or refresh-token design is required for production.
+Resolved in version 2.4.0. Each sign-in creates a row in `auth_sessions`. The access token lasts 15 minutes and names its session; the refresh token lasts 14 days, is stored only as a hash, and changes on each use. Logout, a password reset and a password change revoke the sessions, so a stolen token stops working within 15 minutes at most.
 
 ### Data integrity and concurrency
 
@@ -601,14 +715,14 @@ The approved API contract represents business outcomes through the existing `Api
 
 ### Schema lifecycle
 
-Hibernate currently uses automatic schema update. Production environments should use versioned database migrations such as Flyway or Liquibase.
+Resolved in version 2.4.0. Flyway owns the schema (`src/main/resources/db/migration`). V1 is the baseline of the full schema; an existing database without Flyway history is marked as version 1 on first start (`baseline-on-migrate`) and receives only the newer migrations. Hibernate runs with `ddl-auto=validate`. Tests build an H2 schema from the entities and do not run Flyway.
 
 ### Risks added in version 2.0.0
 
 | ID | Risk | Effect | Mitigation |
 | --- | --- | --- | --- |
-| R-15 | Schema changes use Hibernate `ddl-auto=update` plus hand-written SQL files; no migration tool applies them in order | A deployment can leave the database different from the code | Adopt a migration tool (phase 9) and make the SQL files in `database/migrations` its first versions |
-| R-16 | Only the web application has continuous integration | A broken backend or admin build can reach the main branch | Add build-and-test workflows for both repositories (phase 9) |
+| R-15 | Resolved in version 2.4.0: no migration tool | — | Flyway applies the migrations in order; see "Schema lifecycle" |
+| R-16 | Resolved in version 2.4.0: CI only for the web application | — | The backend runs `mvnw verify`, and the admin dashboard runs lint, typecheck and build on every push |
 | R-17 | The assistant depends on an external AI service | An outage or a cost increase affects AI replies | Guide mode answers without the service; a rate limit caps use; the model name is configuration |
 | R-18 | User-written community content | Harmful content can stay visible until an administrator acts | Reports and admin review exist; automatic filtering is not implemented |
 | R-19 | One author wrote the product | Knowledge is concentrated in one person | This document, the tests and the enforced code structure reduce the dependence |
@@ -620,7 +734,7 @@ Hibernate currently uses automatic schema update. Production environments should
 | R-20 | The customer's live position is personal data | Misuse or a leak harms the customer | Sharing starts only by customer action, is visible to the assigned staff only, and the server deletes coordinates after the trip. A written retention policy is still needed (chapter 22) |
 | R-21 | The arrival estimate uses distance, not real roads or traffic | The employee can see an estimate that is too short or too long | The interface labels it as an estimate; a routing provider can replace it (phase 17) |
 | R-22 | Live views poll every 15 seconds | Many open pages create load on the API | Polling stops when the tab is hidden; push delivery is planned (phase 13) |
-| R-23 | `LegacyEnumColumnUpgrade` changes three MySQL columns from `ENUM` to `VARCHAR` on start-up | A failed change at deploy time stops new status values from saving | The change keeps all stored values, runs only when the column is still `ENUM`, and logs each conversion. Check the deploy log once. A migration tool replaces it in phase 9 |
+| R-23 | `LegacyEnumColumnUpgrade` changes three MySQL columns from `ENUM` to `VARCHAR` on start-up | A failed change at deploy time stops new status values from saving | The change keeps all stored values, runs only when the column is still `ENUM`, and logs each conversion. Check the deploy log once. Since version 2.4.0 the Flyway baseline already has these columns as `VARCHAR` |
 | R-24 | A pending request that names an employee holds that time | A customer who never gets a decision blocks the employee | The owner sees pending requests first; resolved in version 2.2.0: requests expire 24 hours after creation, or at the appointment start |
 
 ### Risks added in version 2.2.0
@@ -631,6 +745,17 @@ Hibernate currently uses automatic schema update. Production environments should
 | R-26 | A no-show is the staff's decision and cannot be undone | A wrong mark can upset a customer who came late | It is allowed only 15 minutes after the start and only when the customer is not checked in; the customer is told and is asked to contact the salon |
 | R-27 | The answer window is fixed at 24 hours for all salons | A slow salon loses requests; a fast salon could use a shorter window | The value is one constant in `BookingTimePolicy`; an owner setting is planned (phase 11) |
 | R-28 | The database connection uses `serverTimezone=UTC` while the server clock uses local time | Raw SQL reads show times 3 hours behind the application | The application converts both ways, so its own reads are correct. Use the API, not raw SQL, to check times; agree one time zone in phase 9 |
+
+### Risks added in version 2.4.0
+
+| ID | Risk | Effect | Mitigation |
+| --- | --- | --- | --- |
+| R-33 | Free hosting plans can block outgoing SMTP ports | Sign-up codes and alerts do not arrive | The backend logs the SMTP sign-in result at start. If it fails on the host, move to an email API that sends over HTTPS |
+| R-34 | Plan payments are checked by hand | A late review delays a salon's plan; a wrong confirmation gives a plan without payment | Requests wait in the dashboard queue with their CliQ reference; every decision stores the reviewer and time; the 7-day grace period covers short delays |
+| R-35 | Machine translation can be wrong or can fail | Arabic text can mislead a customer, or stay English | The owner sees and corrects the Arabic; without the Claude key or on an error the English shows; translation runs on one thread so it cannot flood the API |
+| R-36 | Google Routes calls cost money and need a key | High use raises cost; a missing key lowers accuracy | The key is optional and stays on the backend; without it the distance estimate is used; calls run only for bookings with alerts turned on |
+| R-37 | Cookie sign-in needs the API on the same site as the web page | If Vercel stops forwarding `/api`, or `VITE_API_BASE_URL` points to another domain, sign-in fails | `vercel.json` forwards `/api` to Render; the deploy plan says to remove `VITE_API_BASE_URL` on Vercel |
+| R-38 | Rate limits and scheduled jobs live in each API instance | With several instances, limits are per instance and jobs run twice | One instance is enough for version 1; jobs lock rows and use event keys; a shared store and scheduler lock are planned in phase 9 |
 
 ### Risks added in version 2.3.0
 
@@ -698,11 +823,11 @@ flowchart TB
         render["API container<br/>(Docker, Render)"]
     end
     mysql[("Managed MySQL")]
-    ext["Cloudinary · SMTP · Anthropic"]
+    ext["Cloudinary · Gmail SMTP · Anthropic · Google Routes"]
 
     browser -->|"HTTPS"| vercel
     browser -->|"HTTPS"| next
-    vercel -->|"/api, bearer token"| render
+    vercel -->|"/api rewrite, httpOnly cookies"| render
     next -->|"/api/dashboard, token from cookie"| render
     render --> mysql
     render --> ext
@@ -712,7 +837,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    req["HTTP request"] --> sec["Security filter chain<br/>JWT, roles, blocked check"]
+    req["HTTP request"] --> sec["Security filter chain<br/>rate limit, CSRF header,<br/>cookie or Bearer JWT, roles, blocked check"]
     sec --> ctl["Controller<br/>route and identity"]
     ctl --> svc["Service<br/>validation, rules, transactions"]
     svc --> repo["Repository<br/>queries and locks"]
@@ -1130,9 +1255,17 @@ erDiagram
     USER ||--o{ SALON_FOLLOW : follows
     USER ||--o{ MODERATION_REPORT : files
     SALON ||--o{ WORK_MEDIA : shows
+    USER ||--o{ AUTH_SESSION : "signs in with"
+    SALON ||--o| SALON_SUBSCRIPTION : "is on a plan"
+    SALON_SUBSCRIPTION ||--o{ SUBSCRIPTION_PAYMENT : "paid by"
+    BOOKING |o--o| BOOKING_PAYMENT : "paid by"
+    BOOKING_PAYMENT ||--o{ PAYMENT_TRANSACTION : records
+    USER ||--o{ USER_ACTIVITY_DAILY : "is active on"
 ```
 
 The diagram shows the main relationships. Sections 12.2 and later describe each entity.
+
+**Schema source (version 2.4.0).** The MySQL schema has 37 tables. Flyway creates and changes them: `V1__baseline_schema.sql` (36 tables), `V2__auth_sessions.sql` (`auth_sessions`) and `V3__arabic_content.sql` (Arabic columns). A new column or table needs a new `V<n>__<name>.sql` file; never edit an applied migration.
 
 ### 12.2 Community and moderation entities
 
@@ -1151,7 +1284,7 @@ A user stores identity and account information: first name, last name, email, us
 
 The product exposes one unified profile. Registration fields appear automatically in it. Career mode enriches that profile instead of creating a second account or profile. Career skills and preferred locations use collection tables so users may provide multiple values.
 
-`emailVerified` prevents newly registered accounts from signing in before ownership is confirmed. `credentialsUpdatedAt` records the latest password change and invalidates earlier JWTs while preserving the stateless authentication model. Legacy accounts with a null verification flag remain compatible and are treated as verified.
+`emailVerified` prevents newly registered accounts from signing in before ownership is confirmed. `credentialsUpdatedAt` records the latest password change and invalidates earlier JWTs. Since version 2.4.0 the user also stores a profile picture (`profile_picture_url`, `profile_picture_public_id`), the salon manager flag (`salon_manager`) and the join date at the current salon (`salon_joined_at`). Legacy accounts with a null verification flag remain compatible and are treated as verified.
 
 User status values are `Active`, `Blocked`, and `Deleted`.
 
@@ -1165,9 +1298,19 @@ A salon stores its name, salon phone, owner phone, email, location, description,
 
 Salon approval status values are `Inactive`, `Requested`, `Accepted`, `Rejected`, and `DELETED`.
 
+Since version 2.4.0 the salon also stores `description_ar`, the Arabic version of the salon story.
+
+### Authentication session
+
+Table `auth_sessions` (version 2.4.0) holds one row for each sign-in: a UUID id, the user, the client (`WEB` or `ADMIN`), the SHA-256 hash of the current refresh token and of the previous one, created, last-used and expiry times, the revoke time and the browser's user agent. Raw refresh tokens are never stored. A session is valid while it is not revoked and not expired.
+
+### Salon subscription and plan payment
+
+Table `salon_subscription` holds one row for each salon: plan (`FREE`, `PRO`, `BUSINESS`), status (`TRIAL`, `ACTIVE`, `GRACE`, `ENDED`), billing cycle, trial end, current period start and end, grace end and the key of the last reminder sent. Table `subscription_payment` holds each plan request: plan, cycle, amount in fils, currency, method, CliQ reference, period, status, the owner who asked, the administrator who reviewed it, the review time and a rejection reason. Prices, limits and features are not stored; they come from the `SubscriptionPlan` enum (section 5.13).
+
 ### Salon service
 
-A salon service belongs to one salon and stores a customer-facing name, optional description, decimal price in Jordanian dinars, duration in minutes, active state, and creation and update timestamps. The public catalog returns only active services from an accepted, unblocked salon. The owner catalog includes both active and inactive records.
+A salon service belongs to one salon and stores a customer-facing name, optional description, their Arabic versions `name_ar` and `description_ar` (version 2.4.0), decimal price in Jordanian dinars, duration in minutes, active state, and creation and update timestamps. The public catalog returns only active services from an accepted, unblocked salon. The owner catalog includes both active and inactive records.
 
 Disabling a service is a soft state change. The row remains available for later reactivation and for the booking history that will reference it. Only the authenticated owner of an accepted, unblocked salon may create, edit, activate, or disable its services.
 
@@ -1199,7 +1342,7 @@ Each change adds a payment transaction (table `payment_transaction`): type (`CAS
 
 ### Salon payment settings
 
-Salon payment settings (table `salon_payment_settings`, one row per salon) store which methods the salon accepts, the free-cancel hours and the late-cancel and no-show fee percents. A salon without a row uses the defaults: cash only, 24 hours, no fees.
+Salon payment settings (table `salon_payment_settings`, one row per salon) store which methods the salon accepts, the free-cancel hours, the late-cancel and no-show fee percents and, since version 2.4.0, the no-show limit for the missed-visit rule. A salon without a row uses the defaults: cash only, 24 hours, no fees, no limit.
 
 ### Booking and service snapshot
 
@@ -1210,6 +1353,8 @@ Each booking service item copies the source service ID, name, price, and duratio
 An employee cannot hold two overlapping busy bookings on the same date. Busy statuses are `PENDING` (when the request names the employee), `ACCEPTED` and `IN_PROGRESS`. Acceptance and reassignment lock the selected employee, compare the complete appointment interval against the busy appointments, and allow directly adjacent appointments. A running service that is extended uses its new expected end.
 
 A booking also embeds a `BookingTracking` value for the live view: journey status (`NOT_STARTED`, `ON_THE_WAY`, `ARRIVED`), journey start time, customer latitude and longitude, position update time, distance in metres, arrival estimate in minutes, arrival time, service start time and expected end time. The customer coordinates, distance and estimate exist only while the customer is on the way; the server clears them on arrival, stop, completion and cancellation.
+
+Since version 2.4.0 the tracking value also stores the leave-on-time start point (`plan_latitude`, `plan_longitude`, `plan_updated_at`) and the booking stores `customer_confirmed_at`, the time when the customer confirmed that they will come. The start point is cleared when the live trip starts, on arrival, on completion and when the customer turns the alerts off.
 
 ### Booking reschedule proposal
 
@@ -1309,6 +1454,12 @@ Known identity fields including name, username, email, phone number, role, and u
 | Employment request | Requested | Receiver accepts available applicant | Accepted | Employment ends through leave workflow |
 | Employment request | Requested | Receiver accepts applicant employed elsewhere | Accepted_Pending_Leave | Can cancel pending join |
 | Leave request | Requested | Current owner accepts | Accepted | No automatic rollback |
+| Salon subscription | TRIAL | Administrator confirms a plan payment | ACTIVE | — |
+| Salon subscription | TRIAL | Trial end passes (hourly job) | ENDED (Free) | Yes, by a confirmed payment |
+| Salon subscription | ACTIVE | Period end passes | GRACE | Yes, by a confirmed payment |
+| Salon subscription | GRACE | 7 days pass without payment | ENDED (Free) | Yes, by a confirmed payment |
+| Plan payment | PENDING | Administrator confirms or rejects; owner cancels | CONFIRMED, REJECTED or CANCELLED | No |
+| Auth session | Active | Logout, password reset or change, expiry, or reuse of an old refresh token | Revoked or expired | No; the user signs in again |
 
 ### Invariants
 
@@ -1483,15 +1634,15 @@ Each feature holds only the layers that it needs: `pages`, `components`, `hooks`
 
 | Area | Routes |
 | --- | --- |
-| Public | `/`, `/salons/:salonId`, `/assistant`, `/prototype`, `/hiring-posts` |
+| Public | `/`, `/salons/:salonId`, `/assistant`, `/prototype`, `/hiring-posts`, `/settings` |
 | Authentication | `/login`, `/register`, `/verify-email`, `/forgot-password`, `/verify-reset-code`, `/reset-password` |
 | Customer | `/salons/:salonId/book`, `/my-bookings`, `/notifications`, `/account/security` |
 | Career | `/profile/career`, `/hiring-posts/:postId/apply`, `/my-applications`, `/employment` |
 | Community | `/community`, `/community/discover`, `/community/requests`, `/community/following`, `/community/new`, `/community/people/:userId` |
-| Owner | `/owner/dashboard`, `/owner/create-salon`, `/owner/my-salon`, `/owner/my-salon/edit`, `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit`, `/owner/employees`, `/owner/employees/:employeeId/setup`, `/owner/employment`, `/owner/bookings`, `/owner/payments`, `/owner/create-hiring-post`, `/owner/applications` |
+| Owner | `/owner/dashboard`, `/owner/create-salon`, `/owner/my-salon`, `/owner/my-salon/edit`, `/owner/services`, `/owner/create-service`, `/owner/services/:serviceId/edit`, `/owner/employees`, `/owner/employees/:employeeId/setup`, `/owner/employment`, `/owner/bookings`, `/owner/payments`, `/owner/plan`, `/owner/create-hiring-post`, `/owner/applications` |
 | Employee | `/employee/bookings` |
 
-Route guards give navigation behavior only. The API enforces authorization for each operation.
+Route guards give navigation behavior only. The API enforces authorization for each operation. Unknown routes, missing records, blocked access and crashes all show the shared `ErrorPage` (version 2.4.0), and each route shows a page-shaped loading skeleton while its code and data load.
 
 ### 16.4 Admin dashboard structure
 
@@ -1508,11 +1659,11 @@ Route guards give navigation behavior only. The API enforces authorization for e
 
 ### 16.5 Web and API connection
 
-The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local development, Vite proxies `/api` to `VITE_API_PROXY_TARGET`, defaulting to `http://localhost:8080`. In production, the built client can use the same-origin `/api` reverse proxy or an explicitly configured HTTPS API origin.
+The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local development, Vite proxies `/api` to `VITE_API_PROXY_TARGET`. In production the web application must call `/api` on its own domain: `vercel.json` forwards `/api/*` to the Render API, so the sign-in cookies are first-party. Since version 2.4.0 a different API origin breaks sign-in.
 
 | Concern | Frontend behavior | Backend behavior |
 | --- | --- | --- |
-| Authentication | Keeps verification and recovery calls public, stores the current JWT contract, and adds `Authorization: Bearer <token>` outside auth routes | Verifies account email before login, validates JWT, resolves immutable user ID, checks active state and credential-change time, and applies roles |
+| Authentication | Holds no token. Sends cookies (`withCredentials`) and the `X-Requested-With: XMLHttpRequest` header, reads only the `salonhub_auth=1` hint, and on a 401 calls `/api/auth/refresh` once, then repeats the request or shows the session-expired page | Verifies account email before login, sets the session cookies, validates the access JWT and its stored session, resolves the immutable user ID, checks active state and credential-change time, and applies roles |
 | Request lifecycle | Uses a 15-second timeout and abort signals for stale page requests | Binds DTOs, derives caller identity from the security principal |
 | Success handling | Reads `ApiResponse.data`; feature hooks update UI and show success feedback | Returns `ApiResponse.success(message, data)` |
 | Business failure | Shared normalization preserves `message`, validation `errors`, and legacy `error`; hooks show the result in a toast or page state | Returns `ApiResponse.error(message)` with `data: null`; blank reasons receive a safe fallback |
@@ -1566,7 +1717,7 @@ The browser uses `VITE_API_BASE_URL`, defaulting to `/api`. During local develop
 
 Registration validates names, username format, supported email domains, Jordanian phone formats, password strength, and uniqueness of username, email, and phone number. New accounts receive the `USER` role and `Active` status, are marked unverified, and receive a six-digit email code. Passwords are stored as BCrypt hashes. The registration response tells the frontend that verification is required, that the code lasts 10 minutes, and that resend becomes available after 60 seconds.
 
-Email verification compares a secret-backed hash, limits failed attempts, consumes the code after success, and marks the account verified. Login rejects unverified accounts, verifies account status and password, then returns a bearer JWT valid for 24 hours. Logout blacklists the presented token in application memory until its expiration time.
+Email verification compares a secret-backed hash, limits failed attempts, consumes the code after success, and marks the account verified. Login rejects unverified accounts and verifies account status and password. Since version 2.4.0 it then creates an `auth_sessions` row and sets three cookies: `salonhub_access` (access JWT, 15 minutes, httpOnly, path `/api`), `salonhub_refresh` (refresh token, 14 days, httpOnly, path `/api/auth`) and `salonhub_auth=1` (a readable hint with no secret). The response body has no token. `POST /api/auth/refresh` rotates the refresh token and issues a new access token. Logout revokes the session and clears the cookies.
 
 Forgot-password requests return the same success response whether or not an account exists, preventing account enumeration. A valid six-digit recovery code produces a one-time reset token. Reset requires matching new and confirmation passwords, applies the shared password policy, replaces the BCrypt hash, consumes the authorization, and records `credentialsUpdatedAt` so older JWTs stop working immediately.
 
@@ -1831,6 +1982,34 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 5. The response holds the reply, the intent, the mode, cards (salons, jobs, candidates, rankings), links and next suggestions. The service removes a suggestion that repeats the question.
 6. `GET /api/assistant/insights` supplies the home page rankings and the opportunity card.
 
+### Session workflow (version 2.4.0)
+
+1. `POST /api/auth/login` checks the password and creates an `auth_sessions` row. The response sets the access, refresh and hint cookies.
+2. Each API call sends the cookies. A call that changes data must also send `X-Requested-With: XMLHttpRequest` (`CsrfHeaderFilter`); the cookies are `SameSite=Strict`.
+3. When the access token expires, the API answers 401. The web client calls `POST /api/auth/refresh` once. The server checks the refresh hash, stores the old hash as the previous one, issues new tokens and repeats the first call.
+4. If an old refresh token is used again, the server treats it as stolen and revokes the whole session.
+5. Logout revokes the session. A password reset or change revokes all sessions of the user.
+
+### Plan workflow (version 2.4.0)
+
+1. When an administrator approves a salon, a 30-day Pro trial starts (`salon_subscription`, status `TRIAL`).
+2. The owner opens `/owner/plan`, chooses a plan and a cycle, pays by CliQ and sends the reference (`POST /api/owner/subscription/requests`). The request is `PENDING`.
+3. An administrator confirms or rejects it on the dashboard Plans page. Confirming sets `ACTIVE` and the new period.
+4. The hourly job moves ended periods to `GRACE`, then to `ENDED` (Free) after 7 days, and sends each reminder once.
+5. Every limit check reads the effective plan through `PlanLimits`.
+
+### Translation workflow (version 2.4.0)
+
+1. An owner saves a service or the salon story. `ArabicText.resolve` decides whether the saved Arabic stays or must be translated again.
+2. After the transaction commits, `ContentTranslationService` sends the English text to Claude on the `translationExecutor` thread and saves the Arabic with a guarded update.
+3. At start-up, rows without Arabic are translated in the background.
+
+### Leave-on-time workflow (version 2.4.0)
+
+1. The customer turns on alerts for an accepted booking and shares a start point (`PUT /api/bookings/{id}/departure-plan/origin`).
+2. `DepartureAlertScheduler` finds today's confirmed bookings with a start point, forecasts the expected start, asks for the travel time and sends each alert once.
+3. Starting the live trip, arrival, completion or `DELETE .../origin` removes the start point.
+
 ## 18. Workflow data contracts
 
 ### Hiring-post creation contract
@@ -2031,7 +2210,7 @@ Employment and leave endpoints return dedicated response DTOs instead of exposin
 
 ## 19. API catalog
 
-All routes except explicitly public authentication routes require a valid bearer token under the current security configuration.
+All routes except explicitly public routes require a signed-in user. The web application signs in with httpOnly cookies; the admin dashboard server sends a Bearer token. Both carry the same access JWT.
 
 ### Response convention
 
@@ -2074,13 +2253,15 @@ The current product decision is to represent business outcomes through `ApiRespo
 | --- | --- | --- |
 | POST | `/api/auth/register` | Create a user account |
 | POST | `/api/auth/rigester` | Backward-compatible alias for the original registration route |
-| POST | `/api/auth/login` | Authenticate and receive a JWT |
+| POST | `/api/auth/login` | Authenticate; the session is set in httpOnly cookies |
+| POST | `/api/auth/refresh` | Rotate the refresh token and issue a new access token (cookie `salonhub_refresh`) |
+| POST | `/api/auth/password/change` | Change the password while signed in; ends the other sessions |
 | POST | `/api/auth/email/verify` | Verify a registered email with its current six-digit code |
 | POST | `/api/auth/email/resend` | Invalidate the previous code and send a replacement after the cooldown |
 | POST | `/api/auth/password/forgot` | Request a password-recovery code without exposing account existence |
 | POST | `/api/auth/password/verify-code` | Exchange a valid recovery code for a short-lived one-time reset token |
 | POST | `/api/auth/password/reset` | Replace the password with a valid reset token and invalidate older JWTs |
-| POST | `/api/auth/logout` | Blacklist the current JWT |
+| POST | `/api/auth/logout` | Revoke the current session and clear the cookies |
 
 ### Unified user profile
 
@@ -2288,6 +2469,31 @@ All community routes need a signed-in user.
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | GET | `/api/owner/dashboard` | `OWNER` | Salon, bookings, employees, services and reviews of the owned salon in one response |
+| GET | `/api/owner/dashboard/summary` | `OWNER` | Period summary built with SQL; the period is limited by the plan's analytics days |
+| GET | `/api/owner/dashboard/export` | `OWNER`, Business plan | Bookings of a period as a CSV file |
+
+### Salon plans
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/subscription-plans` | Public | Plan catalog: prices, limits and features |
+| GET | `/api/owner/subscription` | `OWNER` | Current plan, status, dates, usage and open request |
+| POST | `/api/owner/subscription/requests` | `OWNER` | Ask for a plan after a CliQ transfer (plan, cycle, reference) |
+| DELETE | `/api/owner/subscription/requests/{requestId}` | `OWNER` | Cancel an open request |
+| GET | `/api/dashboard/subscriptions/requests`, `/requests/history` | `ADMIN` | Open and decided plan requests |
+| POST | `/api/dashboard/subscriptions/requests/{requestId}/confirm`, `/reject` | `ADMIN` | Decide a plan request |
+| GET | `/api/dashboard/subscriptions/salons` | `ADMIN` | Plans of all salons |
+| POST | `/api/dashboard/subscriptions/salons/{salonId}/grant`, `/plan` | `ADMIN` | Grant time or change a salon's plan |
+
+### Leave on time and attendance
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/bookings/{bookingId}/departure-plan` | Booking customer | Alert state, leave time, travel time and expected start |
+| PUT | `/api/bookings/{bookingId}/departure-plan/origin` | Booking customer | Turn on alerts with a start point |
+| DELETE | `/api/bookings/{bookingId}/departure-plan/origin` | Booking customer | Turn off alerts and delete the start point |
+| PUT | `/api/bookings/{bookingId}/confirm-attendance` | Booking customer | Confirm that the customer will come |
+| PUT | `/api/salon-employees/{employeeId}/manager` | `OWNER`, Business plan | Mark or unmark an employee as salon manager |
 
 ### Admin dashboard
 
@@ -2316,7 +2522,7 @@ All routes need the `ADMIN` role, except sign-in.
 
 This reference lists every implemented controller route. `Body` names JSON fields, `path` and `query` identify URL inputs, and `none` means the caller sends no application data beyond authentication. Every success value below is placed in `ApiResponse.data`.
 
-For controller and business validation failures, the API uses `{ "success": false, "message": "...", "data": null }`. The frontend reads this envelope with `requireData` and displays the server `message` in an error toast or page error. Success uses `{ "success": true, "message": "...", "data": ... }`. Spring Security failures before the controller use the same error envelope and `application/json`: unauthenticated protected requests return HTTP 401 with `Your session is missing or expired. Please sign in and try again.`, and authenticated requests lacking the required role return HTTP 403 with `Your account does not have permission to perform this action.` The registered `ApiAuthenticationEntryPoint` and `ApiAccessDeniedHandler` serialize `ApiResponse.error(...)` using the application's Jackson mapper. Endpoint permissions and roles remain unchanged. Axios displays the server message; only a 401 matching the current token clears the saved session, while a 403 preserves it.
+For controller and business validation failures, the API uses `{ "success": false, "message": "...", "data": null }`. The frontend reads this envelope with `requireData` and displays the server `message` in an error toast or page error. Success uses `{ "success": true, "message": "...", "data": ... }`. Spring Security failures before the controller use the same error envelope and `application/json`: unauthenticated protected requests return HTTP 401 with `Your session is missing or expired. Please sign in and try again.`, and authenticated requests lacking the required role return HTTP 403 with `Your account does not have permission to perform this action.` The registered `ApiAuthenticationEntryPoint` and `ApiAccessDeniedHandler` serialize `ApiResponse.error(...)` using the application's Jackson mapper. Endpoint permissions and roles remain unchanged. Axios displays the server message. Since version 2.4.0 a 401 first triggers one `POST /api/auth/refresh`; only a failed refresh clears the sign-in state and shows the session-expired page, while a 403 preserves it.
 
 ### Authentication and profile contracts
 
@@ -2324,13 +2530,14 @@ For controller and business validation failures, the API uses `{ "success": fals
 | --- | --- | --- | --- | --- |
 | `POST /api/auth/register` | Public | Body: `firstName`, `lastName`, `userName`, `email`, `phoneNumber`, `password` | Registered user identity plus `emailVerificationRequired`, `verificationCodeExpiresInSeconds`, and `resendAvailableInSeconds` | Required or duplicate identity data, invalid values |
 | `POST /api/auth/rigester` | Public legacy alias | Same registration body | Same registration response | Same registration errors |
-| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `token`, `userRole`, `email` | Invalid credentials, unverified email, or blocked account |
+| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `userRole`, `email`; the session is in `Set-Cookie` headers, never in the body | Invalid credentials, unverified email, blocked account, or rate limit |
+| `POST /api/auth/refresh` | Holder of a refresh cookie | Cookie `salonhub_refresh`; header `X-Requested-With` | New cookies | Missing, expired, revoked or reused refresh token (cookies are cleared) |
 | `POST /api/auth/email/verify` | Public | Body: `email`, six-digit `code` | Verification confirmation | Missing/invalid input, expired or consumed code, attempt limit reached |
 | `POST /api/auth/email/resend` | Public | Body: `email` | Generic delivery confirmation | Missing email or active 60-second cooldown |
 | `POST /api/auth/password/forgot` | Public | Body: `email` | Generic response regardless of account existence | Missing/invalid email or active cooldown for an existing account |
 | `POST /api/auth/password/verify-code` | Public | Body: `email`, six-digit `code` | `resetToken`, `expiresInSeconds` | Invalid, expired, consumed, or attempt-limited code |
 | `POST /api/auth/password/reset` | Public | Body: `resetToken`, `newPassword`, `confirmPassword` | Password-reset confirmation | Invalid/expired/used token, mismatched passwords, or password-policy failure |
-| `POST /api/auth/logout` | Authenticated | Bearer token; body is ignored | `null` with logout message | Invalid/expired token is still treated as logout |
+| `POST /api/auth/logout` | Authenticated | Session cookies; body is ignored | `null` with logout message; cookies cleared | Invalid/expired session is still treated as logout |
 | `GET /api/profile` | Authenticated user | None | Unified identity plus career-mode profile DTO | User/profile not found or blocked session |
 | `PUT /api/profile/career` | Authenticated user | Body: `dateOfBirth`, `yearsOfExperience`, `skills[]`, `preferredWorkLocations[]`, optional PDF `resumeUrl`, optional HTTP(S) `portfolioUrl`, `professionalBio` | Updated unified profile DTO with career mode enabled | Invalid age, experience, URLs, resume type, or profile data |
 
@@ -2451,7 +2658,8 @@ For controller and business validation failures, the API uses `{ "success": fals
 
 ```text
 POST /api/reviews
-Authorization: Bearer <jwt>
+Cookie: salonhub_access=<jwt>
+X-Requested-With: XMLHttpRequest
 Content-Type: application/json
 
 {
@@ -2491,7 +2699,7 @@ The frontend presents the error `message` to the user through the shared notific
 
 ## 21. Security model
 
-Spring Security runs without server sessions. A JWT uses the immutable database user ID as its subject and carries email as a claim. The filter validates the token signature and expiration, loads the user by primary key, verifies that the account is still active, rejects tokens issued before `credentialsUpdatedAt`, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt.
+Spring Security runs without HTTP sessions, but since version 2.4.0 every sign-in is a stored row in `auth_sessions` (client `WEB` or `ADMIN`). A JWT uses the immutable database user ID as its subject, carries email as a claim and names its session. The web application sends it in the httpOnly `salonhub_access` cookie; the admin dashboard server sends it as a Bearer header. The filter validates the token signature and expiration, checks that its session is not revoked, loads the user by primary key, verifies that the account is still active, rejects tokens issued before `credentialsUpdatedAt`, and places a typed `AuthenticatedUser` principal and its role in the security context. `getName()` remains the account email for existing controllers, while security-sensitive employment endpoints use the principal ID directly. Passwords use BCrypt.
 
 The authentication filter does not log authorization headers or bearer-token values. Employment and leave controllers derive caller identity from `@AuthenticationPrincipal` and return response DTOs.
 
@@ -2501,9 +2709,9 @@ Verification codes are six digits, stored only as a secret-backed hash, expire a
 
 Database, SMTP, and JWT secrets are supplied through environment variables and are absent from the current source configuration. The repository includes a safe `.env.example` contract, while real `.env` variants are ignored by Git. Credentials that existed in earlier repository history must still be rotated before deployment.
 
-The JWT signing secret must be Base64 encoded and contain at least 32 random bytes before encoding. JWT lifetime is configurable through `JWT_EXPIRATION_MS` and defaults to 24 hours.
+The JWT signing secret must be Base64 encoded and contain at least 32 random bytes before encoding. Since version 2.4.0 `JWT_EXPIRATION_MS` is removed. The lifetimes are `AUTH_ACCESS_TTL` (default `PT15M`), `AUTH_REFRESH_TTL` (`P14D`) and `AUTH_ADMIN_TTL` (`PT8H`). Cookies are `Secure` outside local development (`AUTH_COOKIE_SECURE`) and `SameSite=Strict` (`AUTH_COOKIE_SAME_SITE`).
 
-Local development can load an ignored `.env` file and use a persistent H2 database in MySQL compatibility mode. Deployment environment variables override local values and may point the same application to MySQL. Automated tests use a separate H2 in-memory database with test-only mail and JWT values, so tests do not require developer MySQL or SMTP credentials and do not write to local or production data.
+Local development loads an ignored `.env` file and uses a local MySQL database (the `local` profile), with `salon.auth.cookie.secure=false` because it runs on plain HTTP. Deployment environment variables override local values and may point the same application to MySQL. Automated tests use a separate H2 in-memory database with test-only mail and JWT values, so tests do not require developer MySQL or SMTP credentials and do not write to local or production data.
 
 ### Additions in version 2.0.0
 
@@ -2528,6 +2736,16 @@ Local development can load an ignored `.env` file and use a persistent H2 databa
 - No-show uses the same viewer rules as the other tracking actions: only the assigned employee or the owner. Any other user receives "Booking was not found".
 - The life cycle job runs without a user. It changes only bookings whose state and deadline it checks again under a row lock.
 
+### Additions in version 2.4.0
+
+- Sessions are stored and revocable (`auth_sessions`). Tokens are in httpOnly, `Secure`, `SameSite=Strict` cookies; page scripts can read only the `salonhub_auth=1` hint. Refresh tokens rotate, and reuse of an old one revokes the session.
+- Requests that change data and carry the sign-in cookie must send `X-Requested-With` (`CsrfHeaderFilter`). The admin dashboard keeps its token on its own server and sends it as a Bearer header; the login route no longer returns the token to the browser.
+- `AuthRateLimitFilter` limits each IP: sign-in 10 tries in 5 minutes, email-sending routes 5 in 15 minutes, code checks 15 in 15 minutes. It answers HTTP 429.
+- Remote media links are accepted only from `drive.google.com`, `docs.google.com` and `lh3` to `lh6.googleusercontent.com` over HTTPS on port 443; a Drive link is rebuilt from its file id alone.
+- Errors never include stack traces or exception messages (`server.error.include-*=never`). SQL and bind values are not logged in production.
+- `/actuator/health` and its probes are public and show no details. No other Actuator endpoint is exposed.
+- The Google Maps key and the Claude key stay on the backend.
+
 ### Additions in version 2.3.0
 
 - No card data reaches Salonhub. Card steps will use the provider's hosted page; the server keeps only the provider reference.
@@ -2550,6 +2768,8 @@ Local development can load an ignored `.env` file and use a persistent H2 databa
 | Business information | Salon profile, location, hours, hiring posts | Publish only for accepted and active salons |
 | Live location | Customer latitude and longitude during a trip | Collect only after the customer starts sharing; show only to the assigned employee and owner; delete on arrival, stop, completion or cancellation |
 | Staff absence | Employee time off dates and reason | Owner only; never shown to customers (they see only that no time is free) |
+| Sign-in sessions | Refresh-token hashes, user agent, session times | Never return to clients; revoke on logout and password change |
+| Departure start point | Latitude and longitude where the customer will leave from | Only after the customer turns on alerts; used only by the server; deleted when the trip starts, on arrival, completion or turn-off |
 | Payment records | Amounts, method, receipt number, ledger with actors | Customer sees own receipt; staff see the receipt of their bookings; the owner sees ledger, commission and net. Never store card numbers |
 | Workflow history | Applications, employment requests, leave decisions, rejection reasons | Preserve for product history and future audit requirements |
 
@@ -2566,22 +2786,29 @@ The current implementation does not yet define retention periods, user data expo
 
 | Environment | Purpose | Database | Schema strategy |
 | --- | --- | --- | --- |
-| Local development | Implementation and manual tests | Persistent H2 in MySQL mode by default, or local MySQL | Hibernate `update` |
+| Local development | Implementation and manual tests | Local MySQL (`local` profile) | Flyway, then Hibernate `validate` |
 | Automated test | Repeatable tests | In-memory H2 in MySQL mode | Create and drop |
-| Staging | Release acceptance | Isolated managed MySQL | Planned: versioned migrations |
-| Production | Real users | Managed MySQL with backups | Planned: versioned migrations |
+| Staging | Release acceptance | Isolated managed MySQL | Flyway (no staging host yet) |
+| Production | Real users | Managed MySQL with backups | Flyway; `JPA_DDL_AUTO=validate` |
 
 ### Backend variables
 
 | Variable | Purpose | Required |
 | --- | --- | --- |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Database connection | Password required; others have local defaults |
-| `JWT_SECRET`, `JWT_EXPIRATION_MS` | Token signing and lifetime | Secret required |
+| `JWT_SECRET` | Token signing | Required |
+| `AUTH_ACCESS_TTL`, `AUTH_REFRESH_TTL`, `AUTH_ADMIN_TTL` | Access (15 min), refresh (14 days) and admin (8 h) lifetimes | Optional |
+| `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAME_SITE` | Cookie flags (`true`, `Strict`) | Optional; keep the defaults in production |
+| `JPA_DDL_AUTO` | Hibernate schema mode, default `validate` | Optional; `update` only for a one-time repair |
+| `FRONTEND_URL` | Links in emails | Required in deployed environments |
 | `AUTH_CODE_SECRET` | Hashing of email and reset codes | Required in deployed environments |
-| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | SMTP | Username and password required |
+| `MAIL_DELIVERY` | `smtp` sends real emails; `log` (local default) writes them to the log | Required in production (`smtp`) |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_SSL_ENABLED`, `MAIL_STARTTLS`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_FROM_NAME`, `MAIL_LOGIN_ALERTS` | SMTP. Gmail uses `smtp.gmail.com`, port 465, SSL on, STARTTLS off, and an App Password | Username and password required |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Media storage | Required for uploads |
 | `CORS_ALLOWED_ORIGINS` | Allowed web origins | Required in deployed environments |
-| `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` | Lamsa AI replies | Optional; without a key Lamsa uses guide mode |
+| `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` | Lamsa AI replies and Arabic translation (model `claude-opus-5-5`) | Optional; without a key Lamsa uses guide mode and nothing is translated |
+| `GOOGLE_MAPS_API_KEY` | Google Routes travel times | Optional; without it the distance estimate is used |
+| `BILLING_CLIQ_ALIAS`, `BILLING_CLIQ_NAME`, `BILLING_SUPPORT_PHONE` | Where owners send plan payments | Required to sell plans |
 | `SERVER_PORT` | API port (8081 in the local profile) | Optional |
 | `salon.booking.lifecycle-delay-ms`, `salon.booking.lifecycle-initial-delay-ms` | Pause between life cycle runs (default 60000) and the first delay after start-up (default 30000) | Optional |
 | `PAYMENT_COMMISSION_BPS` | Salonhub commission on new payments in basis points (100 = 1%); 0 to 10000, default 0 | Optional |
@@ -2591,8 +2818,8 @@ The current implementation does not yet define retention periods, user data expo
 | Variable | Application | Purpose |
 | --- | --- | --- |
 | `VITE_API_PROXY_TARGET` | Web application | Local API address for the Vite proxy |
-| `VITE_API_BASE_URL` | Web application | Public API origin when it is not `/api` |
-| `NEXT_PUBLIC_API_BASE_URL` | Admin dashboard | API address |
+| `VITE_API_BASE_URL` | Web application | Must be `/api` (the default in `.env.production`). Do not set it on Vercel: cookie sign-in needs the same-site `/api` rewrite |
+| `BACKEND_API_URL` | Admin dashboard (server only) | API address that the dashboard server calls |
 
 All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 
@@ -2603,8 +2830,10 @@ All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 | Web application | Static build (`dist/`) on Vercel. All routes rewrite to `index.html`. |
 | Backend API | Multi-stage Docker image (Java 17), built for Render, which supplies the port |
 | Database | MySQL |
-| Admin dashboard | Next.js application; hosting is not yet recorded in this document |
-| Database changes | Hibernate `update`, plus SQL scripts in `backend/database/migrations` (five files, 31 October to 9 November 2026) that are applied by hand, plus the start-up runner `LegacyEnumColumnUpgrade` |
+| Admin dashboard | Next.js application on Vercel |
+| Database changes | Flyway migrations in `src/main/resources/db/migration`, applied when the API starts (version 2.4.0). The older hand-run scripts and `LegacyEnumColumnUpgrade` stay only for databases that were created before the baseline |
+| CI | GitHub Actions in all three repositories: backend `mvnw verify`; web format check, lint, tests and build; dashboard lint, typecheck and build |
+| Step-by-step plan | `documentation/production-environment.md` (every value for Render, Vercel and the dashboard host) and `documentation/first-production-deploy.md` (backup, schema check, deploy order, log checks, rollback) |
 
 ### Deploy notes for version 2.1.0
 
@@ -2628,6 +2857,15 @@ All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 - Leave `PAYMENT_COMMISSION_BPS` unset (0) until the business decides a commission.
 - Deploy the API before the web application, because the wizard sends `paymentMethod` and reads `payment`.
 
+### Deploy notes for version 2.4.0
+
+- Back up the production database first.
+- On the first start, Flyway marks an existing database as version 1 (`baseline-on-migrate`) and applies V2 (`auth_sessions`) and V3 (Arabic columns). All changes add columns or tables; nothing is deleted, so the code can roll back without a restore.
+- If production is older than the V1 baseline, set `JPA_DDL_AUTO=update` for one deploy, then set it back to `validate`.
+- Set the new values before the push: new `JWT_SECRET` and `AUTH_CODE_SECRET`, the `MAIL_*` values, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`, `BILLING_CLIQ_*`. Delete `VITE_API_BASE_URL` on Vercel and set `BACKEND_API_URL` on the dashboard host.
+- Deploy the backend, then the web application, then the dashboard, close together: old and new parts sign in differently. Every user is signed out once.
+- In the log, check `Successfully applied`, `Email: signed in to smtp.gmail.com:465` and `Translating N services`.
+
 ### Release procedure (target)
 
 1. Build and test each application.
@@ -2637,15 +2875,17 @@ All `VITE_*` and `NEXT_PUBLIC_*` values are public. They must not hold secrets.
 5. Deploy to production with health checks and a rollback rule.
 6. Check logs, email delivery, database health and the core journeys.
 
-Steps 2, 3 and 5 depend on roadmap phase 9.
+Since version 2.4.0, steps 1, 3 and 5 are automated (CI, Flyway at start-up, health probes). Steps 2 and 4 are manual, and there is no staging host yet.
 
 ## 25. Testing and quality
 
-| Application | Evidence (16 November 2026) | Tooling |
+| Application | Evidence (22 November 2026) | Tooling |
 | --- | --- | --- |
-| Backend | 311 tests pass | JUnit, Spring test context, H2 |
-| Web application | 218 tests pass; lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
-| Admin dashboard | Not measured for this version | |
+| Backend | 317 tests pass; `mvnw verify` passes | JUnit, Spring test context, H2 |
+| Web application | 220 tests pass; format check, lint and production build pass | Vitest, Testing Library, ESLint, Prettier |
+| Admin dashboard | Lint, typecheck and production build pass | ESLint, TypeScript, Next.js |
+
+Version 2.4.0 updated the tests for cookie sign-in (no readable token, new session key on each sign-in, one refresh on 401), the Arabic content fields, and the new constructors. The first deploy checklist in `first-production-deploy.md` lists the manual checks on the live site.
 
 Version 2.1.0 added tests for the map location rules, time off rules, availability reasons and next free date, assign-and-accept, the distance estimator, tracking rules (window, arrival radius, early start, extension limits, one client at a time), the safe salon update, the booking wizard model and trip sharing.
 
@@ -2663,7 +2903,7 @@ A manual end-to-end run on 16 November 2026 covered: owner adds time off → wiz
 | Service and security tests | Authorization, ownership, 401 and 403 responses | Present |
 | Web component and route tests | Routes, guards, forms, stale-request handling | Present |
 | Architecture checks | Import boundaries in the web application | Enforced by ESLint |
-| Continuous integration | Format, lint, tests and build on each push | Web application only |
+| Continuous integration | Format, lint, tests and build on each push | All three repositories (2.4.0) |
 | End-to-end tests against a running API | Full journeys with real accounts | Not present |
 | Load, contention and accessibility audits | Production confidence | Not present |
 
@@ -2686,9 +2926,11 @@ Every feature should move through a small reviewable slice:
 | Signal | State |
 | --- | --- |
 | Application logs | Standard Spring logs; structured logging is planned |
-| Health endpoint | Foundation exists |
+| Health endpoint | `/actuator/health`, `/liveness` and `/readiness`, public with no details (2.4.0) |
+| Start-up checks | Flyway result, SMTP sign-in result and translation backfill are written to the log (2.4.0) |
+| Shutdown | Graceful, up to 20 seconds for running requests (2.4.0) |
 | Metrics, alerts, error tracking | Planned |
-| Backups and recovery test | Planned |
+| Backups and recovery test | Manual `mysqldump` procedure written (2.4.0); a restore test is planned |
 | Admin activity view | Implemented in the admin dashboard |
 
 ### Incident response outline (planned)
@@ -2707,20 +2949,23 @@ Every feature should move through a small reviewable slice:
 | Asset | Description |
 | --- | --- |
 | Source code | Three repositories: web application, backend API, admin dashboard |
-| Database | MySQL schema created by the entities, plus five SQL scripts |
+| Database | MySQL schema of 37 tables, created and changed by Flyway migrations V1 to V3 |
 | Brand | Salonhub name, comb-arc mark, Lamsa name and mark, plum and gold design system |
-| Tests | 256 backend tests and 200 web tests |
+| Tests | 317 backend tests and 220 web tests (22 November 2026) |
+| History | 187 backend, 238 web and 29 admin dashboard commits (23 November 2026) |
 | Documentation | This document, repository README files, `THIRD_PARTY_NOTICES.md` in the web application |
-| Build and hosting | Dockerfile for the API, Vercel configuration for the web application, GitHub Actions workflow for the web application |
+| Build and hosting | Dockerfile for the API, Vercel configuration for the web application (with the `/api` rewrite), GitHub Actions workflows for all three repositories |
 
 ### External services that the product uses
 
 | Service | Use | Needed to run? |
 | --- | --- | --- |
 | MySQL host | Data | Yes |
-| SMTP provider | Verification and recovery codes | Yes |
+| SMTP provider (Gmail, `salonhub.jo`) | Account codes and event emails | Yes |
+| Google Routes API | Traffic-aware travel times for leave-on-time alerts | No; distance estimate without a key |
+| CliQ (bank transfer) | Owners pay for plans; an administrator checks the transfer | For paid plans |
 | Cloudinary | Salon covers and work galleries | For uploads |
-| Anthropic API | Lamsa AI replies | No; guide mode works without it |
+| Anthropic API | Lamsa AI replies and Arabic translation of salon text | No; guide mode works and English shows without it |
 | Google Maps | Map embed, location links and directions (no API key) | No |
 | Browser geolocation | Trip sharing and "use my position" in the location picker | No; the product works without it |
 | Vercel and Render | Current hosting | Replaceable |
@@ -2737,22 +2982,22 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 
 | Gap | Effect | Roadmap phase |
 | --- | --- | --- |
-| No migration tool | Schema changes are not repeatable | 9 |
-| Logout uses an in-memory token blacklist | A restart forgets revoked tokens | 9 |
 | No monitoring, metrics or error tracking | Problems are found late | 9 |
-| No CI for the backend and the admin dashboard | Regressions can reach the main branch | 9 |
+| Free hosting can block SMTP | Emails may not arrive from Render's free plan | 13: use an email API over HTTPS if the start-up check fails |
+| No tested backup restore | Recovery time is unknown | 9 |
+| Receipts and the owner "top services" panel show English service names | Mixed language for Arabic users | 15 |
+| Long workflow methods in `EmploymentServiceImpl` and `HiringPostServiceImpl` | Harder to change safely | Refactor after more tests |
+| The `user.role` column stores the enum position | Reordering the enum would change roles | Needs a data migration |
 | Credentials from the repository history are not rotated | Security exposure | 9 |
 | No generated API description (OpenAPI) | Integrators read this document only | 10 |
 | No card payments (cash and receipts work) | Guests cannot pay online; no fees for late cancel or no-show | 12 (steps B and C) |
 | The owner dashboard revenue card uses booking value | It can differ from the Payments page | 12 |
-| Email delivery uses plain SMTP with basic templates | Limited delivery reporting | 13 |
+| Email delivery uses SMTP with no delivery reports | Bounces and spam placement are not visible | 13 |
 | The life cycle job runs on every API instance | With more than one instance, each one runs the job; row locks and event keys stop duplicates, but the work repeats | 9 |
-| Reminders reach users only inside the application | A customer who does not open Salonhub misses the reminder | 13 |
 | Live views use polling, not push | Up to 15 seconds delay and extra API load | 13 |
 | Trip sharing stops when the browser tab is closed or the phone locks | The employee can lose the arrival estimate | 16 |
-| Arrival estimate uses distance, not routing | The estimate can differ from real travel time | 17 |
+| Live trip arrival estimate uses distance unless a Google key is set | The estimate can differ from real travel time | 17 |
 | No written retention rule for live location | Privacy review is open, although positions are deleted after each trip | 9 |
-| English interface only | Smaller reach in the home market | 15 |
 | No automated end-to-end or load tests | Unknown behavior under real traffic | 9 |
 | The PDF edition needs a manual build step | A reader can get an older PDF if a release forgets to rebuild it | Build it with `documentation/pdf-edition` in each documentation release (chapter 30) |
 
@@ -2815,7 +3060,7 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 - A delivered roadmap phase moves from chapter 8 to chapter 7.
 - Diagrams are Mermaid text in this file. Change the diagram in the same commit as the behavior.
 - Behavior that is not approved stays marked as planned.
-- The PDF edition (`output/pdf/Salon-Hup-Project-Documentation.pdf`) is built from this file by the scripts in `documentation/pdf-edition`. It has A4 pages, a cover, a contents list with page numbers, and "Page N of M" in each footer. Rebuild it in the same change as the text. Version 2.3.0 has 111 pages.
+- The PDF edition (`output/pdf/Salon-Hup-Project-Documentation.pdf`) is built from this file by the scripts in `documentation/pdf-edition`. It has A4 pages, a cover, a contents list with page numbers, and "Page N of M" in each footer. Rebuild it in the same change as the text. Version 2.4.0 has 123 pages.
 
 Versions use `major.minor.patch`: patch for a correction, minor for a feature or a large section, major for a new structure.
 
@@ -2823,6 +3068,7 @@ Versions use `major.minor.patch`: patch for a correction, minor for a feature or
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 2.4.0 | 23 November 2026 | Recorded the work of 17 to 22 November 2026 for the version 1 release candidate: email delivery, sign-in rate limits, profile pictures, salon plans with trial, CliQ requests, admin review, limits, badge and search boost (section 5.13), attendance confirmation, missed-visit rule, SQL owner summary, CSV export, salon manager role, Arabic interface and Arabic salon content (5.14), leave-on-time alerts with Google Routes (5.15), httpOnly cookie sessions with rotating refresh tokens, Flyway migrations V1 to V3, CI in all repositories, health probes and graceful shutdown, loading skeletons, one error page and a settings page. Added FR-33 to FR-40, delivery phases 13 and 18, four workflows, the session, subscription and plan-payment entities, new state transitions, API tables for plans, departure and attendance, security additions, new variables, deploy notes, risks R-33 to R-38 and new test evidence (317 backend, 220 web). Resolved R-01, R-02, R-15 and R-16. Linked the shareable product guide |
 | 2.3.0 | 16 November 2026 | Delivered step A of phase 12 "Payments": method choice in the wizard (card methods locked until a provider exists), payment record in fils with an append-only ledger, **Cash received** for the assigned employee and the owner, receipts for customer, employee and owner, payment closing on reject, cancel, expiry and no-show, owner Payments page with period summary, unpaid list and settings, commission stored and kept at 0, and the `PAYMENT_RECEIVED` notice. Added section 5.12, FR-30 to FR-32, the payment workflow, three entities, payment transitions and invariants, seven API routes, security and data rules, risks R-29 to R-32, deploy notes and test evidence (311 backend, 218 web). Updated R-09 and R-14 |
 | 2.2.0 | 16 November 2026 | Added phase 8 "Appointment life cycle": automatic expiry of unanswered requests after 24 hours, answer deadline in the interface, day and two-hour reminders, salon holidays with a public notice and the `SALON_CLOSED` reason, no-show marking, statuses `EXPIRED` and `NO_SHOW`, and three notification events. Added section 5.10 (administration is now 5.11), FR-26 to FR-29, three workflows, the salon closure contract, four API routes, risks R-25 to R-28, deploy notes and test evidence (284 backend, 206 web). Resolved R-08 and R-24. Renumbered roadmap phases to 9 to 17 |
 | 2.1.0 | 16 November 2026 | Added phase 7 "Live appointments": map location picker with its own endpoint and server-built link, public map and directions, four-step booking wizard with "Let the salon assign", unavailable reasons and next free date, employee time off, owner assign-and-accept, `IN_PROGRESS` status, live trip and service tracking, six notification events, safe update of unchanged old salon fields, and the enum-to-`VARCHAR` column upgrade. Added sections 5.6 to 5.9, 11.12, 11.13, three contracts, thirteen API routes, risks R-20 to R-24, deploy notes, and new test evidence (256 backend, 200 web). Renumbered roadmap phases to 8 to 16. New A4 PDF edition with cover, numbered contents and page numbers, built by `documentation/pdf-edition` |
