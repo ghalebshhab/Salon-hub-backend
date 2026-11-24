@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -33,20 +34,29 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
     private record Rule(int maxRequests, Duration window) {}
 
-    private static final Rule LOGIN = new Rule(10, Duration.ofMinutes(5));
     private static final Rule SEND_EMAIL = new Rule(5, Duration.ofMinutes(15));
     private static final Rule CHECK_CODE = new Rule(15, Duration.ofMinutes(15));
 
-    private static final Map<String, Rule> RULES = Map.of(
-            "/api/auth/login", LOGIN,
-            "/api/dashboard/login", LOGIN,
-            "/api/auth/register", SEND_EMAIL,
-            "/api/auth/rigester", SEND_EMAIL,
-            "/api/auth/email/resend", SEND_EMAIL,
-            "/api/auth/password/forgot", SEND_EMAIL,
-            "/api/auth/email/verify", CHECK_CODE,
-            "/api/auth/password/verify-code", CHECK_CODE,
-            "/api/auth/password/reset", CHECK_CODE);
+    private final Map<String, Rule> rules;
+
+    /**
+     * @param loginMaxRequests login calls allowed per client in 5 minutes. Keep the
+     *                         default (10) in production; the local profile raises
+     *                         it so the E2E test suite can sign in many times.
+     */
+    public AuthRateLimitFilter(@Value("${salon.auth.rate-limit.login-max:10}") int loginMaxRequests) {
+        Rule login = new Rule(Math.max(1, loginMaxRequests), Duration.ofMinutes(5));
+        this.rules = Map.of(
+                "/api/auth/login", login,
+                "/api/dashboard/login", login,
+                "/api/auth/register", SEND_EMAIL,
+                "/api/auth/rigester", SEND_EMAIL,
+                "/api/auth/email/resend", SEND_EMAIL,
+                "/api/auth/password/forgot", SEND_EMAIL,
+                "/api/auth/email/verify", CHECK_CODE,
+                "/api/auth/password/verify-code", CHECK_CODE,
+                "/api/auth/password/reset", CHECK_CODE);
+    }
 
     private static final int CLEANUP_EVERY = 500;
     private static final String TOO_MANY_BODY =
@@ -58,14 +68,14 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !HttpMethod.POST.matches(request.getMethod()) || !RULES.containsKey(request.getServletPath());
+        return !HttpMethod.POST.matches(request.getMethod()) || !rules.containsKey(request.getServletPath());
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String path = request.getServletPath();
-        Rule rule = RULES.get(path);
+        Rule rule = rules.get(path);
         Instant now = clock.instant();
         cleanupSometimes(now);
 
