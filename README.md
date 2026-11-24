@@ -41,7 +41,7 @@ The project follows a structured backend design with separation between:
 
 ## Project Status
 
-Version 1.0.0, released on 23 November 2026, is in production. Each release is a Git tag (`v1.0.0`) with a GitHub release.
+Version 1.1.0, released on 24 November 2026, is in production (version 1.0.0 was released on 23 November 2026). Each release is a Git tag (`v1.1.0`) with a GitHub release.
 
 ## Local configuration
 
