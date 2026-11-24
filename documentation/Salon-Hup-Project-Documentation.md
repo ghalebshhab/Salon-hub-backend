@@ -4,9 +4,9 @@
 | --- | --- |
 | **Product** | Salonhub (earlier documents use the name "Salon Hup") |
 | **Document type** | Product, design and engineering specification |
-| **Document version** | 2.4.0 |
-| **Last updated** | 23 November 2026 |
-| **Product status** | Version 1 release candidate. The code for the first production deploy was pushed on 22 November 2026 |
+| **Document version** | 2.5.0 |
+| **Last updated** | 24 November 2026 |
+| **Product status** | In production. Version 1.0.0 was released on 23 November 2026; version 1.1.0 (CliQ booking payments and booking rules) on 24 November 2026 |
 | **Short summary** | A one-page product guide for sharing: [SalonHub Product Guide](https://claude.ai/artifact/DnqG7E1GN2GfY6o4eab6jC) (private until the owner shares it) |
 | **Owner and author** | Ghaleb Shhab |
 | **Source file** | `backend/documentation/Salon-Hup-Project-Documentation.md` |
@@ -204,7 +204,7 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 | Salon holidays | Implemented | Whole-day closures of the full salon; the booking calendar skips them, guests see them on the salon page, and the owner sees the appointments inside them |
 | Live appointment tracking | Implemented | Customer trip sharing with distance and arrival estimate, automatic arrival, service start, extension and completion, live progress for customer, employee and owner |
 | Notification inbox | Implemented | Durable booking, reminder, expiry, live-tracking, departure, plan and friend events, unread count, read operations, polling |
-| Email delivery | Implemented | Branded emails through Gmail SMTP: account codes, welcome, sign-in alert, password changed, booking events by priority, employment and hiring events, plan reminders. Sent in the background after the save commits, with retries; the backend checks the SMTP sign-in at start |
+| Email delivery | Implemented | Branded emails through the Brevo HTTPS API in production (Gmail SMTP locally): account codes, welcome, sign-in alert, password changed, booking events by priority, employment and hiring events, plan reminders. Sent in the background after the save commits, with retries; in SMTP mode the backend checks the SMTP sign-in at start |
 | Verified reviews | Implemented | One review for each completed booking; public list and summary |
 | Hiring | Implemented | Hiring posts, personalized discovery, ranked applications, owner decisions, post life cycle |
 | Employment, leave and transfer | Implemented | Requests, invitations, leave, transfer between salons |
@@ -216,7 +216,7 @@ Role names follow the source enum exactly: `USER`, `OWNER`, `ADMIN` and `Employe
 | Lamsa AI assistant | Implemented | Chat page, floating chat on each page, salon rankings by governorate on the home page, job and team suggestions |
 | Design system | Implemented | Plum and gold identity, light and dark themes, shared tokens, motion rules, accessible focus states |
 | Interactive prototype | Implemented | `/prototype` shows the main journeys with sample data |
-| Payments | Partial | Method choice when booking, cash received by staff, receipts, payment ledger, unpaid list, owner money summary and payment settings, missed-visit rule (a customer who reaches the salon's no-show limit must pay in advance, and cannot book online while no card provider exists). Card methods are designed and locked until a provider is connected |
+| Payments | Partial | Method choice when booking, cash received by staff, CliQ transfer marked as paid by the owner (1.1.0), receipts, payment ledger, unpaid list, owner money summary and payment settings, missed-visit rule (a customer who reaches the salon's no-show limit must pay in advance, and cannot book online while no card provider exists). Card methods are designed and locked until a provider is connected |
 | Salon plans | Implemented | Free, Pro and Business; 30-day Pro trial; monthly or yearly CliQ payment confirmed by an administrator; 7-day grace period; hourly job that ends trials and unpaid plans; limits on team, services, hiring posts and analytics period; plan badge and search boost (section 5.13) |
 | Arabic and English | Implemented | Full interface in both languages with right-to-left layout for Arabic; Claude translation of owner-written salon text with owner correction (section 5.14) |
 | Leave on time | Implemented | Departure point shared by the customer, traffic-aware travel time, queue forecast from the employee's pace, "leave soon", "leave now" and "salon running late" alerts (section 5.15) |
@@ -313,6 +313,13 @@ When a date has no free time, the server returns the reason and the next free da
 | `NO_QUALIFIED_EMPLOYEE` | No professional can do all of the selected services |
 
 After sending, the customer sees a confirmation and the booking in **My bookings** with the status `PENDING`. The owner and, when one was chosen, the employee receive a notification.
+
+**Booking rules (version 1.1.0).** The API refuses two requests before it saves a booking:
+
+| Rule | Message |
+| --- | --- |
+| A customer cannot hold two active bookings (`PENDING`, `ACCEPTED` or `IN_PROGRESS`) whose times overlap, at any salon and for any service. Bookings that only touch (one ends when the other starts) do not overlap | "You have another booking at this time" |
+| A salon owner cannot book at their own salon | "You are the owner of this salon" |
 
 ### 5.7 Employee time off
 
@@ -430,6 +437,7 @@ Version 2.3.0 delivers step A of payments: everything that works without a card 
 | Step | Scope | State |
 | --- | --- | --- |
 | A. Cash and records | Method choice in the wizard, payment record and ledger, **Cash received**, receipts, unpaid list, owner summary, owner settings, commission field | Implemented |
+| A+. CliQ transfer | The customer sends the money by CliQ to the salon's alias; the owner marks the booking as paid | Implemented (1.1.0) |
 | B. Card after the service | Payment link after the service, provider webhook confirms the payment | Planned, needs a provider |
 | C. Card now | Hold at booking, capture after the service, release on cancel, refunds, late-cancel and no-show fees | Planned, needs a provider |
 
@@ -445,7 +453,7 @@ flowchart LR
 | Rule | Value |
 | --- | --- |
 | Money | Stored as whole fils (1 JOD = 1000 fils), never as floating point. The interface shows three decimals, for example `19.500 JOD` |
-| Methods | `CASH`, `CARD_POSTPAID` (card after the service), `CARD_PREPAID` (card now). Card methods need a connected provider; until then the API rejects them and the wizard shows them locked as "Coming soon" |
+| Methods | `CASH`, `CLIQ` (bank transfer to the salon's CliQ alias, version 1.1.0), `CARD_POSTPAID` (card after the service), `CARD_PREPAID` (card now). Card methods need a connected provider; until then the API rejects them and the wizard shows them locked as "Coming soon" |
 | Default | When the request has no method, the salon's first available method is used (cash) |
 | Amount | Copied from the booking total when the booking is created. Later price changes do not change it |
 | Who records cash | The assigned employee or the salon owner. Never the customer |
@@ -459,13 +467,16 @@ flowchart LR
 | Commission | Stored on each payment as a rate and an amount. The rate is `0` and comes from configuration (`PAYMENT_COMMISSION_BPS`); a change applies only to new payments |
 | Payouts | Each salon receives its own money (sub-merchant model in step B and C). Salonhub holds no money |
 | Card data | Never on Salonhub servers; the provider's hosted page will collect it |
+| CliQ settings | The owner turns CliQ on and saves a CliQ alias (or mobile number) and an optional account name. The booking keeps a copy of the alias the customer saw |
+| CliQ method switch | The customer can switch an unpaid `PENDING` or `ACCEPTED` booking between cash and CliQ before the visit starts |
+| CliQ paid | Only the salon owner marks an accepted CliQ booking as paid, with an optional bank reference. The payment becomes `PAID` with a `CLIQ_RECEIVED` ledger entry and a receipt. Employees cannot do this. Salonhub does not hold or check the transfer |
 
 | Screen | Who | What it shows |
 | --- | --- | --- |
-| Booking wizard, step 4 | Customer | Three payment cards (cash, card after, card now), the total, and the free-cancellation rule |
-| My Bookings | Customer | Method, amount and payment state on each booking; **Receipt** after payment |
-| Salon Bookings and My appointments | Owner and employee | The same payment line, with **Cash received** when collecting is allowed, and **Receipt** after payment |
-| Payments (`/owner/payments`) | Owner | Collected, cash, card, still unpaid and net for today, 7 days, this month or 30 days; finished-but-unpaid list; payment settings |
+| Booking wizard, step 4 | Customer | Payment cards (cash, CliQ transfer with the alias when the salon accepts it, card after, card now), the total, and the free-cancellation rule |
+| My Bookings | Customer | Method, amount and payment state on each booking; the CliQ alias and a cash/CliQ switch on an unpaid CliQ booking; **Receipt** after payment |
+| Salon Bookings and My appointments | Owner and employee | The same payment line, with **Cash received** when collecting is allowed, **Paid by CliQ** (owner only) with an optional transfer reference, and **Receipt** after payment |
+| Payments (`/owner/payments`) | Owner | Collected, cash, CliQ, card, still unpaid and net for today, 7 days, this month or 30 days; finished-but-unpaid list; payment settings, including the CliQ switch, alias and account name |
 | Receipt | All three | Salon, guest, appointment, method, lines and total. The owner also sees commission, net and the ledger |
 
 | Event | Receiver |
@@ -635,6 +646,8 @@ The product was built in small reviewed slices. The backend repository starts on
 | 13. Email delivery | 17 November 2026 | Shared email service with branded templates, welcome, sign-in alert and password-changed emails, email copies of notifications by priority, employment and hiring emails, profile pictures, Cloudinary media for posts, sign-in rate limits, no SQL in production logs |
 | 18. Salon plans | 20 to 21 November 2026 | Free, Pro and Business plans, trial, CliQ plan requests and admin review, hourly plan job, plan limits, plan badge and search boost, customer attendance confirmation, missed-visit rule, SQL owner summary, CSV export, salon manager role |
 | 9 and 15. Production readiness and localization | 22 November 2026 | Cookie sessions with rotating refresh tokens, Flyway migrations, CI for all repositories, health probes and graceful shutdown, Arabic interface and Arabic salon content, leave-on-time alerts, loading skeletons, one error page, settings page, keyboard-safe dialogs, production environment list and deploy plan |
+| Release 1.0.0 | 23 November 2026 | First production release: API on Render with TiDB Cloud, website and admin dashboard on Vercel, email through the Brevo HTTPS API, a TiDB-safe Hibernate dialect, phone menu fixes, Git tags and GitHub releases in all repositories |
+| Release 1.1.0 | 24 November 2026 | CliQ transfer as a booking payment method (phase 12), overlap and own-salon booking rules, friend-request notifications without a salon (migration V4), configurable sign-in limit |
 
 ```mermaid
 timeline
@@ -649,6 +662,8 @@ timeline
     17 November : Email delivery : Rate limits
     20 to 21 November : Salon plans and trial : Missed-visit rule : CSV export and managers
     22 November : Cookie sessions and Flyway : Arabic interface : Leave on time : CI and deploy plan
+    23 November : Version 1.0.0 in production
+    24 November : Version 1.1.0 : CliQ booking payments : Booking overlap rules
 ```
 
 Chapter 31 holds the detailed revision history of this document.
@@ -659,10 +674,10 @@ The phases below are in priority order. The numbers continue after the delivered
 
 | Phase | Goal | Main work | State |
 | --- | --- | --- | --- |
-| 9. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Partial: migrations, stored sessions, CI, health probes and the deploy plan delivered (2.4.0); logs, metrics, alerts, tested backups and a shared scheduler lock remain |
+| 9. Production readiness | Run the product safely for real users | Managed database migrations, durable token revocation, structured logs, metrics, error tracking, backups, backend and admin CI, credential rotation | Partial: migrations, stored sessions, CI, health probes and the deploy plan delivered (2.4.0); in production since 23 November 2026; logs, metrics, alerts, tested backups and a shared scheduler lock remain |
 | 10. API documentation | Give integrators one contract | OpenAPI description from the controllers, generated API client shared by both web applications | Planned |
 | 11. Scheduling depth | Cover real salon calendars | Partial-day absences, calendar views, recurring appointments, owner-set answer windows, no-show history and deposits | Planned (time off delivered in phase 7; salon holidays, reminders, expiry and no-show in phase 8) |
-| 12. Payments | Earn revenue from bookings | Step B: card after the service with a payment link and webhook. Step C: card now with hold, capture, release, refunds and fees. Then invoices and reconciliation | Step A delivered (2.3.0); B and C need a provider decision |
+| 12. Payments | Earn revenue from bookings | Step B: card after the service with a payment link and webhook. Step C: card now with hold, capture, release, refunds and fees. Then invoices and reconciliation | Step A delivered (2.3.0); CliQ transfer delivered (1.1.0); B and C need a provider decision |
 | 13. Outbound notifications | Reach users outside the application | Email templates, push delivery, live updates over WebSocket or server-sent events instead of polling | Email delivered (2.4.0); push and live updates planned |
 | 14. Reviews and reputation | Richer trust signals | Employee and service ratings | Planned |
 | 15. Localization | Serve Arabic-speaking users fully | Arabic interface and right-to-left layout | Delivered (2.4.0). Remaining: receipts and the owner "top services" panel still show English service names |
@@ -679,7 +694,7 @@ The phases below are in priority order. The numbers continue after the delivered
 | ID | Risk | Impact | Likelihood | Treatment |
 | --- | --- | --- | --- | --- |
 | R-01 | Resolved in version 2.4.0: in-memory logout blacklist | High | Resolved | Sessions are stored in `auth_sessions`; logout and password changes revoke them; refresh tokens rotate |
-| R-02 | Resolved in version 2.4.0: automatic schema update | High | Resolved | Flyway applies V1 to V3; Hibernate only validates (`JPA_DDL_AUTO=validate`) |
+| R-02 | Resolved in version 2.4.0: automatic schema update | High | Resolved | Flyway applies V1 to V5; Hibernate only validates (`JPA_DDL_AUTO=validate`) |
 | R-03 | Earlier credentials remain in Git history | High | Medium | Rotate every exposed value and use deployment secrets |
 | R-04 | Authorization coverage is incomplete across the full API surface | High | Medium | Add route and service authorization tests |
 | R-05 | Employee capacity and notification idempotency need database-backed contention verification | High | Medium | Add MySQL contention tests around accepted-booking locks and duplicate event keys |
@@ -822,8 +837,8 @@ flowchart TB
         next["Admin dashboard<br/>(Next.js server)"]
         render["API container<br/>(Docker, Render)"]
     end
-    mysql[("Managed MySQL")]
-    ext["Cloudinary · Gmail SMTP · Anthropic · Google Routes"]
+    mysql[("TiDB Cloud<br/>(MySQL compatible)")]
+    ext["Cloudinary · Brevo email API · Anthropic · Google Routes"]
 
     browser -->|"HTTPS"| vercel
     browser -->|"HTTPS"| next
@@ -1265,7 +1280,7 @@ erDiagram
 
 The diagram shows the main relationships. Sections 12.2 and later describe each entity.
 
-**Schema source (version 2.4.0).** The MySQL schema has 37 tables. Flyway creates and changes them: `V1__baseline_schema.sql` (36 tables), `V2__auth_sessions.sql` (`auth_sessions`) and `V3__arabic_content.sql` (Arabic columns). A new column or table needs a new `V<n>__<name>.sql` file; never edit an applied migration.
+**Schema source (version 2.4.0).** The MySQL schema has 37 tables. Flyway creates and changes them: `V1__baseline_schema.sql` (36 tables), `V2__auth_sessions.sql` (`auth_sessions`) `V3__arabic_content.sql` (Arabic columns), `V4` (notifications without a salon: `user_notification.salon_id` and `salon_name` can be null) and `V5` (CliQ columns on `salon_payment_settings` and `booking_payment`). At start-up, `PaymentCheckConstraintUpgrade` drops old CHECK constraints that list the allowed payment methods, so `CLIQ` can be saved. A new column or table needs a new `V<n>__<name>.sql` file; never edit an applied migration.
 
 ### 12.2 Community and moderation entities
 
@@ -2353,12 +2368,14 @@ The current product decision is to represent business outcomes through `ApiRespo
 | GET | `/api/salons/{salonId}/payment-options` | Methods a customer can choose now, the default method, currency and free-cancel hours | Public |
 | GET | `/api/bookings/{bookingId}/payment` | Receipt and payment state; the owner also gets commission, net and the ledger | Booking customer, assigned employee, salon owner |
 | POST | `/api/bookings/{bookingId}/payment/cash` | Record cash received; repeating it returns the same receipt | Assigned employee or salon owner |
+| PUT | `/api/bookings/{bookingId}/payment/method` | Switch an unpaid pending or accepted booking between `CASH` and `CLIQ` | Booking customer |
+| POST | `/api/bookings/{bookingId}/payment/cliq` | Mark an accepted CliQ booking as paid, with an optional bank reference | Salon owner |
 | GET | `/api/salons/{salonId}/payment-settings` | Read accepted methods, free-cancel hours, fees, provider state and commission rate | Owner of that salon |
 | PUT | `/api/salons/{salonId}/payment-settings` | Save the settings; card methods need a provider | Owner of that salon |
 | GET | `/api/owner/payments/summary?from&to` | Collected, cash, card, refunded, commission and net for a period (default: this month, at most one year), plus all unpaid finished work | `OWNER` role, active salon |
 | GET | `/api/owner/payments/outstanding?page&size` | Finished appointments with an unpaid payment, newest first (size 1 to 100) | `OWNER` role, active salon |
 
-`POST /api/bookings` takes an optional `paymentMethod` (`CASH`, `CARD_POSTPAID`, `CARD_PREPAID`). Each booking response has a `payment` object (method, status, `amountFils`, currency, paid time, receipt number, `collectable`), or `null` for bookings made before version 2.3.0.
+`POST /api/bookings` takes an optional `paymentMethod` (`CASH`, `CLIQ`, `CARD_POSTPAID`, `CARD_PREPAID`). Each booking response has a `payment` object (method, status, `amountFils`, currency, paid time, receipt number, `collectable`), or `null` for bookings made before version 2.3.0.
 
 ### Notification inbox
 
@@ -2530,7 +2547,7 @@ For controller and business validation failures, the API uses `{ "success": fals
 | --- | --- | --- | --- | --- |
 | `POST /api/auth/register` | Public | Body: `firstName`, `lastName`, `userName`, `email`, `phoneNumber`, `password` | Registered user identity plus `emailVerificationRequired`, `verificationCodeExpiresInSeconds`, and `resendAvailableInSeconds` | Required or duplicate identity data, invalid values |
 | `POST /api/auth/rigester` | Public legacy alias | Same registration body | Same registration response | Same registration errors |
-| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `userRole`, `email`; the session is in `Set-Cookie` headers, never in the body | Invalid credentials, unverified email, blocked account, or rate limit |
+| `POST /api/auth/login` | Public | Body: `email`, `password` | `id`, `username`, `userRole`, `email`; the session is in `Set-Cookie` headers, never in the body | Invalid credentials, unverified email, blocked account, or rate limit (10 calls in 5 minutes for each IP; `salon.auth.rate-limit.login-max` changes it, 1.1.0) |
 | `POST /api/auth/refresh` | Holder of a refresh cookie | Cookie `salonhub_refresh`; header `X-Requested-With` | New cookies | Missing, expired, revoked or reused refresh token (cookies are cleared) |
 | `POST /api/auth/email/verify` | Public | Body: `email`, six-digit `code` | Verification confirmation | Missing/invalid input, expired or consumed code, attempt limit reached |
 | `POST /api/auth/email/resend` | Public | Body: `email` | Generic delivery confirmation | Missing email or active 60-second cooldown |
@@ -2789,7 +2806,7 @@ The current implementation does not yet define retention periods, user data expo
 | Local development | Implementation and manual tests | Local MySQL (`local` profile) | Flyway, then Hibernate `validate` |
 | Automated test | Repeatable tests | In-memory H2 in MySQL mode | Create and drop |
 | Staging | Release acceptance | Isolated managed MySQL | Flyway (no staging host yet) |
-| Production | Real users | Managed MySQL with backups | Flyway; `JPA_DDL_AUTO=validate` |
+| Production | Real users | TiDB Cloud Starter (MySQL compatible) with its automatic backups; Hibernate uses `TiDBCompatibleDialect` because TiDB rejects `FOR UPDATE OF <alias>` | Flyway; `JPA_DDL_AUTO=validate` |
 
 ### Backend variables
 
@@ -2949,7 +2966,7 @@ Every feature should move through a small reviewable slice:
 | Asset | Description |
 | --- | --- |
 | Source code | Three repositories: web application, backend API, admin dashboard |
-| Database | MySQL schema of 37 tables, created and changed by Flyway migrations V1 to V3 |
+| Database | MySQL schema of 37 tables, created and changed by Flyway migrations V1 to V5 |
 | Brand | Salonhub name, comb-arc mark, Lamsa name and mark, plum and gold design system |
 | Tests | 317 backend tests and 220 web tests (22 November 2026) |
 | History | 187 backend, 238 web and 29 admin dashboard commits (23 November 2026) |
@@ -2983,7 +3000,6 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 | Gap | Effect | Roadmap phase |
 | --- | --- | --- |
 | No monitoring, metrics or error tracking | Problems are found late | 9 |
-| Free hosting can block SMTP | Emails may not arrive from Render's free plan | 13: use an email API over HTTPS if the start-up check fails |
 | No tested backup restore | Recovery time is unknown | 9 |
 | Receipts and the owner "top services" panel show English service names | Mixed language for Arabic users | 15 |
 | Long workflow methods in `EmploymentServiceImpl` and `HiringPostServiceImpl` | Harder to change safely | Refactor after more tests |
@@ -3060,7 +3076,7 @@ A new owner needs their own accounts and keys for each service. No secret is sto
 - A delivered roadmap phase moves from chapter 8 to chapter 7.
 - Diagrams are Mermaid text in this file. Change the diagram in the same commit as the behavior.
 - Behavior that is not approved stays marked as planned.
-- The PDF edition (`output/pdf/Salon-Hup-Project-Documentation.pdf`) is built from this file by the scripts in `documentation/pdf-edition`. It has A4 pages, a cover, a contents list with page numbers, and "Page N of M" in each footer. Rebuild it in the same change as the text. Version 2.4.0 has 123 pages.
+- The PDF edition (`output/pdf/Salon-Hup-Project-Documentation.pdf`) is built from this file by the scripts in `documentation/pdf-edition`. It has A4 pages, a cover, a contents list with page numbers, and "Page N of M" in each footer. Rebuild it in the same change as the text. Version 2.5.0 has 124 pages.
 
 Versions use `major.minor.patch`: patch for a correction, minor for a feature or a large section, major for a new structure.
 
@@ -3068,6 +3084,7 @@ Versions use `major.minor.patch`: patch for a correction, minor for a feature or
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 2.5.0 | 24 November 2026 | Recorded the production releases 1.0.0 (23 November 2026: Render, TiDB Cloud, Vercel, Brevo email API, TiDB-safe dialect) and 1.1.0 (24 November 2026). Added CliQ transfer as a booking payment method (sections 5.12 and the payment API), the overlap and own-salon booking rules (5.6), migrations V4 and V5, the TiDB production database and Brevo in the deployment view. Removed the resolved SMTP gap |
 | 2.4.0 | 23 November 2026 | Recorded the work of 17 to 22 November 2026 for the version 1 release candidate: email delivery, sign-in rate limits, profile pictures, salon plans with trial, CliQ requests, admin review, limits, badge and search boost (section 5.13), attendance confirmation, missed-visit rule, SQL owner summary, CSV export, salon manager role, Arabic interface and Arabic salon content (5.14), leave-on-time alerts with Google Routes (5.15), httpOnly cookie sessions with rotating refresh tokens, Flyway migrations V1 to V3, CI in all repositories, health probes and graceful shutdown, loading skeletons, one error page and a settings page. Added FR-33 to FR-40, delivery phases 13 and 18, four workflows, the session, subscription and plan-payment entities, new state transitions, API tables for plans, departure and attendance, security additions, new variables, deploy notes, risks R-33 to R-38 and new test evidence (317 backend, 220 web). Resolved R-01, R-02, R-15 and R-16. Linked the shareable product guide |
 | 2.3.0 | 16 November 2026 | Delivered step A of phase 12 "Payments": method choice in the wizard (card methods locked until a provider exists), payment record in fils with an append-only ledger, **Cash received** for the assigned employee and the owner, receipts for customer, employee and owner, payment closing on reject, cancel, expiry and no-show, owner Payments page with period summary, unpaid list and settings, commission stored and kept at 0, and the `PAYMENT_RECEIVED` notice. Added section 5.12, FR-30 to FR-32, the payment workflow, three entities, payment transitions and invariants, seven API routes, security and data rules, risks R-29 to R-32, deploy notes and test evidence (311 backend, 218 web). Updated R-09 and R-14 |
 | 2.2.0 | 16 November 2026 | Added phase 8 "Appointment life cycle": automatic expiry of unanswered requests after 24 hours, answer deadline in the interface, day and two-hour reminders, salon holidays with a public notice and the `SALON_CLOSED` reason, no-show marking, statuses `EXPIRED` and `NO_SHOW`, and three notification events. Added section 5.10 (administration is now 5.11), FR-26 to FR-29, three workflows, the salon closure contract, four API routes, risks R-25 to R-28, deploy notes and test evidence (284 backend, 206 web). Resolved R-08 and R-24. Renumbered roadmap phases to 9 to 17 |
