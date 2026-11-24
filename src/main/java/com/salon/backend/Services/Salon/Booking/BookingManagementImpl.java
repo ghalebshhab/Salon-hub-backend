@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
+import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
@@ -68,6 +69,29 @@ public class BookingManagementImpl implements BookingManagement {
     private final BookingPaymentLifecycle paymentLifecycle;
     private final SalonAccess salonAccess;
 
+    static final String OWN_SALON_MESSAGE = "You are the owner of this salon";
+    static final String OVERLAP_MESSAGE = "You have another booking at this time";
+
+    /** Bookings that still hold the customer's time. */
+    private static final List<BookingStatus> TIME_HOLDING_STATUSES =
+            List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS);
+
+    /**
+     * True when the customer already has a booking (at any salon, for any
+     * service) whose time overlaps the requested one. Bookings that only touch
+     * (one ends when the other starts) do not overlap.
+     */
+    private boolean hasOverlappingBooking(Long customerId, LocalDate date, LocalTime start, int durationMinutes) {
+        LocalTime end = start.plusMinutes(durationMinutes);
+        return bookingRepo.findByCustomerIdAndBookingDateAndStatusIn(customerId, date, TIME_HOLDING_STATUSES)
+                .stream()
+                .anyMatch(other -> {
+                    LocalTime otherStart = other.getBookingTime();
+                    LocalTime otherEnd = otherStart.plusMinutes(Math.max(other.getTotalDurationMinutes(), 1));
+                    return start.isBefore(otherEnd) && otherStart.isBefore(end);
+                });
+    }
+
     @Override
     @Transactional
     public ApiResponse<BookingResponse> createBooking(
@@ -88,6 +112,9 @@ public class BookingManagementImpl implements BookingManagement {
                 : salonRepo.findById(request.salonId()).orElse(null);
         if (!isActiveSalon(salon)) {
             return ApiResponse.error("Active salon not found");
+        }
+        if (salon.getOwner() != null && customerId.equals(salon.getOwner().getId())) {
+            return ApiResponse.error(OWN_SALON_MESSAGE);
         }
 
         ApiResponse<Void> requestValidation = validateCreateRequest(request);
@@ -173,6 +200,10 @@ public class BookingManagementImpl implements BookingManagement {
 
         booking.setTotalPrice(totalPrice);
         booking.setTotalDurationMinutes(totalDuration);
+
+        if (hasOverlappingBooking(customerId, request.bookingDate(), request.bookingTime(), totalDuration)) {
+            return ApiResponse.error(OVERLAP_MESSAGE);
+        }
 
         if (!scheduleAvailability.isSalonOpenFor(
                 salon,
