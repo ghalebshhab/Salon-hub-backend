@@ -79,6 +79,16 @@ public class BookingPayment {
     @Column(name = "commission_fils", nullable = false)
     private long commissionFils;
 
+    /**
+     * For CliQ: the salon's alias and account name when the customer chose
+     * CliQ, so the booking keeps the details the customer saw.
+     */
+    @Column(name = "cliq_alias", length = 40)
+    private String cliqAlias;
+
+    @Column(name = "cliq_name", length = 80)
+    private String cliqName;
+
     @Column(name = "receipt_number", unique = true, length = 40)
     private String receiptNumber;
 

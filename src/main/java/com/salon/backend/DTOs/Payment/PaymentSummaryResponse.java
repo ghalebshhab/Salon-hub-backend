@@ -16,6 +16,9 @@ public record PaymentSummaryResponse(
         String currency,
         LocalDateTime paidAt,
         String receiptNumber,
-        boolean collectable
+        boolean collectable,
+        /** For CliQ: where the customer sends the money. Null for other methods. */
+        String cliqAlias,
+        String cliqName
 ) {
 }

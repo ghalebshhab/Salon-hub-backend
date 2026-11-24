@@ -43,6 +43,18 @@ public class SalonPaymentSettings {
     @Column(name = "card_postpaid_enabled", nullable = false)
     private boolean cardPostpaidEnabled;
 
+    /** CliQ transfers to {@link #cliqAlias}. Works only when an alias is saved. */
+    @Column(name = "cliq_enabled", nullable = false)
+    private boolean cliqEnabled;
+
+    /** The salon's CliQ alias or mobile number that customers transfer to. */
+    @Column(name = "cliq_alias", length = 40)
+    private String cliqAlias;
+
+    /** The account holder name customers see in their bank app, to check the transfer. */
+    @Column(name = "cliq_name", length = 80)
+    private String cliqName;
+
     /** Free cancellation until this many hours before the start. */
     @Column(name = "free_cancel_hours", nullable = false)
     private int freeCancelHours = DEFAULT_FREE_CANCEL_HOURS;
@@ -70,6 +82,7 @@ public class SalonPaymentSettings {
             case CASH -> cashEnabled;
             case CARD_PREPAID -> cardPrepaidEnabled;
             case CARD_POSTPAID -> cardPostpaidEnabled;
+            case CLIQ -> cliqEnabled && cliqAlias != null && !cliqAlias.isBlank();
         };
     }
 }

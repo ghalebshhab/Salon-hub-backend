@@ -233,6 +233,9 @@ public class BookingManagementImpl implements BookingManagement {
         }
 
         paymentLifecycle.open(booking, paymentMethod);
+        if (paymentMethod == PaymentMethod.CLIQ) {
+            paymentSettingsService.copyCliqDetails(salon, booking.getPayment());
+        }
         bookingRepo.save(booking);
         bookingNotificationService.bookingRequested(booking);
 

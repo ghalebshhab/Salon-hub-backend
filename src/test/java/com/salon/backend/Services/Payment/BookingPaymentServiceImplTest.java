@@ -59,7 +59,8 @@ class BookingPaymentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new BookingPaymentServiceImpl(bookingRepo, paymentRepo, notificationService, CLOCK);
+        service = new BookingPaymentServiceImpl(bookingRepo, paymentRepo, notificationService, CLOCK,
+                org.mockito.Mockito.mock(PaymentSettingsService.class));
         customer = user(1L, "Lina");
         employee = user(2L, "Sara");
         owner = user(3L, "Omar");

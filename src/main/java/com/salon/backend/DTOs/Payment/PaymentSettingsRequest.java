@@ -11,8 +11,26 @@ public record PaymentSettingsRequest(
         Integer freeCancelHours,
         Integer lateCancelFeePercent,
         Integer noShowFeePercent,
-        Integer noShowLimit
+        Integer noShowLimit,
+        /** Null means off. */
+        Boolean cliqEnabled,
+        /** The salon's CliQ alias or mobile number. Required when CliQ is on. */
+        String cliqAlias,
+        /** Optional account holder name that customers see in their bank app. */
+        String cliqName
 ) {
+    /** Settings without CliQ. */
+    public PaymentSettingsRequest(
+            Boolean cashEnabled,
+            Boolean cardPrepaidEnabled,
+            Boolean cardPostpaidEnabled,
+            Integer freeCancelHours,
+            Integer lateCancelFeePercent,
+            Integer noShowFeePercent,
+            Integer noShowLimit) {
+        this(cashEnabled, cardPrepaidEnabled, cardPostpaidEnabled,
+                freeCancelHours, lateCancelFeePercent, noShowFeePercent, noShowLimit, null, null, null);
+    }
 
     /** Settings without the no-show deposit rule. */
     public PaymentSettingsRequest(
@@ -23,6 +41,6 @@ public record PaymentSettingsRequest(
             Integer lateCancelFeePercent,
             Integer noShowFeePercent) {
         this(cashEnabled, cardPrepaidEnabled, cardPostpaidEnabled,
-                freeCancelHours, lateCancelFeePercent, noShowFeePercent, null);
+                freeCancelHours, lateCancelFeePercent, noShowFeePercent, null, null, null, null);
     }
 }

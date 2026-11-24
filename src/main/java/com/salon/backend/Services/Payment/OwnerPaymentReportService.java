@@ -55,6 +55,7 @@ public class OwnerPaymentReportService {
 
         long cash = 0;
         long card = 0;
+        long cliq = 0;
         long refunded = 0;
         long commission = 0;
         long count = 0;
@@ -72,11 +73,13 @@ public class OwnerPaymentReportService {
             commission += number(row[4]);
             if (method == PaymentMethod.CASH) {
                 cash += amount;
+            } else if (method == PaymentMethod.CLIQ) {
+                cliq += amount;
             } else {
                 card += amount;
             }
         }
-        long collected = cash + card;
+        long collected = cash + card + cliq;
 
         List<Object[]> outstandingRows = paymentRepo.sumOutstanding(
                 salon.getId(), BookingStatus.COMPLETED, PaymentStatus.UNPAID);
@@ -88,6 +91,7 @@ public class OwnerPaymentReportService {
                 collected,
                 cash,
                 card,
+                cliq,
                 refunded,
                 commission,
                 collected - refunded - commission,

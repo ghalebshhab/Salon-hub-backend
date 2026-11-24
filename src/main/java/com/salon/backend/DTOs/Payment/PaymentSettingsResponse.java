@@ -16,6 +16,9 @@ public record PaymentSettingsResponse(
         boolean cardGatewayReady,
         int commissionRateBps,
         /** Null when the no-show deposit rule is off. */
-        Integer noShowLimit
+        Integer noShowLimit,
+        boolean cliqEnabled,
+        String cliqAlias,
+        String cliqName
 ) {
 }

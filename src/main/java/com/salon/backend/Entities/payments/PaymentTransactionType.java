@@ -7,5 +7,7 @@ public enum PaymentTransactionType {
     CAPTURE,
     VOID,
     REFUND,
-    METHOD_CHANGED
+    METHOD_CHANGED,
+    /** The salon owner confirmed a CliQ transfer from the customer. */
+    CLIQ_RECEIVED
 }

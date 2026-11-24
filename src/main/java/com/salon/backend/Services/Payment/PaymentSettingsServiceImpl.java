@@ -29,6 +29,11 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
     static final int MAX_FREE_CANCEL_HOURS = 168;
     static final int MAX_PERCENT = 100;
     static final int MAX_NO_SHOW_LIMIT = 10;
+    static final int MAX_CLIQ_ALIAS = 40;
+    static final int MAX_CLIQ_NAME = 80;
+    /** A CliQ alias (letters, digits, dot, dash, underscore) or a mobile number with an optional +. */
+    private static final java.util.regex.Pattern CLIQ_ALIAS =
+            java.util.regex.Pattern.compile("^\\+?[A-Za-z0-9._-]{2,40}$");
 
     private final SalonPaymentSettingsRepo settingsRepo;
     private final SalonRepo salonRepo;
@@ -70,6 +75,13 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
     }
 
     @Override
+    public void copyCliqDetails(Salon salon, BookingPayment payment) {
+        SalonPaymentSettings settings = effectiveSettings(salon);
+        payment.setCliqAlias(settings.getCliqAlias());
+        payment.setCliqName(settings.getCliqName());
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ApiResponse<PaymentOptionsResponse> getOptions(Long salonId) {
         Salon salon = salonId == null ? null : salonRepo.findById(salonId).orElse(null);
@@ -78,12 +90,17 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         }
         SalonPaymentSettings settings = effectiveSettings(salon);
         List<PaymentMethod> methods = availableMethods(settings);
+        boolean cliq = methods.contains(PaymentMethod.CLIQ);
         return ApiResponse.success("Payment options fetched successfully", new PaymentOptionsResponse(
                 salon.getId(),
                 methods,
                 methods.isEmpty() ? null : methods.get(0),
                 BookingPayment.CURRENCY,
-                settings.getFreeCancelHours()
+                settings.getFreeCancelHours(),
+                false,
+                null,
+                cliq ? settings.getCliqAlias() : null,
+                cliq ? settings.getCliqName() : null
         ));
     }
 
@@ -123,6 +140,13 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         settings.setLateCancelFeePercent(request.lateCancelFeePercent());
         settings.setNoShowFeePercent(request.noShowFeePercent());
         settings.setNoShowLimit(request.noShowLimit());
+        settings.setCliqEnabled(Boolean.TRUE.equals(request.cliqEnabled()));
+        // The alias is kept when CliQ is turned off, so the owner need not type it again.
+        String alias = trimToNull(request.cliqAlias());
+        if (alias != null || !settings.isCliqEnabled()) {
+            settings.setCliqAlias(alias != null ? alias : settings.getCliqAlias());
+        }
+        settings.setCliqName(trimToNull(request.cliqName()));
         settings.setUpdatedAt(LocalDateTime.now(clock));
         settingsRepo.save(settings);
         return ApiResponse.success("Payment settings saved", toResponse(settings));
@@ -142,8 +166,21 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         if (anyCard && !paymentGateway.isConfigured()) {
             return "Card payment needs a payment provider. It is not connected yet";
         }
-        if (!request.cashEnabled() && !anyCard) {
+        boolean cliq = Boolean.TRUE.equals(request.cliqEnabled());
+        if (!request.cashEnabled() && !anyCard && !cliq) {
             return "Keep at least one payment method on";
+        }
+        String alias = trimToNull(request.cliqAlias());
+        if (cliq && alias == null) {
+            return "Enter your CliQ alias or mobile number to turn CliQ on";
+        }
+        if (alias != null && !CLIQ_ALIAS.matcher(alias).matches()) {
+            return "The CliQ alias must be 2 to " + MAX_CLIQ_ALIAS
+                    + " letters or digits (a mobile number can start with +)";
+        }
+        String name = trimToNull(request.cliqName());
+        if (name != null && name.length() > MAX_CLIQ_NAME) {
+            return "The CliQ account name cannot be longer than " + MAX_CLIQ_NAME + " characters";
         }
         if (request.freeCancelHours() < 0 || request.freeCancelHours() > MAX_FREE_CANCEL_HOURS) {
             return "Free cancellation must be 0 to " + MAX_FREE_CANCEL_HOURS + " hours";
@@ -190,6 +227,14 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
         return null;
     }
 
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private boolean outOfPercent(int value) {
         return value < 0 || value > MAX_PERCENT;
     }
@@ -215,7 +260,10 @@ public class PaymentSettingsServiceImpl implements PaymentSettingsService {
                 paymentGateway.isConfigured(),
                 // The card fee of the salon's plan; cash has no fee.
                 planLimits.cardFeeBps(settings.getSalon(), PaymentMethod.CARD_PREPAID),
-                settings.getNoShowLimit()
+                settings.getNoShowLimit(),
+                settings.isCliqEnabled(),
+                settings.getCliqAlias(),
+                settings.getCliqName()
         );
     }
 

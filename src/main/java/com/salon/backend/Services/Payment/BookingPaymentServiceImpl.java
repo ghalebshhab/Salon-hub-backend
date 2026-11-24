@@ -34,7 +34,9 @@ public class BookingPaymentServiceImpl implements BookingPaymentService {
     private final BookingPaymentRepo paymentRepo;
     private final BookingNotificationService notificationService;
     private final Clock clock;
+    private final PaymentSettingsService paymentSettingsService;
 
+    static final int MAX_CLIQ_REFERENCE = 40;
     @Override
     @Transactional(readOnly = true)
     public ApiResponse<BookingPaymentResponse> getPayment(Long bookingId, Long viewerId) {
@@ -64,7 +66,7 @@ public class BookingPaymentServiceImpl implements BookingPaymentService {
         if (payment.getMethod() == PaymentMethod.CASH && payment.getStatus() == PaymentStatus.PAID) {
             return ApiResponse.success("Cash payment was already recorded", toResponse(booking, role));
         }
-        if (!PaymentRules.isCollectable(booking)) {
+        if (!PaymentRules.isCashCollectable(booking)) {
             return ApiResponse.error(collectError(booking));
         }
 
@@ -99,6 +101,124 @@ public class BookingPaymentServiceImpl implements BookingPaymentService {
         }
         notificationService.paymentReceived(booking);
         return ApiResponse.success("Cash payment recorded", toResponse(booking, role));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<BookingPaymentResponse> recordCliqPayment(Long bookingId, Long ownerId, String reference) {
+        Booking booking = bookingId == null ? null : bookingRepo.findByIdForUpdate(bookingId).orElse(null);
+        String role = roleOf(booking, ownerId);
+        if (role == null || CUSTOMER.equals(role)) {
+            return ApiResponse.error("Booking of your salon was not found");
+        }
+        if (!OWNER.equals(role)) {
+            return ApiResponse.error("Only the salon owner can confirm a CliQ transfer");
+        }
+        BookingPayment payment = booking.getPayment();
+        if (payment == null) {
+            return ApiResponse.error("This booking was made before payments were recorded");
+        }
+        if (payment.getMethod() == PaymentMethod.CLIQ && payment.getStatus() == PaymentStatus.PAID) {
+            return ApiResponse.success("CliQ payment was already recorded", toResponse(booking, role));
+        }
+        if (payment.getMethod() != PaymentMethod.CLIQ) {
+            return ApiResponse.error("The customer did not choose CliQ for this booking");
+        }
+        if (!PaymentRules.isCliqConfirmable(booking)) {
+            return ApiResponse.error(cliqError(booking));
+        }
+        String ref = reference == null || reference.isBlank() ? null : reference.trim();
+        if (ref != null && ref.length() > MAX_CLIQ_REFERENCE) {
+            return ApiResponse.error("The CliQ reference cannot be longer than " + MAX_CLIQ_REFERENCE + " characters");
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        User owner = booking.getSalon().getOwner();
+        payment.moveTo(PaymentStatus.PAID);
+        payment.setPaidAt(now);
+        payment.setConfirmedBy(owner);
+        payment.setUpdatedAt(now);
+        payment.addTransaction(BookingPaymentLifecycle.transaction(
+                PaymentTransactionType.CLIQ_RECEIVED,
+                payment.getAmountFils(),
+                "booking:" + booking.getId() + ":cliq",
+                owner,
+                ref == null ? null : "CliQ reference " + ref,
+                now
+        ));
+        paymentRepo.save(payment);
+        if (payment.getReceiptNumber() == null) {
+            payment.setReceiptNumber(PaymentPolicy.receiptNumber(booking.getSalon().getId(), payment.getId()));
+        }
+        notificationService.paymentReceived(booking);
+        return ApiResponse.success("CliQ payment recorded", toResponse(booking, role));
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<BookingPaymentResponse> changeMethod(Long bookingId, Long customerId, PaymentMethod method) {
+        Booking booking = bookingId == null ? null : bookingRepo.findByIdForUpdate(bookingId).orElse(null);
+        if (!CUSTOMER.equals(roleOf(booking, customerId))) {
+            return ApiResponse.error("Booking owned by you was not found");
+        }
+        if (method != PaymentMethod.CASH && method != PaymentMethod.CLIQ) {
+            return ApiResponse.error("Choose cash or CliQ");
+        }
+        BookingPayment payment = booking.getPayment();
+        if (payment == null) {
+            return ApiResponse.error("This booking was made before payments were recorded");
+        }
+        if (payment.getMethod() == method) {
+            return ApiResponse.success("Payment method is already " + method, toResponse(booking, CUSTOMER));
+        }
+        if (!PaymentRules.canChangeMethod(booking)) {
+            if (payment.getMethod() != PaymentMethod.CASH && payment.getMethod() != PaymentMethod.CLIQ) {
+                return ApiResponse.error("This booking is paid by card. Its payment method cannot change");
+            }
+            if (payment.getStatus() != PaymentStatus.UNPAID) {
+                return ApiResponse.error("This booking is already paid or closed");
+            }
+            return ApiResponse.error("The payment method can change only before the service starts");
+        }
+        String methodError = paymentSettingsService.methodError(booking.getSalon(), method);
+        if (methodError != null) {
+            return ApiResponse.error(methodError);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        PaymentMethod previous = payment.getMethod();
+        payment.addTransaction(BookingPaymentLifecycle.transaction(
+                PaymentTransactionType.METHOD_CHANGED,
+                0,
+                "booking:" + booking.getId() + ":method:" + method.name().toLowerCase()
+                        + ":" + payment.getTransactions().size(),
+                booking.getCustomer(),
+                "Customer changed " + previous + " to " + method,
+                now
+        ));
+        payment.setMethod(method);
+        if (method == PaymentMethod.CLIQ) {
+            paymentSettingsService.copyCliqDetails(booking.getSalon(), payment);
+        } else {
+            payment.setCliqAlias(null);
+            payment.setCliqName(null);
+        }
+        payment.setUpdatedAt(now);
+        paymentRepo.save(payment);
+        return ApiResponse.success(method == PaymentMethod.CLIQ
+                ? "You will pay by CliQ"
+                : "You will pay in cash at the salon", toResponse(booking, CUSTOMER));
+    }
+
+    private String cliqError(Booking booking) {
+        BookingPayment payment = booking.getPayment();
+        if (payment.getStatus().isSettled()) {
+            return "This booking is already paid";
+        }
+        if (payment.getStatus() == PaymentStatus.VOIDED) {
+            return "This booking was closed without a service";
+        }
+        return "Confirm a CliQ transfer after the salon accepts the booking";
     }
 
     private String collectError(Booking booking) {

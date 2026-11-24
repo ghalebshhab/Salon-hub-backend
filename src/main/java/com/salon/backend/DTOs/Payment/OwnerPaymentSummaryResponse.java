@@ -12,6 +12,7 @@ public record OwnerPaymentSummaryResponse(
         long collectedFils,
         long cashFils,
         long cardFils,
+        long cliqFils,
         long refundedFils,
         long commissionFils,
         long netFils,

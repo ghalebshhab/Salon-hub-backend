@@ -15,8 +15,22 @@ public record PaymentOptionsResponse(
         String currency,
         int freeCancelHours,
         boolean restricted,
-        String restrictionMessage
+        String restrictionMessage,
+        /** Where to send a CliQ transfer; null unless CLIQ is in {@code methods}. */
+        String cliqAlias,
+        String cliqName
 ) {
+    public PaymentOptionsResponse(
+            Long salonId,
+            List<PaymentMethod> methods,
+            PaymentMethod defaultMethod,
+            String currency,
+            int freeCancelHours,
+            boolean restricted,
+            String restrictionMessage) {
+        this(salonId, methods, defaultMethod, currency, freeCancelHours, restricted, restrictionMessage, null, null);
+    }
+
 
     public PaymentOptionsResponse(
             Long salonId,
@@ -24,6 +38,6 @@ public record PaymentOptionsResponse(
             PaymentMethod defaultMethod,
             String currency,
             int freeCancelHours) {
-        this(salonId, methods, defaultMethod, currency, freeCancelHours, false, null);
+        this(salonId, methods, defaultMethod, currency, freeCancelHours, false, null, null, null);
     }
 }

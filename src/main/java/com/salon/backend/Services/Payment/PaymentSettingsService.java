@@ -7,6 +7,7 @@ import com.salon.backend.DTOs.Payment.PaymentSettingsResponse;
 import com.salon.backend.Entities.payments.PaymentMethod;
 import com.salon.backend.Entities.payments.SalonPaymentSettings;
 import com.salon.backend.Entities.salons.Salon;
+import com.salon.backend.Entities.payments.BookingPayment;
 
 public interface PaymentSettingsService {
 
@@ -17,6 +18,9 @@ public interface PaymentSettingsService {
     String methodError(Salon salon, PaymentMethod method);
 
     PaymentMethod defaultMethod(Salon salon);
+
+    /** Copies the salon's current CliQ alias and name onto the payment. */
+    void copyCliqDetails(Salon salon, BookingPayment payment);
 
     ApiResponse<PaymentOptionsResponse> getOptions(Long salonId);
 
